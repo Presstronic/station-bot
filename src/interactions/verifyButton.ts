@@ -2,7 +2,7 @@
 
 import {
     ButtonInteraction,
-    CommandInteraction,
+    ChatInputCommandInteraction,
     Interaction,
     Client,
   } from 'discord.js';
@@ -13,9 +13,9 @@ import {
     interaction: Interaction,
     client: Client
   ) {
-    if (interaction.isCommand()) {
+    if (interaction.isChatInputCommand()) {
       if (interaction.commandName === 'citizen') {
-        await handleCitizenCommand(interaction as CommandInteraction);
+        await handleCitizenCommand(interaction);
       }
     } else if (interaction.isButton()) {
       await handleButtonInteraction(interaction as ButtonInteraction, client);

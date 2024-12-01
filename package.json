@@ -4,21 +4,22 @@
     "description": "A Discord bot for verifying users against their roberts space industries profiles.",
     "main": "dist/index.js",
     "scripts": {
-      "start": "node dist/index.js",
-      "dev": "ts-node-dev --respawn src/index.ts",
-      "build": "tsc"
+        "start": "node dist/index.js",
+        "dev": "ts-node-dev --respawn src/index.ts",
+        "build": "tsc"
     },
     "author": "Demian Seiler",
     "license": "GPL-3.0",
     "dependencies": {
-      "discord.js": "^14.11.0",
-      "dotenv": "^16.3.1"
+        "discord.js": "^14.11.0",
+        "dotenv": "^16.3.1",
+        "winston": "^3.17.0"
     },
     "devDependencies": {
-      "@types/node": "^20.4.2",
-      "ts-node": "^10.9.1",
-      "ts-node-dev": "^2.0.0",
-      "typescript": "^5.1.6"
+        "@types/node": "^20.4.2",
+        "@types/winston": "^2.4.4",
+        "ts-node": "^10.9.1",
+        "ts-node-dev": "^2.0.0",
+        "typescript": "^5.1.6"
     }
-  }
-  
+}

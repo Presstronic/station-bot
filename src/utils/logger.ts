@@ -1,17 +1,18 @@
 // src/utils/logger.ts
 
-import winston from 'winston';
+import winston, { format, transports, Logger } from 'winston';
+import { TransformableInfo } from 'logform';
 
-export const logger = winston.createLogger({
+export const logger: Logger = winston.createLogger({
   level: 'info',
-  format: winston.format.combine(
-    winston.format.colorize(),
-    winston.format.timestamp({
+  format: format.combine(
+    format.colorize(),
+    format.timestamp({
       format: 'YYYY-MM-DD HH:mm:ss',
     }),
-    winston.format.printf(
-      (info) => `${info.timestamp} [${info.level}]: ${info.message}`
-    )
+    format.printf((info: TransformableInfo) => {
+      return `${info.timestamp} [${info.level}]: ${info.message}`;
+    })
   ),
-  transports: [new winston.transports.Console()],
+  transports: [new transports.Console()],
 });

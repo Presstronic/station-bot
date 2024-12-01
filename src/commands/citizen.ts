@@ -3,7 +3,7 @@
 import {
     Client,
     SlashCommandBuilder,
-    CommandInteraction,
+    ChatInputCommandInteraction,
     ActionRowBuilder,
     ButtonBuilder,
     ButtonStyle,
@@ -32,7 +32,7 @@ import {
   
   const verificationCodes = new Map<
     string,
-    { code: string; profileName: string }
+    { code: string; profileName: string; dreadnoughtCode?: string }
   >();
   
   export async function registerCommands(client: Client) {
@@ -60,7 +60,7 @@ import {
     }
   }
   
-  export async function handleCitizenCommand(interaction: CommandInteraction) {
+  export async function handleCitizenCommand(interaction: ChatInputCommandInteraction) {
     const subcommand = interaction.options.getSubcommand();
   
     if (subcommand === 'add') {
@@ -68,7 +68,8 @@ import {
   
       // Generate a unique verification code
       const code = generateVerificationCode();
-      verificationCodes.set(interaction.user.id, { code, profileName });
+      const dreadnoughtValidationCode = 'DRDNT-' + code;
+      verificationCodes.set(interaction.user.id, { code, dreadnoughtCode: dreadnoughtValidationCode, profileName });
   
       // Create a Verify button
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
