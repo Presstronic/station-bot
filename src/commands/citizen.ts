@@ -63,6 +63,8 @@ import {
   }
   
   export async function handleCitizenCommand(interaction: ChatInputCommandInteraction) {
+    
+    
     const subcommand = interaction.options.getSubcommand();
   
     if (subcommand === 'add') {

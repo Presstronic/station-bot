@@ -48,7 +48,7 @@ import { assignVerifiedRole } from '../utils/role';
   
         if (success) {
           await interaction.reply({
-            content: `✅ Your have been verfied with citizen name **${rsiProfile}**. Enjoy your citizenship!`,
+            content: `✅ You have been verfied with citizen name **${rsiProfile}**. Enjoy your citizenship!`,
             ephemeral: true,
           });
         } else {
@@ -57,7 +57,8 @@ import { assignVerifiedRole } from '../utils/role';
             ephemeral: true,
           });
         }
-      } else {
+      } 
+      else {
         await interaction.reply({
           content: `❌ An in-game citizen with the name: **${rsiProfile}** does not exist. Please ensure you've entered the correct in-game citizen name.`,
           ephemeral: true,
