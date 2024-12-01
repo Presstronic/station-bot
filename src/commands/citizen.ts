@@ -12,6 +12,7 @@ import {
   import { Routes } from 'discord-api-types/v10';
   import { generateVerificationCode } from '../utils/generateCode';
   import { logger } from '../utils/logger';
+  import axios from 'axios';
   
   const commands = [
     new SlashCommandBuilder()
@@ -23,7 +24,7 @@ import {
           .setDescription('Start the verification process')
           .addStringOption((option) =>
             option
-              .setName('profile_name')
+              .setName('in-game-name')
               .setDescription('Your RSI profile name')
               .setRequired(true)
           )
@@ -32,10 +33,11 @@ import {
   
   const verificationCodes = new Map<
     string,
-    { code: string; profileName: string; dreadnoughtCode?: string }
+    { rsiProfileName: string; dreadnoughtValidationCode: string }
   >();
   
   export async function registerCommands(client: Client) {
+    // TODO: Prob not here, but somewhere I need to have the bot create the station-bot-verified role (or allow for a custom role override)
     const CLIENT_ID = process.env.CLIENT_ID;
     const GUILD_ID = process.env.GUILD_ID;
     const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
@@ -64,12 +66,13 @@ import {
     const subcommand = interaction.options.getSubcommand();
   
     if (subcommand === 'add') {
-      const profileName = interaction.options.getString('profile_name', true);
+      const rsiProfileName = interaction.options.getString('in-game-name', true);
   
       // Generate a unique verification code
       const code = generateVerificationCode();
       const dreadnoughtValidationCode = 'DRDNT-' + code;
-      verificationCodes.set(interaction.user.id, { code, dreadnoughtCode: dreadnoughtValidationCode, profileName });
+      // TODO: dreadnoughtValidationCode has to match the Map definition?
+      verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode });
   
       // Create a Verify button
       const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -78,10 +81,12 @@ import {
           .setLabel('Verify')
           .setStyle(ButtonStyle.Success)
       );
-  
+ 
+      // TODO: Add link to profile: https://robertsspaceindustries.com/account/profile
+      // TODO: Add copy button
       await interaction.reply({
         content: `Hello ${interaction.user}, please add the following verification code to your RSI profile's short bio:\n\n` +
-          `\`${code}\`\n\n` +
+          `\`${dreadnoughtValidationCode}\`\n\n` +
           `Once you've done that, click the 'Verify' button below.`,
         components: [row],
         ephemeral: true,
