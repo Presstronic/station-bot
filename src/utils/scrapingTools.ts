@@ -1,5 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import { logger } from logger
 
 export async function scrapeValueFromDiv(url: string, selector: string): Promise<string> {
     try {
