@@ -1,7 +1,13 @@
 import axios from 'axios';
-import * as cheerio from 'cheerio';
+import cheerio from 'cheerio';
+import { logger } from '../utils/logger';
 
-export async function scrapeValueFromDiv(url: string, selector: string): Promise<string> {
+export async function scrapeAndCheckValueSpecific(
+    url: string,
+    parentSelector: string,
+    childSelector: string,
+    searchValue: string
+): Promise<boolean> {
     try {
         // Fetch the HTML content of the webpage
         const { data } = await axios.get<string>(url);
@@ -9,13 +15,18 @@ export async function scrapeValueFromDiv(url: string, selector: string): Promise
         // Load the HTML into cheerio
         const $ = cheerio.load(data);
 
-        // Use the selector to find the div and extract its text content
-        const value = $(selector).text().trim();
+        // Use the parentSelector to locate the parent div
+        const parentDiv = $(parentSelector);
 
-        return value;
+        // Use the childSelector to locate the child div within the parent div
+        const value = parentDiv.find(childSelector).text();
+
+        // Check if the specific value exists in the text content
+        const exists = value.includes(searchValue);
+
+        return exists;
     } catch (error) {
         console.error('Error fetching the page:', error);
         throw error;
     }
 }
-  
