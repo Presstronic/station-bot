@@ -1,6 +1,6 @@
 {
     "name": "discord-verification-bot",
-    "version": "0.0.2",
+    "version": "0.0.1",
     "description": "A Discord bot for verifying users against their roberts space industries profiles.",
     "main": "dist/index.js",
     "scripts": {
