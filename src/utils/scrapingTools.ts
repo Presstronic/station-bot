@@ -1,6 +1,7 @@
 import axios from 'axios';
-import cheerio from 'cheerio';
+import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger';
+import { log } from 'console';
 
 export async function scrapeAndCheckValueSpecific(
     url: string,
@@ -9,8 +10,11 @@ export async function scrapeAndCheckValueSpecific(
     searchValue: string
 ): Promise<boolean> {
     try {
+        logger.info(`Scraping ${url} for ${searchValue}`);
+
         // Fetch the HTML content of the webpage
         const { data } = await axios.get<string>(url);
+        logger.info('data:', data);
 
         // Load the HTML into cheerio
         const $ = cheerio.load(data);
