@@ -12,23 +12,18 @@ import {
   import { Routes } from 'discord-api-types/v10';
   import { generateVerificationCode } from '../utils/generateCode';
   import { logger } from '../utils/logger';
-  import axios from 'axios';
+  // import axios from 'axios';
   
   const commands = [
     new SlashCommandBuilder()
-      .setName('citizen')
+      .setName('verify')
       .setDescription('Verify your RSI profile')
-      .addSubcommand((subcommand) =>
-        subcommand
-          .setName('add')
-          .setDescription('Start the verification process')
-          .addStringOption((option) =>
-            option
-              .setName('in-game-name')
-              .setDescription('Your RSI profile name')
-              .setRequired(true)
-          )
-      ),
+      .addStringOption((option) =>
+        option
+          .setName('in-game-name')
+          .setDescription('Your RSI profile name')
+          .setRequired(true)
+      )
   ];
   
   const verificationCodes = new Map<
@@ -62,12 +57,8 @@ import {
     }
   }
   
-  export async function handleCitizenCommand(interaction: ChatInputCommandInteraction) {
+  export async function handleVerifyCommand(interaction: ChatInputCommandInteraction) {
     
-    
-    const subcommand = interaction.options.getSubcommand();
-  
-    if (subcommand === 'add') {
       const rsiProfileName = interaction.options.getString('in-game-name', true);
   
       // Generate a unique verification code
@@ -93,13 +84,7 @@ import {
         components: [row],
         ephemeral: true,
       });
-    } else {
-      await interaction.reply({
-        content: 'Invalid subcommand.',
-        ephemeral: true,
-      });
     }
-  }
   
   export function getUserVerificationData(userId: string) {
     return verificationCodes.get(userId);
