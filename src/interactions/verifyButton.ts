@@ -6,9 +6,9 @@ import {
     Interaction,
     Client,
   } from 'discord.js';
-import { handleCitizenCommand } from '../commands/citizen';
+import { handleVerifyCommand, getUserVerificationData } from '../commands/citizen';
 import { logger } from '../utils/logger';
-import { assignVerifiedRole } from '../utils/role';
+import { assignVerifiedRole, removeVerifiedRole } from '../utils/role';
 import { verifyRSIProfile } from '../services/rsi.services';
  
 
@@ -17,10 +17,12 @@ export async function handleInteraction(
   client: Client
 ) {
   if (interaction.isChatInputCommand()) {
-    if (interaction.commandName === 'citizen') {
-      await handleCitizenCommand(interaction);
+    if (interaction.commandName === 'verify') {
+      logger.info('Handling citizen command');
+      await handleVerifyCommand(interaction);
     }
   } else if (interaction.isButton()) {
+      logger.info('Handling button interaction');
     await handleButtonInteraction(interaction as ButtonInteraction, client);
   }
 }
@@ -29,23 +31,34 @@ async function handleButtonInteraction(
   interaction: ButtonInteraction,
   client: Client
 ) {
-  if (interaction.customId === 'verify') {
+  const userData = getUserVerificationData(interaction.user.id);
+  const rsiInGameName = userData?.rsiProfileName.split('/').pop();
 
+  if (interaction.customId === 'verify') {
+    
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
 
     if (rsiProfileVerified) {
       const success = await assignVerifiedRole(interaction, interaction.user.id);
 
-      await interaction.reply({
-        content: `✅ You have been verified. Enjoy your citizenship!`,
-        ephemeral: true,
-      });
+      if(success)
+        await interaction.reply({
+          content: `✅ ${rsiInGameName} has been verified with RSI for discord member ${interaction.user.id}!`,
+          ephemeral: true,
+        });
+      } else {
+        await interaction.reply({
+          content: `❌ Could not assign "Verfied" role for discord member ${interaction.user.id} for RSI profile ${rsiInGameName}. Please try again.`,
+          ephemeral: true,
+        });
+      }
     } else {
+      const success = await removeVerifiedRole(interaction, interaction.user.id);
       await interaction.reply({
-        content: `❌ Could not approve your citizenship within this server. Please try again, or contact a moderator.`,
+        content: `❌ Could not verify citizenship for discord member ${interaction.user.id} for RSI profile ${rsiInGameName}. Please try again.`,
         ephemeral: true,
-      });
-    }    
-  }
+    });
+  }    
 }
+
   
