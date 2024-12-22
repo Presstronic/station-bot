@@ -226,8 +226,8 @@ prisma/dev.db
 .editorconfig
 
 # Ignore docker files
-docker-compose.yml
-Dockerfile
+# docker-compose.yml
+# Dockerfile
 
 # Ignore ESlint cache
 .eslintcache
