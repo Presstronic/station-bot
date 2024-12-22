@@ -6,7 +6,7 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import { Company } from './company.entity.ts';
+import { Company } from './company.entity';
   
 @Entity('vehicle')
 export class Vehicle {
