@@ -6,12 +6,27 @@ import {
     UpdateDateColumn,
     ManyToOne,
   } from 'typeorm';
-  import { Organization } from './organization.entity'
+  import { Organization } from './organization.entity.ts'
   
   @Entity('app_user')
   export class AppUser {
+
+    constructor(
+      discordOAuthToken: string,
+      rsiUsername: string,
+      discordUsername: string,
+      emailAddress: string,
+      primaryOrganization: Organization
+    ) {
+      this.discordOAuthToken = discordOAuthToken;
+      this.rsiUsername = rsiUsername;
+      this.discordUsername = discordUsername;
+      this.emailAddress = emailAddress;
+      this.primaryOrganization = primaryOrganization;
+    }    
+
     @PrimaryGeneratedColumn()
-    id: number;
+    id!: number;
   
     @Column({ nullable: false })
     discordOAuthToken: string;
@@ -41,9 +56,9 @@ import {
     rsiVerificationDate?: Date;
   
     @CreateDateColumn()
-    dateCreated: Date;
+    dateCreated!: Date;
   
     @UpdateDateColumn()
-    dateModified: Date;
+    dateModified!: Date;
   }
   

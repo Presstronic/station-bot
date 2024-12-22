@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
       "target": "ES2021",
-      "module": "CommonJS",
+      "module": "ESNext",
       "outDir": "./dist",
       "rootDir": "./src",
       "strict": true,
@@ -10,7 +10,10 @@
       "forceConsistentCasingInFileNames": true,
       "skipLibCheck": true,
       "resolveJsonModule": true,
-      "experimentalDecorators": true
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
+      "allowImportingTsExtensions": true,
+      "noEmit": true,
     },
     "include": ["src/**/*"]
   }

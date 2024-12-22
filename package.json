@@ -1,5 +1,5 @@
 {
-    "name": "discord-verification-bot",
+    "name": "station-bot",
     "version": "0.0.1",
     "description": "A Discord bot for verifying users against their roberts space industries profiles.",
     "main": "dist/index.js",
@@ -8,7 +8,8 @@
         "dev": "ts-node-dev --respawn src/index.ts",
         "build": "tsc"
     },
-    "author": "Demian Seiler",
+    "type": "module",
+    "author": "Demian",
     "license": "GPL-3.0",
     "dependencies": {
         "@nestjs/typeorm": "^10.0.2",
@@ -25,9 +26,9 @@
     },
     "devDependencies": {
         "@types/axios": "^0.9.36",
-        "@types/node": "^20.4.2",
+        "@types/node": "^20.17.10",
         "@types/winston": "^2.4.4",
-        "ts-node": "^10.9.1",
+        "ts-node": "^10.9.2",
         "ts-node-dev": "^2.0.0",
         "typescript": "^5.1.6"
     }
