@@ -8,7 +8,7 @@ import {
   } from 'discord.js';
 import { handleVerifyCommand, getUserVerificationData } from '../commands/citizen';
 import { logger } from '../utils/logger';
-import { assignVerifiedRole, removeVerifiedRole } from '../utils/role';
+import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services';
 import { verifyRSIProfile } from '../services/rsi.services';
  
 
@@ -35,13 +35,14 @@ async function handleButtonInteraction(
   const rsiInGameName = userData?.rsiProfileName.split('/').pop();
 
   if (interaction.customId === 'verify') {
-    
+    logger.info(`Handling VERIFY BUTTON begin`);
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
-
+    logger.info(`---> rsiProfileVerified ${rsiProfileVerified}`);
+    
     if (rsiProfileVerified) {
       const success = await assignVerifiedRole(interaction, interaction.user.id);
 
-      if(success)
+      if(success) {
         await interaction.reply({
           content: `✅ ${rsiInGameName} has been verified with RSI for discord member ${interaction.user.username}!`,
           ephemeral: true,
@@ -57,6 +58,7 @@ async function handleButtonInteraction(
       await interaction.reply({
         content: `❌ Could not verify citizenship for discord member ${interaction.user.username} for RSI profile ${rsiInGameName}. Please try again.`,
         ephemeral: true,
-    });
-  }    
+      });
+    }    
+  }
 }

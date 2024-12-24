@@ -37,6 +37,8 @@ export async function removeVerifiedRole(
     interaction: ButtonInteraction,
     userId: string
 ): Promise<boolean> {
+
+    logger.info(`REMOVING VERIFIED ROLE`);
     const guild = interaction.guild;
     if (!guild) {
         logger.error('Guild not found in interaction.');
