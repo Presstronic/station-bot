@@ -25,7 +25,6 @@ export async function verifyRSIProfile(userId: string): Promise<boolean>{
         const parentSelector = 'div.entry.bio';
         const childSelector = 'div.value';
 
-        // Make a HEAD request to check if the profile exists
         const response = await axios.head(url, {
             validateStatus: (status) => status < 500, // Accept status codes less than 500
         });
@@ -38,15 +37,13 @@ export async function verifyRSIProfile(userId: string): Promise<boolean>{
             return false;  
         }
 
-        const verificationCodeFound = await scrapeAndCheckValueSpecific(
+        return await scrapeAndCheckValueSpecific(
             url,
             parentSelector,
             childSelector,
             userData.dreadnoughtValidationCode
         );
 
-        return verificationCodeFound;
-        
     } catch (error) {
         logger.error(`Error checking RSI profile: ${error}`);
         return false;

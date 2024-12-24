@@ -43,22 +43,20 @@ async function handleButtonInteraction(
 
       if(success)
         await interaction.reply({
-          content: `✅ ${rsiInGameName} has been verified with RSI for discord member ${interaction.user.id}!`,
+          content: `✅ ${rsiInGameName} has been verified with RSI for discord member ${interaction.user.username}!`,
           ephemeral: true,
         });
       } else {
         await interaction.reply({
-          content: `❌ Could not assign "Verfied" role for discord member ${interaction.user.id} for RSI profile ${rsiInGameName}. Please try again.`,
+          content: `❌ Could not assign "Verfied" role for discord member ${interaction.user.username} for RSI profile ${rsiInGameName}. Please try again.`,
           ephemeral: true,
         });
       }
     } else {
       const success = await removeVerifiedRole(interaction, interaction.user.id);
       await interaction.reply({
-        content: `❌ Could not verify citizenship for discord member ${interaction.user.id} for RSI profile ${rsiInGameName}. Please try again.`,
+        content: `❌ Could not verify citizenship for discord member ${interaction.user.username} for RSI profile ${rsiInGameName}. Please try again.`,
         ephemeral: true,
     });
   }    
 }
-
-  
