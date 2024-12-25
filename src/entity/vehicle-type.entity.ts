@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -11,10 +12,10 @@ export class VehicleType {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ length: 100, nullable: false })
+  @Column({ type: 'varchar', length: 100, nullable: false })
   name: string;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   friendlyName?: string;
 
   @CreateDateColumn()

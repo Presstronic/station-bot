@@ -6,8 +6,8 @@ import {
   } from 'discord.js';
 import { handleVerifyCommand, getUserVerificationData } from '../commands/citizen';
 import { logger } from '../utils/logger';
-import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services';
-import { verifyRSIProfile } from '../services/rsi.services';
+import { assignVerifiedRole, removeVerifiedRole } from '../services/discord/role.services';
+import { verifyRSIProfile } from '../services/rsi/rsi.services';
  
 
 export async function handleInteraction(

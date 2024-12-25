@@ -1,12 +1,8 @@
+import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-
-import { AppUser } from './entity/app-user.entity';
-import { Company } from './entity/company.entity'
-import { Organization } from './entity/organization.entity';
-import { Vehicle } from './entity/vehicle.entity';
-import { VehicleType } from './entity/vehicle-type.entity';
+import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -29,4 +25,6 @@ export const AppDataSource = new DataSource({
       : __dirname + '/migrations/*.ts',
   ],
   synchronize: false, // Set to false in production
+  logging: false,
+  subscribers: [],
 });

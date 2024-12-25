@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import {
     Entity,
     PrimaryGeneratedColumn,
@@ -6,26 +7,26 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import { Company } from './company.entity';
+import { Manufacturer } from './manufacturer.entity';
   
 @Entity('vehicle')
 export class Vehicle {
     @PrimaryGeneratedColumn()
     id!: number;
 
-    @Column({ nullable: false })
+    @Column({ type: 'int', nullable: false })
     uexCorpId: number;
 
-    @Column({ default: false })
+    @Column({ type: 'boolean', default: false })
     canHaveCustomName: boolean;
 
-    @ManyToOne(() => Company)
-    company: Company;
+    @ManyToOne(() => Manufacturer)
+    manufacturer: Manufacturer;
 
-    @Column({ length: 255, nullable: false })
+    @Column({ type: 'varchar', length: 255, nullable: false })
     name: string;
 
-    @Column({ length: 100, nullable: true })
+    @Column({ type: 'varchar', length: 100, nullable: true })
     shortName?: string;
 
     @Column({ type: 'float', default: 0, nullable: false })
@@ -43,10 +44,10 @@ export class Vehicle {
     @Column({ type: 'text', nullable: true })
     rsiVideoUrl?: string;
 
-    @Column({ length: 50, nullable: true })
+    @Column({ type: 'varchar', length: 50, nullable: true })
     padSize?: string;
 
-    @Column({ length: 50, nullable: true })
+    @Column({ type: 'varchar', length: 50, nullable: true })
     gameVersion?: string;
 
     @Column({ type: 'timestamp', nullable: false })
@@ -64,7 +65,7 @@ export class Vehicle {
     constructor(
         uexCorpId: number,
         canHaveCustomName: boolean,
-        company: Company,
+        manufacturer: Manufacturer,
         name: string,
         cargoScuSize: number,
         crewSize: number,
@@ -73,7 +74,7 @@ export class Vehicle {
     ) {
         this.uexCorpId = uexCorpId;
         this.canHaveCustomName = canHaveCustomName;
-        this.company = company;
+        this.manufacturer = manufacturer;
         this.name = name;
         this.cargoScuSize = cargoScuSize;
         this.crewSize = crewSize;

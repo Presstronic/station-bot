@@ -10,7 +10,8 @@
       "forceConsistentCasingInFileNames": true,
       "skipLibCheck": true,
       "resolveJsonModule": true,
-      "experimentalDecorators": true
+      "experimentalDecorators": true,
+      "emitDecoratorMetadata": true,
   },
   "include": ["src/**/*"]
 }

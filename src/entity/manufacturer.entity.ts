@@ -1,3 +1,4 @@
+import 'reflect-metadata';
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -6,24 +7,24 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-@Entity('company')
-export class Company {
+@Entity('manufacturer')
+export class Manufacturer {
   @PrimaryGeneratedColumn()
   id!: number;
 
-  @Column({ length: 255, nullable: false })
+  @Column({ type: 'varchar', length: 255, nullable: false })
   name: string;
 
-  @Column({ length: 100, nullable: true })
+  @Column({ type: 'varchar', length: 100, nullable: true })
   nickname?: string;
 
-  @Column({ length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 255, nullable: true })
   industry?: string;
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   isItemManufacturer: boolean;
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   isVehicleManufacturer: boolean;
 
   @Column({ type: 'timestamp', nullable: false })

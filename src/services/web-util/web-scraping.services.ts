@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { logger } from '../utils/logger';
+import { logger } from '../../utils/logger';
 import { log } from 'console';
 
 export async function scrapeAndCheckValueSpecific(

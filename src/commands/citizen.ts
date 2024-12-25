@@ -8,7 +8,7 @@ import {
   } from 'discord.js';
   import { REST } from '@discordjs/rest';
   import { Routes } from 'discord-api-types/v10';
-  import { generateDrdntVerificationCode } from '../services/verification-code.services';
+  import { generateDrdntVerificationCode } from '../services/auth/verification-code.services';
   import { logger } from '../utils/logger';
   
   const commands = [

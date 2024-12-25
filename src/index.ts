@@ -1,5 +1,4 @@
-
-// src/index.ts
+import 'reflect-metadata';
 
 import { Client, IntentsBitField } from 'discord.js';
 import dotenv from 'dotenv';
