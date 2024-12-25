@@ -15,9 +15,9 @@ export const AppDataSource = new DataSource({
   type: 'postgres',
   host: 'localhost',
   port: 5432,
-  username: 'station_app_user',
-  password: 's9!45DSgh!~jdf9.aFFsdjf3&*f',
-  database: 'station_db',
+  username: process.env.POSTGRES_STATION_USER,
+  password: process.env.POSTGRES_STATION_PASSWORD,
+  database: process.env.POSTGRES_STATION_DB,
   entities: [
     process.env.NODE_ENV === 'production'
       ? __dirname + '/entity/*.entity.js' // Use compiled files in production

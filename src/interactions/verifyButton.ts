@@ -1,5 +1,3 @@
-// src/interactions/verifyButton.ts
-
 import {
     ButtonInteraction,
     ChatInputCommandInteraction,
@@ -18,11 +16,9 @@ export async function handleInteraction(
 ) {
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'verify') {
-      logger.info('Handling citizen command');
       await handleVerifyCommand(interaction);
     }
   } else if (interaction.isButton()) {
-      logger.info('Handling button interaction');
     await handleButtonInteraction(interaction as ButtonInteraction, client);
   }
 }
@@ -35,9 +31,7 @@ async function handleButtonInteraction(
   const rsiInGameName = userData?.rsiProfileName.split('/').pop();
 
   if (interaction.customId === 'verify') {
-    logger.info(`Handling VERIFY BUTTON begin`);
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
-    logger.info(`---> rsiProfileVerified ${rsiProfileVerified}`);
     
     if (rsiProfileVerified) {
       const success = await assignVerifiedRole(interaction, interaction.user.id);

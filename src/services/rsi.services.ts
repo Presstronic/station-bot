@@ -32,10 +32,10 @@ export async function verifyRSIProfile(userId: string): Promise<boolean>{
         });
 
         if(response.status === 200) {
-            logger.info(`RSI Profile ${rsiProfileName} exists.`);
+            logger.debug(`RSI Profile ${rsiProfileName} exists.`);
         }
         else {
-            logger.info(`RSI Profile ${rsiProfileName} does not exist.`);
+            logger.debug(`RSI Profile ${rsiProfileName} does not exist.`);
             return false;  
         }
 
@@ -45,8 +45,6 @@ export async function verifyRSIProfile(userId: string): Promise<boolean>{
             childSelector,
             userData.dreadnoughtValidationCode
         );
-
-        logger.info(`VALLLLL ${validateStatusValueFound}`)
 
         return validateStatusValueFound;
 

@@ -25,8 +25,6 @@ client.once('ready', async () => {
     return;
   }
 
-  logger.info(`Logged in as ${client.user.tag}`);
-
   await registerCommands(client);
 });
 
