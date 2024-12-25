@@ -1,7 +1,7 @@
 {
     "compilerOptions": {
-      "target": "ES2021",
-      "module": "CommonJS",
+      "target": "ESNext",
+      "module": "ESNext",
       "outDir": "./dist",
       "rootDir": "./src",
       "strict": true,
@@ -11,7 +11,7 @@
       "skipLibCheck": true,
       "resolveJsonModule": true,
       "experimentalDecorators": true
-    },
-    "include": ["src/**/*"]
-  }
+  },
+  "include": ["src/**/*"]
+}
   

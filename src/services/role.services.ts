@@ -25,7 +25,7 @@ export async function assignVerifiedRole(
 
     try {
         await member.roles.add(verifiedRole);
-        logger.info(`Assigned "Verified" role to user ${member.user.tag}`);
+        logger.debug(`Assigned "Verified" role to user ${member.user.tag}`);
         return true;
     } catch (error) {
         logger.error(`Error assigning role: ${error}`);
@@ -37,6 +37,7 @@ export async function removeVerifiedRole(
     interaction: ButtonInteraction,
     userId: string
 ): Promise<boolean> {
+
     const guild = interaction.guild;
     if (!guild) {
         logger.error('Guild not found in interaction.');
@@ -57,7 +58,7 @@ export async function removeVerifiedRole(
 
     try {
         await member.roles.remove(verifiedRole);
-        logger.info(`Removed "Verified" role from discord user ${member.user.tag}`);
+        logger.debug(`Removed "Verified" role from discord user ${member.user.tag}`);
         return true;
     } catch (error) {
         logger.error(`Error removing role: ${error}`);

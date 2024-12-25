@@ -10,11 +10,10 @@ export async function scrapeAndCheckValueSpecific(
     searchValue: string
 ): Promise<boolean> {
     try {
-        logger.info(`Scraping ${url} for ${searchValue}`);
+        logger.debug(`Scraping ${url} for ${searchValue}`);
 
         // Fetch the HTML content of the webpage
         const { data } = await axios.get<string>(url);
-        logger.info('data:', data);
 
         // Load the HTML into cheerio
         const $ = cheerio.load(data);

@@ -1,5 +1,3 @@
-// src/commands/citizen.ts
-
 import {
     Client,
     SlashCommandBuilder,
@@ -10,9 +8,8 @@ import {
   } from 'discord.js';
   import { REST } from '@discordjs/rest';
   import { Routes } from 'discord-api-types/v10';
-  import { generateVerificationCode } from '../utils/generateCode';
+  import { generateDrdntVerificationCode } from '../services/verification-code.services';
   import { logger } from '../utils/logger';
-  // import axios from 'axios';
   
   const commands = [
     new SlashCommandBuilder()
@@ -62,8 +59,7 @@ import {
       const rsiProfileName = interaction.options.getString('in-game-name', true);
   
       // Generate a unique verification code
-      const code = generateVerificationCode();
-      const dreadnoughtValidationCode = 'DRDNT-' + code;
+      const dreadnoughtValidationCode = generateDrdntVerificationCode();
       // TODO: dreadnoughtValidationCode has to match the Map definition?
       verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode });
   
