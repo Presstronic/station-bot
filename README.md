@@ -24,3 +24,16 @@ A Discord bot for verifying users against their RSI (Roberts Space Industries) p
    ```bash
    git clone https://github.com/yourusername/discord-verification-bot.git
    cd discord-verification-bot
+
+
+
+
+### Migration
+1. Generate migration
+   ```
+   npm run migration:generate
+   ```
+2. Run migrations
+   ```
+   npm run typeorm -- migration:run -d src/data-source.ts
+   ```

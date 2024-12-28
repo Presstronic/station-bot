@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { AppUser } from '../../entity/app-user.entity';
+import { AppUser } from '../../entity/presstronic/app-user.entity';
 import { Vehicle } from '../../entity/vehicle.entity';
 import { Hangar } from '../../entity/hangar.entity';
 import { AppDataSource } from '../../data-source'; // Replace with your actual data source path

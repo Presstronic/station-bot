@@ -4,7 +4,7 @@ import {
     Interaction,
     Client,
   } from 'discord.js';
-import { handleVerifyCommand, getUserVerificationData } from '../commands/citizen';
+import { handleVerifyCommand, getUserVerificationData } from '../commands/verify';
 import { logger } from '../utils/logger';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/discord/role.services';
 import { verifyRSIProfile } from '../services/rsi/rsi.services';

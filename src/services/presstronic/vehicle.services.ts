@@ -1,6 +1,6 @@
 import { Like, Repository } from 'typeorm';
 import { Vehicle } from '../../entity/vehicle.entity';
-import { Manufacturer } from '../../entity/manufacturer.entity';
+import { Manufacturer } from '../../entity/presstronic/manufacturer.entity';
 import { AppDataSource } from '../../data-source'; // Replace with your actual data source path
 
 class VehicleService {

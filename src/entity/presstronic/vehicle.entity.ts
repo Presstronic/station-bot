@@ -50,6 +50,9 @@ export class Vehicle {
     @Column({ type: 'varchar', length: 50, nullable: true })
     gameVersion?: string;
 
+    @Column({ type: 'boolean', default: false })
+    isDeleted: boolean = false  
+
     @Column({ type: 'timestamp', nullable: false })
     uexCorpDateCreated: Date;
 

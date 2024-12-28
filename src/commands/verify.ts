@@ -11,7 +11,7 @@ import {
   import { generateDrdntVerificationCode } from '../services/auth/verification-code.services';
   import { logger } from '../utils/logger';
   
-  const commands = [
+  export const verifyCommands = [
     new SlashCommandBuilder()
       .setName('verify')
       .setDescription('Verify your RSI profile')
@@ -27,32 +27,6 @@ import {
     string,
     { rsiProfileName: string; dreadnoughtValidationCode: string }
   >();
-  
-  export async function registerCommands(client: Client) {
-    // TODO: Prob not here, but somewhere I need to have the bot create the station-bot-verified role (or allow for a custom role override)
-    const CLIENT_ID = process.env.CLIENT_ID;
-    const GUILD_ID = process.env.GUILD_ID;
-    const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-  
-    if (!CLIENT_ID || !GUILD_ID || !DISCORD_BOT_TOKEN) {
-      logger.error('Missing CLIENT_ID, GUILD_ID, or DISCORD_BOT_TOKEN in .env');
-      return;
-    }
-  
-    const rest = new REST({ version: '10' }).setToken(DISCORD_BOT_TOKEN);
-  
-    try {
-      logger.info('Started refreshing application (/) commands.');
-  
-      await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), {
-        body: commands.map((command) => command.toJSON()),
-      });
-  
-      logger.info('Successfully reloaded application (/) commands.');
-    } catch (error) {
-      logger.error('Error registering commands:', error);
-    }
-  }
   
   export async function handleVerifyCommand(interaction: ChatInputCommandInteraction) {
     

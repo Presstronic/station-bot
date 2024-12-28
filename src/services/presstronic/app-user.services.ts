@@ -1,5 +1,5 @@
 import { Repository } from 'typeorm';
-import { AppUser } from '../../entity/app-user.entity';
+import { AppUser } from '../../entity/presstronic/app-user.entity';
 import { Organization } from '../../entity/organization.entity'; // Assuming you may need to manage organizations
 import { AppDataSource } from '../../data-source'; // Replace with your actual data source path
 

@@ -33,6 +33,9 @@ export class Manufacturer {
   @Column({ type: 'timestamp', nullable: false })
   uexCorpDateModified: Date;
 
+  @Column({ type: 'boolean', default: false })
+  isDeleted: boolean = false
+
   @CreateDateColumn()
   dateCreated!: Date;
 
