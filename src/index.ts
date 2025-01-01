@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import { registerCommands } from './commands/citizen';
 import { handleInteraction } from './interactions/verifyButton';
 import { logger } from './utils/logger';
+import { scheduleTempMemberCleanup } from './jobs/discord/purge-member.job'
 
 dotenv.config();
 
@@ -26,6 +27,8 @@ client.once('ready', async () => {
   }
 
   await registerCommands(client);
+
+  scheduleTempMemberCleanup(client);
 });
 
 client.on('interactionCreate', async (interaction) => {
