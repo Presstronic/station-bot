@@ -6,7 +6,8 @@ import dotenv from 'dotenv';
 import { registerCommands } from './commands/citizen';
 import { handleInteraction } from './interactions/verifyButton';
 import { logger } from './utils/logger';
-import { scheduleTempMemberCleanup } from './jobs/discord/purge-member.job'
+import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job'
+import { cli } from 'winston/lib/winston/config';
 
 dotenv.config();
 
@@ -29,6 +30,8 @@ client.once('ready', async () => {
   await registerCommands(client);
 
   scheduleTempMemberCleanup(client);
+
+  schedulePotentialApplicantCleanup(client);
 });
 
 client.on('interactionCreate', async (interaction) => {
