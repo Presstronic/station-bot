@@ -1,19 +1,36 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:15
-    container_name: postgres_station_container
-    restart: always
+  discord-bot:
+    container_name: discord-bot
+    build: .
+    # If using an image from GHCR, you might do:
+    # image: ghcr.io/<owner>/<repo>:latest
+    cap_drop:
+      - ALL
+    # If you need to bind privileged ports (<1024), do cap_add:
+    # cap_add:
+    #   - NET_BIND_SERVICE
     environment:
-      POSTGRES_USER: ${POSTGRES_STATION_USER:-default_user}
-      POSTGRES_PASSWORD: ${POSTGRES_STATION_PASSWORD:-default_password}
-      POSTGRES_DB: ${POSTGRES_STATION_DB:-default_db}
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d/
+      DISCORD_TOKEN: "${DISCORD_TOKEN}"
+    # If your bot listens on 3000 and you want to expose it externally:
+    # ports:
+    #   - "3000:3000"
+    restart: unless-stopped
 
-volumes:
-  postgres_data:
+  # postgres:
+  #   image: postgres:15
+  #   container_name: postgres_station_container
+  #   restart: always
+  #   environment:
+  #     POSTGRES_USER: ${POSTGRES_STATION_USER:-default_user}
+  #     POSTGRES_PASSWORD: ${POSTGRES_STATION_PASSWORD:-default_password}
+  #     POSTGRES_DB: ${POSTGRES_STATION_DB:-default_db}
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #     - ./init:/docker-entrypoint-initdb.d/
+
+# volumes:
+#   postgres_data:
