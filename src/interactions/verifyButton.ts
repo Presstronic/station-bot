@@ -4,11 +4,12 @@ import {
     Interaction,
     Client,
   } from 'discord.js';
-import { handleVerifyCommand, getUserVerificationData } from '../commands/citizen';
-import { logger } from '../utils/logger';
-import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services';
-import { verifyRSIProfile } from '../services/rsi.services';
+import { handleVerifyCommand, getUserVerificationData } from '../commands/citizen.js';
+import { getLogger } from '../utils/logger.js';
+import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
+import { verifyRSIProfile } from '../services/rsi.services.js';
  
+const logger = getLogger();
 
 export async function handleInteraction(
   interaction: Interaction,

@@ -3,13 +3,12 @@ version: '3.8'
 services:
   discord-bot:
     container_name: station-bot
-    image: station-bot:latest
-    build: .
+    image: ghcr.io/presstronic/station-bot:latest
     env_file:
-      - .env
+      - .env.production
     cap_drop:
       - ALL
-    read_only: true
+    read_only: true # Container filesystem is read-only except for specified volumes
     restart: unless-stopped
     networks:
       - bot-network
@@ -18,6 +17,9 @@ services:
     #   - "3000:3000"
     volumes:
       - /etc/localtime:/etc/localtime:ro # Sync container time with host
+      - ./logs:/app/logs # Persistent writable logs directory
+    environment:
+      LOG_LEVEL: "${LOG_LEVEL:-info}" # Default log level to info if not set
 
 networks:
   bot-network:

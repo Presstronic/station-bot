@@ -1,7 +1,9 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import { logger } from '../utils/logger';
+import { getLogger } from '../utils/logger.js';
 import { log } from 'console';
+
+const logger = getLogger();
 
 export async function scrapeAndCheckValueSpecific(
     url: string,

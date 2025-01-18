@@ -1,8 +1,9 @@
-import { logger } from '../utils/logger';
+import { getLogger } from '../utils/logger.js';
 import axios from 'axios';
-import { scrapeAndCheckValueSpecific } from './web-scraping.services';
-import { getUserVerificationData } from '../commands/citizen';
-import { log } from 'console';
+import { scrapeAndCheckValueSpecific } from './web-scraping.services.js';
+import { getUserVerificationData } from '../commands/citizen.js';
+
+const logger = getLogger();
 
 /**
  * Although we do not actually have an RSI API as of yet, we will treat the service as

@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { AppUser } from './app-user.entity';
+import { AppUser } from './app-user.entity.js';
 
 @Entity('organization')
 export class Organization {
