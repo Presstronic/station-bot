@@ -1,4 +1,4 @@
-// src/jobs/__tests__/purge-member.job.test.ts
+// src/jobs/discord/__tests__/purge-member.job.test.ts
 
 import { purgeMembers } from '../purge-member.job';
 import { Guild, GuildMember, Role } from 'discord.js';
@@ -10,27 +10,35 @@ describe('purgeMembers - Temp Member', () => {
   beforeEach(() => {
     // Create a fake "Temp Member" role
     const tempRole = { id: 'tempRoleId', name: 'Temp Member' } as Role;
-
     const now = Date.now();
 
     mockMembers = [
       {
-        user: { tag: 'OldTempMember#1234' },
+        user: { 
+          tag: 'OldTempMember#1234',
+          send: jest.fn(() => Promise.resolve())
+        },
         roles: { cache: [tempRole] },
         joinedTimestamp: now - 49 * 60 * 60 * 1000, // 49 hours ago
-        kick: jest.fn(),
+        kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
       {
-        user: { tag: 'NewTempMember#5678' },
+        user: { 
+          tag: 'NewTempMember#5678',
+          send: jest.fn(() => Promise.resolve())
+        },
         roles: { cache: [tempRole] },
         joinedTimestamp: now - 10 * 60 * 60 * 1000, // 10 hours ago
-        kick: jest.fn(),
+        kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
       {
-        user: { tag: 'NoTempRoleUser#9999' },
+        user: { 
+          tag: 'NoTempRoleUser#9999',
+          send: jest.fn(() => Promise.resolve())
+        },
         roles: { cache: [] },
         joinedTimestamp: now - 100 * 60 * 60 * 1000, // 100 hours but no "Temp Member" role
-        kick: jest.fn(),
+        kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
     ];
 
@@ -45,7 +53,12 @@ describe('purgeMembers - Temp Member', () => {
 
   it('kicks Temp Members who joined more than 48 hours ago', async () => {
     const HOURS_TO_EXPIRE = 48;
-    const kickedMembers = await purgeMembers(mockGuild, 'Temp Member', HOURS_TO_EXPIRE);
+    const kickedMembers = await purgeMembers(
+      mockGuild,
+      'Temp Member',
+      HOURS_TO_EXPIRE,
+      "TEST TEMPORARY MEMBERS TIME LIMIT"
+    );
 
     // We only expect the member who joined 49 hours ago to be kicked
     expect(kickedMembers).toEqual(['OldTempMember#1234']);
@@ -67,27 +80,35 @@ describe('purgeMembers - Potential Applicant', () => {
   beforeEach(() => {
     // Create a fake "Potential Applicant" role
     const applicantRole = { id: 'applicantRoleId', name: 'Potential Applicant' } as Role;
-
     const now = Date.now();
 
     mockMembers = [
       {
-        user: { tag: 'OldApplicant#1111' },
+        user: { 
+          tag: 'OldApplicant#1111',
+          send: jest.fn(() => Promise.resolve())
+        },
         roles: { cache: [applicantRole] },
         joinedTimestamp: now - 31 * 24 * 60 * 60 * 1000, // 31 days ago
-        kick: jest.fn(),
+        kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
       {
-        user: { tag: 'NewApplicant#2222' },
+        user: { 
+          tag: 'NewApplicant#2222',
+          send: jest.fn(() => Promise.resolve())
+        },
         roles: { cache: [applicantRole] },
         joinedTimestamp: now - 10 * 24 * 60 * 60 * 1000, // 10 days ago
-        kick: jest.fn(),
+        kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
       {
-        user: { tag: 'DifferentRoleUser#3333' },
+        user: { 
+          tag: 'DifferentRoleUser#3333',
+          send: jest.fn(() => Promise.resolve())
+        },
         roles: { cache: [] },
         joinedTimestamp: now - 50 * 24 * 60 * 60 * 1000, // 50 days, but no "Potential Applicant" role
-        kick: jest.fn(),
+        kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
     ];
 
@@ -102,7 +123,12 @@ describe('purgeMembers - Potential Applicant', () => {
 
   it('kicks Potential Applicant members who joined more than 30 days (720 hours) ago', async () => {
     const HOURS_TO_EXPIRE = 720; // 30 days
-    const kickedMembers = await purgeMembers(mockGuild, 'Potential Applicant', HOURS_TO_EXPIRE);
+    const kickedMembers = await purgeMembers(
+      mockGuild,
+      'Potential Applicant',
+      HOURS_TO_EXPIRE,
+      "TEST POTENTIAL APPLICANT TIME LIMIT"
+    );
 
     // We only expect the 31-day user to be kicked
     expect(kickedMembers).toEqual(['OldApplicant#1111']);
@@ -115,3 +141,4 @@ describe('purgeMembers - Potential Applicant', () => {
     expect(mockMembers[2].kick).not.toHaveBeenCalled();
   });
 });
+
