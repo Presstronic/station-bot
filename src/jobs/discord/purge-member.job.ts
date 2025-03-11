@@ -28,7 +28,7 @@ export async function purgeMembers(
 
     if (hasRole && isOverExpiration) {
       try {
-        await member.send(`You are being kicked for ${purgeReason} so we can keep our rostsers up to date. Never fear, you can always reapply to Dreadnought Industries at any time.`);
+        await member.user.send(`You are being kicked for ${purgeReason} so we can keep our rostsers up to date. Never fear, you can always reapply to Dreadnought Industries at any time.`);
       } catch (error) {
         console.error('Unable to send DM before kick: ', error);
       }
