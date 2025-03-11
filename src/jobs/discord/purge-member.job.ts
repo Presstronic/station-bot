@@ -9,7 +9,8 @@ import { Client, Guild } from 'discord.js';
 export async function purgeMembers(
   guild: Guild,
   roleName: string,
-  hoursToExpire: number
+  hoursToExpire: number,
+  purgeReason: string
 ): Promise<string[]> {
   const MEMBERS_KICKED: string[] = [];
   const expirationMs = hoursToExpire * 60 * 60 * 1000;
@@ -26,6 +27,12 @@ export async function purgeMembers(
     const isOverExpiration = Date.now() - joinedTime > expirationMs;
 
     if (hasRole && isOverExpiration) {
+      try {
+        await member.send(`You are being kicked for ${purgeReason} so we can keep our rostsers up to date. Never fear, you can always reapply to Dreadnought Industries at any time.`);
+      } catch (error) {
+        console.error('Unable to send DM before kick: ', error);
+      }
+      
       await member.kick(
         `${roleName} expired: over ${hoursToExpire} hours on server.`
       );
@@ -57,7 +64,8 @@ export function scheduleTempMemberCleanup(client: Client) {
       const kickedMembers = await purgeMembers(
         guild,
         TEMP_ROLE_NAME,
-        HOURS_TO_EXPIRE
+        HOURS_TO_EXPIRE,
+        "TEMPORARY MEMBERS TIME LIMIT"
       );
       console.log(`Temp Member cleanup finished. Kicked:`, kickedMembers);
     } catch (error) {
@@ -87,7 +95,8 @@ export function schedulePotentialApplicantCleanup(client: Client) {
       const kickedMembers = await purgeMembers(
         guild,
         ROLE_NAME,
-        HOURS_TO_EXPIRE
+        HOURS_TO_EXPIRE,
+        "POTENTIAL APPLICANT TIME LIMIT"
       );
       console.log(`${ROLE_NAME} cleanup finished. Kicked:`, kickedMembers);
     } catch (error) {

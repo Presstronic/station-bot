@@ -45,7 +45,7 @@ describe('purgeMembers - Temp Member', () => {
 
   it('kicks Temp Members who joined more than 48 hours ago', async () => {
     const HOURS_TO_EXPIRE = 48;
-    const kickedMembers = await purgeMembers(mockGuild, 'Temp Member', HOURS_TO_EXPIRE);
+    const kickedMembers = await purgeMembers(mockGuild, 'Temp Member', HOURS_TO_EXPIRE, "TEST TEMPORARY MEMBERS TIME LIMIT");
 
     // We only expect the member who joined 49 hours ago to be kicked
     expect(kickedMembers).toEqual(['OldTempMember#1234']);
@@ -102,7 +102,7 @@ describe('purgeMembers - Potential Applicant', () => {
 
   it('kicks Potential Applicant members who joined more than 30 days (720 hours) ago', async () => {
     const HOURS_TO_EXPIRE = 720; // 30 days
-    const kickedMembers = await purgeMembers(mockGuild, 'Potential Applicant', HOURS_TO_EXPIRE);
+    const kickedMembers = await purgeMembers(mockGuild, 'Potential Applicant', HOURS_TO_EXPIRE, "TEST POTENTIAL APPLICANT TIME LIMIT");
 
     // We only expect the 31-day user to be kicked
     expect(kickedMembers).toEqual(['OldApplicant#1111']);
