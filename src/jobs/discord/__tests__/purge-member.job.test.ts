@@ -1,6 +1,4 @@
-// src/jobs/discord/__tests__/purge-member.job.test.ts
-
-import { purgeMembers } from '../purge-member.job.js';
+import { purgeMembers } from '../purge-member.job';
 import { Guild, GuildMember, Role } from 'discord.js';
 
 describe('purgeMembers - Temp Member', () => {
