@@ -52,6 +52,5 @@ jobs:
         with:
           context: .
           push: true
-          # Tag the image as: ghcr.io/presstronic/station-bot:<version from VERSION file>
-          tags: ghcr.io/presstronic/station-bot:${{ steps.version.outputs.version }}
-
+          # Tag the image with both the version and "latest"
+          tags: ghcr.io/presstronic/station-bot:${{ steps.version.outputs.version }},ghcr.io/presstronic/station-bot:latest
