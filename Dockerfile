@@ -1,24 +1,35 @@
-# Dockerfile (placed in project root)
-FROM node:22-alpine
+# Use the latest LTS version of Node.js
+FROM node:22.14.0-alpine AS builder
 
-# 1. Create a non-root user
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-
-# 2. Create working dir
+# Set the working directory
 WORKDIR /app
 
-# 3. Copy and install dependencies
+# Copy package files first to leverage Docker layer caching
 COPY package*.json ./
-RUN npm ci --only=production
 
-# 4. Copy compiled files only
-COPY dist/ ./dist/
+# Install dependencies
+RUN npm ci
 
-# 5. Switch to non-root user
-USER appuser
+# Copy source files
+COPY tsconfig.json ./
+COPY src ./src
 
-# 6. Expose port if your bot has a webserver (slash commands, etc.)
-# EXPOSE 3000
+# Build TypeScript files
+RUN npm run build
 
-# 7. Start command
+# Use a minimal Node.js runtime for the final image
+FROM node:22.14.0-alpine AS runner
+
+# Set the working directory
+WORKDIR /app
+
+# Copy only the built files and dependencies (NO `src/`)
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/package.json ./
+
+# Set environment variables
+ENV NODE_ENV=production
+
+# Run the bot
 CMD ["node", "dist/index.js"]

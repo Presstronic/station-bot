@@ -47,7 +47,3 @@ client.on('interactionCreate', async (interaction) => {
 });
 
 client.login(DISCORD_BOT_TOKEN);
-
-logger.info('Bot started successfully');
-logger.debug("WHYYYY DEBUG");
-logger.error('Failed to load application configuration');
