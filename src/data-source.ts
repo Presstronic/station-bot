@@ -2,11 +2,11 @@ import { DataSource } from 'typeorm';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 
-import { AppUser } from './entity/app-user.entity';
-import { Company } from './entity/company.entity'
-import { Organization } from './entity/organization.entity';
-import { Vehicle } from './entity/vehicle.entity';
-import { VehicleType } from './entity/vehicle-type.entity';
+import { AppUser } from './entity/app-user.entity.js';
+import { Company } from './entity/company.entity.js'
+import { Organization } from './entity/organization.entity.js';
+import { Vehicle } from './entity/vehicle.entity.js';
+import { VehicleType } from './entity/vehicle-type.entity.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

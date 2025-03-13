@@ -8,8 +8,8 @@ import {
   } from 'discord.js';
   import { REST } from '@discordjs/rest';
   import { Routes } from 'discord-api-types/v10';
-  import { generateDrdntVerificationCode } from '../services/verification-code.services';
-  import { logger } from '../utils/logger';
+  import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
+  import { getLogger } from '../utils/logger.js';
   
   const commands = [
     new SlashCommandBuilder()
@@ -22,6 +22,8 @@ import {
           .setRequired(true)
       )
   ];
+
+  const logger = getLogger();
   
   const verificationCodes = new Map<
     string,

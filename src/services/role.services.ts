@@ -1,5 +1,7 @@
 import { ButtonInteraction } from "discord.js";
-import { logger } from '../utils/logger';
+import { getLogger } from '../utils/logger.js';
+
+const logger = getLogger();
 
 export async function assignVerifiedRole(
     interaction: ButtonInteraction,

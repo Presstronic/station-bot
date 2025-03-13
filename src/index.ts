@@ -1,15 +1,23 @@
 
-// src/index.ts
+import dotenv from 'dotenv';
+dotenv.config();
 
 import { Client, IntentsBitField } from 'discord.js';
-import dotenv from 'dotenv';
-import { registerCommands } from './commands/citizen';
-import { handleInteraction } from './interactions/verifyButton';
-import { logger } from './utils/logger';
-import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job'
-import { cli } from 'winston/lib/winston/config';
+import { registerCommands } from './commands/citizen.js';
+import { handleInteraction } from './interactions/verifyButton.js';
+import { getLogger } from './utils/logger.js';
+import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js'
 
-dotenv.config();
+const logger = getLogger();
+
+process.on('uncaughtException', (error) => {
+  logger.error(`Uncaught Exception: ${error.message}`, error);
+  process.exit(1); // Exit after logging
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+});
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 

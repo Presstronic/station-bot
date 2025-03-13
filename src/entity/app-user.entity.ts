@@ -6,7 +6,7 @@ import {
     UpdateDateColumn,
     ManyToOne,
   } from 'typeorm';
-  import { Organization } from './organization.entity'
+  import { Organization } from './organization.entity.js'
   
   @Entity('app_user')
   export class AppUser {

@@ -1,18 +1,28 @@
-// src/utils/logger.ts
+import { createLogger, format, transports } from 'winston';
+import { ElasticsearchTransport } from 'winston-elasticsearch';
 
-import winston, { format, transports, Logger } from 'winston';
-import { TransformableInfo } from 'logform';
+export const getLogger = () => {
+  const logLevel = process.env.LOG_LEVEL || 'info'; // Read environment variables dynamically
+  const esNode = process.env.ELASTICSEARCH_NODE || 'http://localhost:9200';
 
-export const logger: Logger = winston.createLogger({
-  level: 'info',
-  format: format.combine(
-    format.colorize(),
-    format.timestamp({
-      format: 'YYYY-MM-DD HH:mm:ss',
-    }),
-    format.printf((info: TransformableInfo) => {
-      return `${info.timestamp} [${info.level}]: ${info.message}`;
-    })
-  ),
-  transports: [new transports.Console()],
-});
+  const esTransport = new ElasticsearchTransport({
+    level: logLevel,
+    clientOpts: { node: esNode },
+  });
+
+  return createLogger({
+    level: logLevel,
+    format: format.combine(
+      format.timestamp(),
+      format.json(),
+      format.printf(({ timestamp, level, message }) => {
+        return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+      })
+    ),
+    transports: [
+      new transports.Console(),
+      new transports.File({ filename: './logs/app.log' }),
+      esTransport,
+    ],
+  });
+};
