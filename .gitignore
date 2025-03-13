@@ -34,7 +34,6 @@ pids
 bower_components
 
 # Lock files
-package-lock.json
 yarn.lock
 pnpm-lock.yaml
 
