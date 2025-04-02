@@ -1,5 +1,6 @@
 import {
     Client,
+    Guild,
     SlashCommandBuilder,
     ChatInputCommandInteraction,
     ActionRowBuilder,
@@ -10,7 +11,8 @@ import {
   import { Routes } from 'discord-api-types/v10';
   import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
   import { getLogger } from '../utils/logger.js';
-  
+  import i18n from 'i18n'
+
   const commands = [
     new SlashCommandBuilder()
       .setName('verify')

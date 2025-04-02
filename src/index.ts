@@ -3,10 +3,20 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import { Client, IntentsBitField } from 'discord.js';
-import { registerCommands } from './commands/citizen.js';
+import { registerCommands } from './commands/verify.js';
 import { handleInteraction } from './interactions/verifyButton.js';
 import { getLogger } from './utils/logger.js';
 import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js'
+
+// Added next 2 lines for i18n
+import i18n from 'i18n';
+import path from 'path';
+
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const logger = getLogger();
 
@@ -17,6 +27,16 @@ process.on('uncaughtException', (error) => {
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error(`Unhandled Rejection at: ${promise}, reason: ${reason}`);
+});
+
+// Configure i18n
+i18n.configure({
+  locales: ['en', 'fr'], // List all supported languages
+  directory: join(__dirname, '../locales'),
+  defaultLocale: 'en',
+  autoReload: true,         // Automatically reload translation files on change (optional)
+  updateFiles: false,       // Disable writing new missing keys (optional)
+  objectNotation: true,     // Allows you to use nested JSON keys
 });
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
