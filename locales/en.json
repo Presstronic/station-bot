@@ -1,13 +1,30 @@
 {
   "commands": {
+    "kick": {
+      "name": "kick",
+      "description": "Kick a member from the server.",
+      "option": {
+        "target": "The member to kick.",
+        "reason": "Reason for kicking the member."
+      },
+      "defaultReason": "No reason provided.",
+      "success": "Successfully kicked {user}. Reason: {reason}",
+      "errorNotInGuild": "This command can only be used in a guild.",
+      "errorNotFound": "The specified user is not in this guild.",
+      "errorNotKickable": "I cannot kick this user. They might have higher permissions than me.",
+      "errorKick": "There was an error while trying to kick the member."
+    },
     "verify": {
-      "description": "Verify your RSI profile",
-      "buttonLabel": "Verify",
-      "replyMessage": "Hello %(user)s, please add the following verification code to your RSI profile's short bio:\n\n`%(code)s`\n\nOnce you've done that, click the '%(buttonLabel)s' button below.",
+      "name": "verify",
+      "description": "Verify your account with your in-game name.",
       "options": {
         "inGameName": {
-          "description": "Your RSI profile name"
-      }
+          "name": "in-game-name",
+          "description": "Enter your in-game name."
+        }
+      },
+      "buttonLabel": "Verify",
+      "replyMessage": "Hello {user}, your verification code is {code}."
     }
   },
   "jobs": {

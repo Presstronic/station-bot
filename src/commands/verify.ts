@@ -10,37 +10,23 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
 import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
 import { getLogger } from '../utils/logger.js';
-import i18n from 'i18n';
+import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
+const defaultLocale = 'en';
 
-// Helper to retrieve localized strings.
-// It accepts a key, a locale (defaulting to 'en'), and optional parameters for placeholders.
-function getLocalizedString(
-  key: string,
-  locale: string = 'en',
-  params?: Record<string, string>
-): string {
-  return i18n.__({ phrase: key, locale }, params || {});
-}
+// Build the verify command using i18n for default (registration) strings.
+const verifyCommandBuilder = new SlashCommandBuilder()
+  .setName(i18n.__({ phrase: 'commands.verify.name', locale: defaultLocale }))
+  .setDescription(i18n.__({ phrase: 'commands.verify.description', locale: defaultLocale }))
+  .addStringOption((option) => {
+    return option
+      .setName(i18n.__({ phrase: 'commands.verify.options.inGameName.name', locale: defaultLocale }))
+      .setDescription(i18n.__({ phrase: 'commands.verify.options.inGameName.description', locale: defaultLocale }))
+      .setRequired(true);
+  });
 
-// Define the verify command with localization for description and option fields.
-const verifyCommand = new SlashCommandBuilder()
-  .setName('verify')
-  // Command names must remain static, so we reuse the same value for localization.
-  .setNameLocalization('fr', 'verify')
-  .setDescription(getLocalizedString('commands.verify.description'))
-  .setDescriptionLocalization('fr', getLocalizedString('commands.verify.description', 'fr'))
-  .addStringOption((option) =>
-    option
-      .setName('in-game-name')
-      .setNameLocalization('fr', 'in-game-name')
-      .setDescription(getLocalizedString('commands.verify.options.inGameName.description'))
-      .setDescriptionLocalization('fr', getLocalizedString('commands.verify.options.inGameName.description', 'fr'))
-      .setRequired(true)
-  );
-
-const commands = [verifyCommand];
+const commands = [verifyCommandBuilder];
 
 // In-memory map to store verification codes for users.
 const verificationCodes = new Map<
@@ -72,8 +58,15 @@ export async function registerCommands(client: Client) {
 }
 
 export async function handleVerifyCommand(interaction: ChatInputCommandInteraction) {
+  // Use the guild's preferred locale if available, else fallback to defaultLocale.
+  const locale = interaction.guild
+    ? interaction.guild.preferredLocale.substring(0, 2)
+    : defaultLocale;
+
+  // Retrieve the option name from the default locale (command registration uses default strings).
+  const optionName = i18n.__({ phrase: 'commands.verify.options.inGameName.name', locale: defaultLocale });
   // Get the user's provided in-game name.
-  const rsiProfileName = interaction.options.getString('in-game-name', true);
+  const rsiProfileName = interaction.options.getString(optionName, true);
 
   // Generate a unique verification code.
   const dreadnoughtValidationCode = generateDrdntVerificationCode();
@@ -83,16 +76,13 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('verify')
-      .setLabel(
-        getLocalizedString('commands.verify.buttonLabel', interaction.locale || 'en')
-      )
+      .setLabel(i18n.__({ phrase: 'commands.verify.buttonLabel', locale }))
       .setStyle(ButtonStyle.Success)
   );
 
   // Prepare the reply message with placeholders for user and code.
-  const replyMessage = getLocalizedString(
-    'commands.verify.replyMessage',
-    interaction.locale || 'en',
+  const replyMessage = i18n.__mf(
+    { phrase: 'commands.verify.replyMessage', locale },
     {
       user: interaction.user.toString(),
       code: dreadnoughtValidationCode,
@@ -109,3 +99,4 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
 export function getUserVerificationData(userId: string) {
   return verificationCodes.get(userId);
 }
+
