@@ -60,7 +60,7 @@ export function scheduleTempMemberCleanup(client: Client) {
   const GUILD_ID = process.env.GUILD_ID || 'YOUR_GUILD_ID';
   const TEMP_ROLE_NAME = 'Temp Member';
   const HOURS_TO_EXPIRE = 48;
-  const kickMessage = "";
+  let kickMessage = "";
 
   cron.schedule('30 4 * * *', async () => {
     try {
@@ -71,10 +71,11 @@ export function scheduleTempMemberCleanup(client: Client) {
       }
 
       const guildLocale = guild?.preferredLocale || 'en';
+      const guildName = guild.name;
       kickMessage = i18n.__(
         { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale: guildLocale },
-        { guildName: guild.name },
-        { hoursToExpire: HOURS_TO_EXPIRE}
+        guildName,
+        '' + HOURS_TO_EXPIRE
       );
 
       const kickedMembers = await purgeMembers(
@@ -100,7 +101,7 @@ export function schedulePotentialApplicantCleanup(client: Client) {
   const GUILD_ID = process.env.GUILD_ID || 'YOUR_GUILD_ID';
   const ROLE_NAME = 'Potential Applicant';
   const HOURS_TO_EXPIRE = 720; // 30 days
-  const kickMessage = "";
+  let kickMessage = "";
 
   cron.schedule('45 4 * * *', async () => {
     try {
@@ -111,10 +112,11 @@ export function schedulePotentialApplicantCleanup(client: Client) {
       }
       
       const guildLocale = guild?.preferredLocale || 'en';
+      const guildName = guild.name
       kickMessage = i18n.__(
         { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale: guildLocale },
-        { guildName: guild.name },
-        { hoursToExpire: HOURS_TO_EXPIRE}
+        guildName,
+        '' + HOURS_TO_EXPIRE
       );
 
       const kickedMembers = await purgeMembers(

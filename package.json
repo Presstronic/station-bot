@@ -6,7 +6,8 @@
     "scripts": {
         "start": "node dist/index.js",
         "dev": "tsx watch src/index.ts",
-        "build": "tsc",
+        "build": "mkdir dist && npm run copy-locales && tsc",
+        "copy-locales": "cp -r locales dist/locales",
         "test": "jest",
         "test:watch": "jest --watch"
     },
