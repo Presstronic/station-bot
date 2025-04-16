@@ -30,6 +30,7 @@ kickCommandBuilder.addStringOption((option) => {
     .setRequired(false);
 });
 
+// TODO: Ned to update this to use the new permission system.
 kickCommandBuilder
   .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers)
   .setDMPermission(false);
@@ -52,7 +53,6 @@ export const kickCommand = {
       return;
     }
 
-    // Retrieve the target user and the optional reason.
     const targetUser = interaction.options.getUser(
       i18n.__({ phrase: 'commands.kick.option.target.name', locale: defaultLocale }),
       true
@@ -62,7 +62,6 @@ export const kickCommand = {
         i18n.__({ phrase: 'commands.kick.option.reason.name', locale: defaultLocale })
       ) || i18n.__({ phrase: 'commands.kick.defaultReason', locale });
 
-    // Fetch the member from the guild.
     const targetMember = await interaction.guild!.members
       .fetch(targetUser.id)
       .catch(() => null);

@@ -24,7 +24,12 @@
         }
       },
       "buttonLabel": "Verify",
-      "replyMessage": "Hello {user}, please add the following verification code to your RSI profile's short bio:\n\n {code}\n\n Once you've done that, click the {verifyButtonLabel} button below."
+      "replyMessage": "Hello {user}, please add the following verification code to your RSI profile's short bio:\n\n {code}\n\n Once you've done that, click the {verifyButtonLabel} button below.",
+      "responses": {
+        "success": "✅ {rsiName} has been verified with RSI for Discord member {username}!",
+        "assignFailed": "❌ Could not assign the \"Verified\" role for Discord member {username} for RSI profile {rsiName}. Please try again.",
+        "verificationFailed": "❌ Could not verify citizenship for Discord member {username} for RSI profile {rsiName}. Please try again."
+      }    
     }
   },
   "jobs": {

@@ -8,8 +8,10 @@ import { handleVerifyCommand, getUserVerificationData } from '../commands/verify
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
 import { verifyRSIProfile } from '../services/rsi.services.js';
- 
+import i18n from '../utils/i18n-config.js';
+
 const logger = getLogger();
+const defaultLocale = 'en';
 
 export async function handleInteraction(
   interaction: Interaction,
@@ -33,25 +35,35 @@ async function handleButtonInteraction(
 
   if (interaction.customId === 'verify') {
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
+    const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
     
     if (rsiProfileVerified) {
       const success = await assignVerifiedRole(interaction, interaction.user.id);
 
       if(success) {
         await interaction.reply({
-          content: `✅ ${rsiInGameName} has been verified with RSI for discord member ${interaction.user.username}!`,
+          content: i18n.__mf(
+            { phrase: 'commands.verify.responses.assignFailed', locale },
+            { rsiName: rsiInGameName, username: interaction.user.username }
+          ),
           ephemeral: true,
         });
       } else {
         await interaction.reply({
-          content: `❌ Could not assign "Verfied" role for discord member ${interaction.user.username} for RSI profile ${rsiInGameName}. Please try again.`,
+          content: i18n.__mf(
+            { phrase: 'commands.verify.responses.assignFailed', locale },
+            { rsiName: rsiInGameName, username: interaction.user.username }
+          ),
           ephemeral: true,
         });
       }
     } else {
       const success = await removeVerifiedRole(interaction, interaction.user.id);
       await interaction.reply({
-        content: `❌ Could not verify citizenship for discord member ${interaction.user.username} for RSI profile ${rsiInGameName}. Please try again.`,
+        content: i18n.__mf(
+          { phrase: 'commands.verify.responses.verificationFailed', locale },
+          { rsiName: rsiInGameName, username: interaction.user.username }
+        ),
         ephemeral: true,
       });
     }    

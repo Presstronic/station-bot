@@ -15,7 +15,6 @@ import i18n from '../utils/i18n-config.js';
 const logger = getLogger();
 const defaultLocale = 'en';
 
-// Build the verify command using i18n for default (registration) strings.
 const verifyCommandBuilder = new SlashCommandBuilder()
   .setName(i18n.__({ phrase: 'commands.verify.name', locale: defaultLocale }))
   .setDescription(i18n.__({ phrase: 'commands.verify.description', locale: defaultLocale }))
@@ -28,7 +27,6 @@ const verifyCommandBuilder = new SlashCommandBuilder()
 
 const commands = [verifyCommandBuilder];
 
-// In-memory map to store verification codes for users.
 const verificationCodes = new Map<
   string,
   { rsiProfileName: string; dreadnoughtValidationCode: string }
@@ -58,7 +56,6 @@ export async function registerCommands(client: Client) {
 }
 
 export async function handleVerifyCommand(interaction: ChatInputCommandInteraction) {
-  // Use the guild's preferred locale if available, else fallback to defaultLocale.
   const locale = interaction.guild
     ? interaction.guild.preferredLocale.substring(0, 2)
     : defaultLocale;
@@ -77,7 +74,6 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   );
 
   const verifyButtonLabel = i18n.__({ phrase: 'commands.verify.buttonLabel', locale });
-  logger.info("CODE: " + dreadnoughtValidationCode);
   const replyMessage = i18n.__mf(
     { phrase: 'commands.verify.replyMessage', locale },
     {
