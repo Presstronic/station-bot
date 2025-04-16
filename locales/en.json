@@ -24,7 +24,7 @@
         }
       },
       "buttonLabel": "Verify",
-      "replyMessage": "Hello {user}, your verification code is {code}."
+      "replyMessage": "Hello {user}, please add the following verification code to your RSI profile's short bio:\n\n {code}\n\n Once you've done that, click the {verifyButtonLabel} button below."
     }
   },
   "jobs": {
@@ -32,6 +32,5 @@
       "tempMemberKickMessage": "Due to %{guildName} policies, we remove temporary members after %{hoursToExpire} hour(s).\n\nThis might seem like bad news, but worry not citizen! You have not been BANNED, only kicked. You are free to rejoin the server at the link below if you decide to join %{guildName} as a full member. Keep in mind, you must also apply on the official organization page over at https://www.robertsspaceindustries.com/orgs/DRDNT to be considered. Failure to do so will result in an automatic application denial and (another) kick from the server.\n\nIf you choose to join, we'll be excited to have you! If not, fly safe and we'll see you in 'verse!\n\n%{discordInviteLink}\n\n-Dreadnought Industries Management"
     },
       "potentialApplicantKickMessage": "Due to %{guildName} policies, we remove Potential Applicants who haven't made a decision on membership after 30 days.\n\nThis might seem like bad news, but worry not citizen! You have not been BANNED, only kicked. You are free to rejoin the server at the link below if you decide to join %{guildName} as a full member. Keep in mind, you must also apply on the official organization page over at https://www.robertsspaceindustries.com/orgs/DRDNT to be considered. Failure to do so will result in an automatic application denial and (another) kick from the server.\n\nIf you choose to join, we'll be excited to have you! If not, fly safe and we'll see you in 'verse!\n\n%{discordInviteLink}\n\n-Dreadnought Industries Management"
-    }   
-  }
-}
+  }   
+}   

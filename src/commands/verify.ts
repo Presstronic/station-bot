@@ -63,16 +63,12 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
     ? interaction.guild.preferredLocale.substring(0, 2)
     : defaultLocale;
 
-  // Retrieve the option name from the default locale (command registration uses default strings).
   const optionName = i18n.__({ phrase: 'commands.verify.options.inGameName.name', locale: defaultLocale });
-  // Get the user's provided in-game name.
   const rsiProfileName = interaction.options.getString(optionName, true);
 
-  // Generate a unique verification code.
   const dreadnoughtValidationCode = generateDrdntVerificationCode();
   verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode });
 
-  // Create a Verify button with localized label.
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
       .setCustomId('verify')
@@ -80,12 +76,14 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
       .setStyle(ButtonStyle.Success)
   );
 
-  // Prepare the reply message with placeholders for user and code.
+  const verifyButtonLabel = i18n.__({ phrase: 'commands.verify.buttonLabel', locale });
+  logger.info("CODE: " + dreadnoughtValidationCode);
   const replyMessage = i18n.__mf(
     { phrase: 'commands.verify.replyMessage', locale },
     {
       user: interaction.user.toString(),
       code: dreadnoughtValidationCode,
+      verifyButtonLabel: verifyButtonLabel,
     }
   );
 

@@ -8,7 +8,7 @@ const __dirname = dirname(__filename);
 
 i18n.configure({
   locales: ['en'],
-  directory: join(__dirname, '../../locales'), // adjust path as needed
+  directory: join(__dirname, '../locales'), // adjust path as needed
   defaultLocale: 'en',
   autoReload: true,
   updateFiles: false,
