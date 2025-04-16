@@ -18,8 +18,6 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-logger.info('^^^^^^^^^ DISCORD_BOT_TOKEN:', DISCORD_BOT_TOKEN);
-
 if (!DISCORD_BOT_TOKEN) {
   logger.error('Bot token is missing. Please set DISCORD_BOT_TOKEN in your .env file.');
   process.exit(1);
