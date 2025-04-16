@@ -75,7 +75,6 @@ export const kickCommand = {
       return;
     }
 
-    // Check if the bot is allowed to kick the member.
     if (!targetMember.kickable) {
       logger.error(`Kick command: Cannot kick ${targetUser.tag}; insufficient permissions.`);
       await interaction.reply({
