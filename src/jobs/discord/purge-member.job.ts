@@ -83,38 +83,32 @@ export function scheduleTempMemberCleanup(client: Client) {
   cron.schedule('*/2 * * * *', async () => {
     logger.info("Running tempMemberCleanup");
   
-    client.on('ready', async () => {
-      try {
-        client.guilds.cache.forEach(guild => {
-          console.log(`${guild.name} – ${guild.id}`);
-        });
-
-        const guild = client.guilds.cache.get(GUILD_ID);
-        if (!guild) {
-          console.error(`Could not find guild with ID: ${GUILD_ID}`);
-          return;
-        }
-
-        const guildLocale = guild?.preferredLocale || 'en';
-        const guildName = guild.name;
-        kickMessage = i18n.__(
-          { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale: guildLocale },
-          guildName,
-          '' + HOURS_TO_EXPIRE
-        );
-
-        const kickedMembers = await purgeMembers(
-          guild,
-          TEMP_ROLE_NAME,
-          0, //HOURS_TO_EXPIRE,
-          "TEMPORARY MEMBERS TIME LIMIT",
-          kickMessage
-        );
-        console.log(`Temp Member cleanup finished. Kicked:`, kickedMembers);
-      } catch (error) {
-        console.error('Error in cleanup job:', error);
+    try {
+      const guild = client.guilds.cache.get(GUILD_ID);
+      if (!guild) {
+        console.error(`Could not find guild with ID: ${GUILD_ID}`);
+        return;
       }
-    })
+
+      const guildLocale = guild?.preferredLocale || 'en';
+      const guildName = guild.name;
+      kickMessage = i18n.__(
+        { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale: guildLocale },
+        guildName,
+        '' + HOURS_TO_EXPIRE
+      );
+
+      const kickedMembers = await purgeMembers(
+        guild,
+        TEMP_ROLE_NAME,
+        0, //HOURS_TO_EXPIRE,
+        "TEMPORARY MEMBERS TIME LIMIT",
+        kickMessage
+      );
+      console.log(`Temp Member cleanup finished. Kicked:`, kickedMembers);
+    } catch (error) {
+      console.error('Error in cleanup job:', error);
+    }
   });
 }
 
@@ -129,7 +123,7 @@ export function schedulePotentialApplicantCleanup(client: Client) {
   const HOURS_TO_EXPIRE = 720; // 30 days
   let kickMessage = "";
 
-  cron.schedule('*/5 * * * *', async () => {
+  cron.schedule('*/2 * * * *', async () => {
     logger.info("Running PotentialApplicationCleanup");
     try {
       const guild = client.guilds.cache.get(GUILD_ID);
