@@ -7,14 +7,12 @@ import { getLogger } from '../utils/logger.js';
 import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
-const defaultLocale = 'en';
+const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
-// Create the command builder using the default locale.
 const kickCommandBuilder = new SlashCommandBuilder()
   .setName(i18n.__({ phrase: 'commands.kick.name', locale: defaultLocale }))
   .setDescription(i18n.__({ phrase: 'commands.kick.description', locale: defaultLocale }));
 
-// Add the "target" user option.
 kickCommandBuilder.addUserOption((option) => {
   return option
     .setName(i18n.__({ phrase: 'commands.kick.option.target.name', locale: defaultLocale }))
@@ -22,7 +20,6 @@ kickCommandBuilder.addUserOption((option) => {
     .setRequired(true);
 });
 
-// Add the "reason" string option.
 kickCommandBuilder.addStringOption((option) => {
   return option
     .setName(i18n.__({ phrase: 'commands.kick.option.reason.name', locale: defaultLocale }))

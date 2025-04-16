@@ -1,14 +1,10 @@
-
-import dotenv from 'dotenv';
-dotenv.config();
+import './bootstrap.js';
 
 import { Client, IntentsBitField } from 'discord.js';
 import { registerCommands } from './commands/verify.js';
 import { handleInteraction } from './interactions/verifyButton.js';
 import { getLogger } from './utils/logger.js';
 import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js'
-
-import i18n from './utils/i18n-config.js';
 
 const logger = getLogger();
 
@@ -22,6 +18,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+logger.info('^^^^^^^^^ DISCORD_BOT_TOKEN:', DISCORD_BOT_TOKEN);
 
 if (!DISCORD_BOT_TOKEN) {
   logger.error('Bot token is missing. Please set DISCORD_BOT_TOKEN in your .env file.');
@@ -37,7 +34,7 @@ client.once('ready', async () => {
     return;
   }
 
-  await registerCommands(client);
+  await registerCommands();
 
   scheduleTempMemberCleanup(client);
 
