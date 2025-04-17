@@ -1,18 +1,12 @@
-// src/jobs/purge-member.job.ts
 import cron from 'node-cron';
-import { getLogger } from '../../utils/logger.js';
 import { Client, Guild } from 'discord.js';
-
+import { getLogger } from '../../utils/logger.js';
 import i18n from 'i18n';
 
 const logger = getLogger();
 
-  /**
- * Kicks members who have the specified role and have been
- * in the guild beyond the expiration threshold (in hours).
- *
- * NOTES: I would like to see if there are some more efficient ways than these loops to access
- * some of the user data.
+/**
+ * Kicks members with a given role who have exceeded the time limit.
  */
 export async function purgeMembers(
   guild: Guild,
@@ -24,45 +18,37 @@ export async function purgeMembers(
   const MEMBERS_KICKED: string[] = [];
   const expirationMs = hoursToExpire * 60 * 60 * 1000;
 
-  // Make sure we have an up-to-date list of all members
-  await guild.members.fetch();
+  try {
+    await guild.members.fetch(); // Load full member list
+  } catch (err) {
+    logger.error(`Could not fetch members for guild ${guild.name}:`, err);
+    return MEMBERS_KICKED;
+  }
 
   for (const member of guild.members.cache.values()) {
-    const hasRole = member.roles.cache.some(
-      (role) => role.name === roleName
-    );
-
+    const hasRole = member.roles.cache.some(role => role.name === roleName);
     const joinedTime = member.joinedTimestamp ?? 0;
     const isOverExpiration = Date.now() - joinedTime > expirationMs;
 
-    if ((hasRole && isOverExpiration) || (hasRole && hoursToExpire === 0)) {
-
+    if (hasRole && (hoursToExpire === 0 || isOverExpiration)) {
       if (!member.kickable) {
-        logger.error(`Kick command: Cannot kick ${member.user.tag}; insufficient permissions.`);
-        return [];
+        logger.warn(`Cannot kick ${member.user.tag} in ${guild.name}; insufficient permissions.`);
+        continue;
       }
 
       try {
-        const guildLocale = guild?.preferredLocale || 'en';
-
         await member.user.send(purgeMessage);
-      } catch (error) {
-        console.error('Unable to send DM before kick: ', error);
+      } catch {
+        logger.warn(`Could not DM ${member.user.tag} before kicking.`);
       }
 
       try {
         await member.kick(purgeReason);
-        logger.info(
-          `Kick command: Successfully kicked ${member.user.tag} from guild ${guild?.name}. Reason: ${purgeReason}`
-        );
+        logger.info(`Kicked ${member.user.tag} from ${guild.name}: ${purgeReason}`);
+        MEMBERS_KICKED.push(member.user.tag);
       } catch (error) {
-        logger.error(`Kick command: Error kicking ${member.user.tag}:`, error);
+        logger.error(`Error kicking ${member.user.tag}:`, error);
       }
-
-      // await member.kick(
-      //  `${roleName} expired: over ${hoursToExpire} hours on server.`
-      // );
-      MEMBERS_KICKED.push(member.user.tag);
     }
   }
 
@@ -70,92 +56,75 @@ export async function purgeMembers(
 }
 
 /**
- * Schedules a nightly cleanup job that kicks server members
- * with the Temp Member role who have been on the server for
- * more than X hours.
+ * Cleanup task for "Temp Member" role.
  */
 export function scheduleTempMemberCleanup(client: Client) {
-  const GUILD_ID : string = process.env.GUILD_ID || 'YOUR_GUILD_ID';
   const TEMP_ROLE_NAME = 'Temp Member';
   const HOURS_TO_EXPIRE = 48;
-  let kickMessage = "";
 
   cron.schedule('*/2 * * * *', async () => {
-    logger.info("Running tempMemberCleanup");
-  
-    client.on('ready', async () => {
+    logger.info('[Job] Running Temp Member Cleanup');
+
+    for (const guild of client.guilds.cache.values()) {
       try {
-        client.guilds.cache.forEach(guild => {
-          console.log(`${guild.name} – ${guild.id}`);
-        });
-
-        const guild = client.guilds.cache.get(GUILD_ID);
-        if (!guild) {
-          console.error(`Could not find guild with ID: ${GUILD_ID}`);
-          return;
-        }
-
-        const guildLocale = guild?.preferredLocale || 'en';
+        const locale = guild.preferredLocale || 'en';
         const guildName = guild.name;
-        kickMessage = i18n.__(
-          { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale: guildLocale },
+
+        const message = i18n.__(
+          { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale },
           guildName,
-          '' + HOURS_TO_EXPIRE
+          HOURS_TO_EXPIRE.toString()
         );
 
-        const kickedMembers = await purgeMembers(
+        const kicked = await purgeMembers(
           guild,
           TEMP_ROLE_NAME,
-          0, //HOURS_TO_EXPIRE,
-          "TEMPORARY MEMBERS TIME LIMIT",
-          kickMessage
+          0, // Change to HOURS_TO_EXPIRE to enforce actual expiration
+          'TEMPORARY MEMBERS TIME LIMIT',
+          message
         );
-        console.log(`Temp Member cleanup finished. Kicked:`, kickedMembers);
+
+        logger.info(`[${guildName}] Temp Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
       } catch (error) {
-        console.error('Error in cleanup job:', error);
+        logger.error(`Temp Member cleanup failed for guild ${guild.id}:`, error);
       }
-    })
+    }
   });
 }
 
 /**
- * Schedules a nightly cleanup job that kicks server members
- * with the Potential Applicant role who have been on the server for
- * more than 30 Days (720 hours).
+ * Cleanup task for "Potential Applicant" role.
  */
 export function schedulePotentialApplicantCleanup(client: Client) {
-  const GUILD_ID = process.env.GUILD_ID || 'YOUR_GUILD_ID';
   const ROLE_NAME = 'Potential Applicant';
   const HOURS_TO_EXPIRE = 720; // 30 days
-  let kickMessage = "";
 
-  cron.schedule('*/5 * * * *', async () => {
-    logger.info("Running PotentialApplicationCleanup");
-    try {
-      const guild = client.guilds.cache.get(GUILD_ID);
-      if (!guild) {
-        console.error(`Could not find guild with ID: ${GUILD_ID}`);
-        return;
+  cron.schedule('*/2 * * * *', async () => {
+    logger.info('[Job] Running Potential Applicant Cleanup');
+
+    for (const guild of client.guilds.cache.values()) {
+      try {
+        const locale = guild.preferredLocale || 'en';
+        const guildName = guild.name;
+
+        const message = i18n.__(
+          { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
+          guildName,
+          HOURS_TO_EXPIRE.toString()
+        );
+
+        const kicked = await purgeMembers(
+          guild,
+          ROLE_NAME,
+          0, // Change to HOURS_TO_EXPIRE to enforce expiration
+          'POTENTIAL APPLICANT TIME LIMIT',
+          message
+        );
+
+        logger.info(`[${guildName}] Potential Applicant cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
+      } catch (error) {
+        logger.error(`Potential Applicant cleanup failed for guild ${guild.id}:`, error);
       }
-      
-      const guildLocale = guild?.preferredLocale || 'en';
-      const guildName = guild.name
-      kickMessage = i18n.__(
-        { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale: guildLocale },
-        guildName,
-        '' + HOURS_TO_EXPIRE
-      );
-
-      const kickedMembers = await purgeMembers(
-        guild,
-        ROLE_NAME,
-        0, //HOURS_TO_EXPIRE,
-        "POTENTIAL APPLICANT TIME LIMIT",
-        kickMessage
-      );
-      console.log(`${ROLE_NAME} potential applicant purge job finished. Kicked:`, kickedMembers);
-    } catch (error) {
-      console.error('Error in potential applicant purge job scheduling:', error);
     }
   });
 }
