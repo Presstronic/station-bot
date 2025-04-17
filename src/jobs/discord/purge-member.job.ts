@@ -73,7 +73,7 @@ export function scheduleTempMemberCleanup(client: Client) {
         const locale = guild.preferredLocale || 'en';
         const guildName = guild.name;
 
-        const message = i18n.__(
+        const message = i18n.__mf(
           { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale },
           {
             guildName,
@@ -115,7 +115,7 @@ export function schedulePotentialApplicantCleanup(client: Client) {
         const locale = guild.preferredLocale || 'en';
         const guildName = guild.name;
 
-        const message = i18n.__(
+        const message = i18n.__mf(
           { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
           {
             guildName,
