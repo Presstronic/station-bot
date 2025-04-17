@@ -1,11 +1,19 @@
+<<<<<<< HEAD
 import './bootstrap.js'; // Loads dotenv and any shared setup
+=======
+import './bootstrap.js';
+>>>>>>> bf5641a3e13dab6d6bccfb89a692b1db65df2300
 
 import { Client, IntentsBitField } from 'discord.js';
 import { registerCommands } from './commands/verify.js';
 import { handleInteraction } from './interactions/verifyButton.js';
 import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
 import { getLogger } from './utils/logger.js';
+<<<<<<< HEAD
 import i18n from './utils/i18n-config.js';
+=======
+import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js'
+>>>>>>> bf5641a3e13dab6d6bccfb89a692b1db65df2300
 
 const logger = getLogger();
 
@@ -43,6 +51,15 @@ client.once('ready', async () => {
     logger.error('Error during bot initialization:', error);
     process.exit(1);
   }
+<<<<<<< HEAD
+=======
+
+  await registerCommands();
+
+  scheduleTempMemberCleanup(client);
+
+  schedulePotentialApplicantCleanup(client);
+>>>>>>> bf5641a3e13dab6d6bccfb89a692b1db65df2300
 });
 
 client.on('interactionCreate', async (interaction) => {
