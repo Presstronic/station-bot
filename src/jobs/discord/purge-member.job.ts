@@ -62,9 +62,11 @@ export function scheduleTempMemberCleanup(client: Client) {
   const TEMP_ROLE_NAME = 'Temp Member';
   const HOURS_TO_EXPIRE = 48;
 
+  logger.info(`SCHEDTEMPMBR: Bot is in ${client.guilds.cache.size} guild(s).`);
+
   cron.schedule('*/2 * * * *', async () => {
     logger.info('[Job] Running Temp Member Cleanup');
-
+    logger.info(`SCHEDTEMPMBR->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
     for (const guild of client.guilds.cache.values()) {
       try {
         const locale = guild.preferredLocale || 'en';
@@ -99,9 +101,11 @@ export function schedulePotentialApplicantCleanup(client: Client) {
   const ROLE_NAME = 'Potential Applicant';
   const HOURS_TO_EXPIRE = 720; // 30 days
 
+  logger.info(`SCHEDPOTAPP: Bot is in ${client.guilds.cache.size} guild(s).`);
+
   cron.schedule('*/2 * * * *', async () => {
     logger.info('[Job] Running Potential Applicant Cleanup');
-
+    logger.info(`SCHEDPOTAPP->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
     for (const guild of client.guilds.cache.values()) {
       try {
         const locale = guild.preferredLocale || 'en';
