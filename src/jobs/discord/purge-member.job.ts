@@ -67,6 +67,7 @@ export function scheduleTempMemberCleanup(client: Client) {
   cron.schedule('*/2 * * * *', async () => {
     logger.info('[Job] Running Temp Member Cleanup');
     logger.info(`SCHEDTEMPMBR->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
+
     for (const guild of client.guilds.cache.values()) {
       try {
         const locale = guild.preferredLocale || 'en';
@@ -74,8 +75,10 @@ export function scheduleTempMemberCleanup(client: Client) {
 
         const message = i18n.__(
           { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale },
-          guildName,
-          HOURS_TO_EXPIRE.toString()
+          {
+            guildName,
+            hoursToExpire: HOURS_TO_EXPIRE.toString()
+          }
         );
 
         const kicked = await purgeMembers(
@@ -106,6 +109,7 @@ export function schedulePotentialApplicantCleanup(client: Client) {
   cron.schedule('*/2 * * * *', async () => {
     logger.info('[Job] Running Potential Applicant Cleanup');
     logger.info(`SCHEDPOTAPP->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
+
     for (const guild of client.guilds.cache.values()) {
       try {
         const locale = guild.preferredLocale || 'en';
@@ -113,14 +117,16 @@ export function schedulePotentialApplicantCleanup(client: Client) {
 
         const message = i18n.__(
           { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
-          guildName,
-          HOURS_TO_EXPIRE.toString()
+          {
+            guildName,
+            hoursToExpire: HOURS_TO_EXPIRE.toString()
+          }
         );
 
         const kicked = await purgeMembers(
           guild,
           ROLE_NAME,
-          0, // Change to HOURS_TO_EXPIRE to enforce expiration
+          0, // Change to HOURS_TO_EXPIRE to enforce actual expiration
           'POTENTIAL APPLICANT TIME LIMIT',
           message
         );
