@@ -42,6 +42,8 @@ describe('purgeMembers - Temporary Member', () => {
 
     // Mock the Guild
     mockGuild = {
+      name: 'Test Guild',
+      preferredLocale: 'en-US',
       members: {
         fetch: jest.fn().mockResolvedValue(mockMembers),
         cache: new Map(mockMembers.map((m) => [m.user.tag, m])),
@@ -50,12 +52,22 @@ describe('purgeMembers - Temporary Member', () => {
   });
 
   it('kicks Temporary Members who joined more than 48 hours ago', async () => {
+    const locale = mockGuild.preferredLocale;
     const HOURS_TO_EXPIRE = 48;
+    const message = i18n.__mf(
+      { phrase: 'jobs.purgeMember.temporaryMemberKickMessage', locale },
+      {
+        cleanGuildName: mockGuild.name.replace(/[^\w\s\-]/g, ''),
+        hoursToExpire: HOURS_TO_EXPIRE.toString()
+      }
+    );
+
     const kickedMembers = await purgeMembers(
       mockGuild,
       'Temporary Member',
       HOURS_TO_EXPIRE,
-      "TEST TEMPORARY MEMBERS TIME LIMIT"
+      "TEST TEMPORARY MEMBERS TIME LIMIT",
+      message
     );
 
     // We only expect the member who joined 49 hours ago to be kicked
@@ -121,11 +133,21 @@ describe('purgeMembers - Potential Applicant', () => {
 
   it('kicks Potential Applicant members who joined more than 30 days (720 hours) ago', async () => {
     const HOURS_TO_EXPIRE = 720; // 30 days
+    const locale = mockGuild.preferredLocale;
+    const message = i18n.__mf(
+      { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
+      {
+        cleanGuildName: mockGuild.name.replace(/[^\w\s\-]/g, ''),
+        hoursToExpire: HOURS_TO_EXPIRE.toString()
+      }
+    );
+
     const kickedMembers = await purgeMembers(
       mockGuild,
       'Potential Applicant',
       HOURS_TO_EXPIRE,
-      "TEST POTENTIAL APPLICANT TIME LIMIT"
+      "TEST POTENTIAL APPLICANT TIME LIMIT",
+      message
     );
 
     // We only expect the 31-day user to be kicked

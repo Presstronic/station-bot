@@ -1,0 +1,10 @@
+// tsconfig.test.json
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+      "allowImportingTsExtensions": true,
+      "noEmit": true
+    },
+    "include": ["src", "types"]
+  }
+  
