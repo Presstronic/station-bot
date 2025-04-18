@@ -56,16 +56,16 @@ export async function purgeMembers(
 }
 
 /**
- * Cleanup task for "Temp Member" role.
+ * Cleanup task for "Temporary Member" role.
  */
-export function scheduleTempMemberCleanup(client: Client) {
-  const TEMP_ROLE_NAME = 'Temp Member';
+export function scheduleTemporaryMemberCleanup(client: Client) {
+  const TEMPORARY_ROLE_NAME = 'Temporary Member';
   const HOURS_TO_EXPIRE = 48;
 
   logger.info(`SCHEDTEMPMBR: Bot is in ${client.guilds.cache.size} guild(s).`);
 
   cron.schedule('*/2 * * * *', async () => {
-    logger.info('[Job] Running Temp Member Cleanup');
+    logger.info('[Job] Running Temporary Member Cleanup');
     logger.info(`SCHEDTEMPMBR->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
 
     for (const guild of client.guilds.cache.values()) {
@@ -74,7 +74,7 @@ export function scheduleTempMemberCleanup(client: Client) {
         const guildName = guild.name;
 
         const message = i18n.__mf(
-          { phrase: 'jobs.purgeMember.tempMemberKickMessage', locale },
+          { phrase: 'jobs.purgeMember.temporaryMemberKickMessage', locale },
           {
             guildName,
             hoursToExpire: HOURS_TO_EXPIRE.toString()
@@ -83,15 +83,15 @@ export function scheduleTempMemberCleanup(client: Client) {
 
         const kicked = await purgeMembers(
           guild,
-          TEMP_ROLE_NAME,
+          TEMPORARY_ROLE_NAME,
           0, // Change to HOURS_TO_EXPIRE to enforce actual expiration
           'TEMPORARY MEMBERS TIME LIMIT',
           message
         );
 
-        logger.info(`[${guildName}] Temp Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
+        logger.info(`[${guildName}] Temporary Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
       } catch (error) {
-        logger.error(`Temp Member cleanup failed for guild ${guild.id}:`, error);
+        logger.error(`Temporary Member cleanup failed for guild ${guild.id}:`, error);
       }
     }
   });

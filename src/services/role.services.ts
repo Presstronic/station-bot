@@ -3,8 +3,7 @@ import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
 
-// Load required roles from .env or fallback to defaults
-const DEFAULT_ROLE_ENV = process.env.DEFAULT_ROLES || 'Temp Member,Potential Applicant';
+const DEFAULT_ROLE_ENV = process.env.DEFAULT_ROLES || 'Verified,Temporary Member,Potential Applicant';
 const REQUIRED_ROLES = DEFAULT_ROLE_ENV.split(',').map((r) => r.trim());
 
 /**

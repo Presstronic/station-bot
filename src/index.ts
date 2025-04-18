@@ -3,7 +3,7 @@ import './bootstrap.js'; // Loads dotenv and any shared setup
 import { Client, IntentsBitField } from 'discord.js';
 import { registerCommands } from './commands/verify.js';
 import { handleInteraction } from './interactions/verifyButton.js';
-import { scheduleTempMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
+import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import i18n from './utils/i18n-config.js';
@@ -46,7 +46,7 @@ client.once('ready', async () => {
     ),
   ]);
 
-  scheduleTempMemberCleanup(client);
+  scheduleTemporaryMemberCleanup(client);
   schedulePotentialApplicantCleanup(client);
 
   logger.info('Startup tasks complete.');

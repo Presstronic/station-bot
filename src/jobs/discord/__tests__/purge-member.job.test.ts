@@ -1,13 +1,13 @@
 import { purgeMembers } from '../purge-member.job';
 import { Guild, GuildMember, Role } from 'discord.js';
 
-describe('purgeMembers - Temp Member', () => {
+describe('purgeMembers - Temporary Member', () => {
   let mockGuild: Guild;
   let mockMembers: GuildMember[];
   
   beforeEach(() => {
-    // Create a fake "Temp Member" role
-    const tempRole = { id: 'tempRoleId', name: 'Temp Member' } as Role;
+    // Create a fake "Temporary Member" role
+    const tempRole = { id: 'tempRoleId', name: 'Temporary Member' } as Role;
     const now = Date.now();
 
     mockMembers = [
@@ -35,7 +35,7 @@ describe('purgeMembers - Temp Member', () => {
           send: jest.fn(() => Promise.resolve())
         },
         roles: { cache: [] },
-        joinedTimestamp: now - 100 * 60 * 60 * 1000, // 100 hours but no "Temp Member" role
+        joinedTimestamp: now - 100 * 60 * 60 * 1000, // 100 hours but no "Temporary Member" role
         kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
     ];
@@ -49,11 +49,11 @@ describe('purgeMembers - Temp Member', () => {
     } as any as Guild;
   });
 
-  it('kicks Temp Members who joined more than 48 hours ago', async () => {
+  it('kicks Temporary Members who joined more than 48 hours ago', async () => {
     const HOURS_TO_EXPIRE = 48;
     const kickedMembers = await purgeMembers(
       mockGuild,
-      'Temp Member',
+      'Temporary Member',
       HOURS_TO_EXPIRE,
       "TEST TEMPORARY MEMBERS TIME LIMIT"
     );
@@ -65,7 +65,7 @@ describe('purgeMembers - Temp Member', () => {
     // The 10-hour user should not be kicked
     expect(mockMembers[1].kick).not.toHaveBeenCalled();
 
-    // The user without the "Temp Member" role should not be kicked
+    // The user without the "Temporary Member" role should not be kicked
     expect(mockMembers[2].kick).not.toHaveBeenCalled();
   });
 });
