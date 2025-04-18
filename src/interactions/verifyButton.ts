@@ -36,14 +36,17 @@ async function handleButtonInteraction(
   if (interaction.customId === 'verify') {
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
     const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
-    
+    logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`); 
+
     if (rsiProfileVerified) {
       const success = await assignVerifiedRole(interaction, interaction.user.id);
-
+      logger.debug(`Role assignment success: ${success}`);
+      
       if(success) {
+        logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
         await interaction.reply({
           content: i18n.__mf(
-            { phrase: 'commands.verify.responses.assignFailed', locale },
+            { phrase: 'commands.verify.responses.success', locale },
             { rsiName: rsiInGameName, username: interaction.user.username }
           ),
           ephemeral: true,

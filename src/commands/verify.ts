@@ -11,6 +11,7 @@ import { discordRestClient } from '../utils/discord-rest-client.js';
 import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
 import { getLogger } from '../utils/logger.js';
 import i18n from '../utils/i18n-config.js';
+import { log } from 'console';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -63,6 +64,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
 
   const optionName = i18n.__({ phrase: inGameNameKey, locale: defaultLocale });
   const rsiProfileName = interaction.options.getString(optionName, true);
+  logger.debug(`VERIFY.TS--> handleVerifyCommand -> RSI Profile Name: ${rsiProfileName}`);
 
   const dreadnoughtValidationCode = generateDrdntVerificationCode();
   verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode });

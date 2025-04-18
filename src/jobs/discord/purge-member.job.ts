@@ -5,6 +5,9 @@ import i18n from 'i18n';
 
 const logger = getLogger();
 
+const temporaryMemberPurgeCronSchedule = process.env.TEMPORARY_MEMBER_PURGE_CRON_SCHEDULE || '0 3 * * *';
+const potentialApplicantPurgeCronSchedule = process.env.POTENTIAL_APPLICANT_PURGE_CRON_SCHEDULE || '0 4 * * *';
+
 /**
  * Kicks members with a given role who have exceeded the time limit.
  */
@@ -64,7 +67,7 @@ export function scheduleTemporaryMemberCleanup(client: Client) {
 
   logger.info(`SCHEDTEMPMBR: Bot is in ${client.guilds.cache.size} guild(s).`);
 
-  cron.schedule('*/2 * * * *', async () => {
+  cron.schedule(temporaryMemberPurgeCronSchedule, async () => {
     logger.info('[Job] Running Temporary Member Cleanup');
     logger.info(`SCHEDTEMPMBR->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
 
@@ -85,7 +88,7 @@ export function scheduleTemporaryMemberCleanup(client: Client) {
         const kicked = await purgeMembers(
           guild,
           TEMPORARY_ROLE_NAME,
-          0, // Change to HOURS_TO_EXPIRE to enforce actual expiration
+          HOURS_TO_EXPIRE,
           'TEMPORARY MEMBERS TIME LIMIT',
           message
         );
@@ -107,7 +110,7 @@ export function schedulePotentialApplicantCleanup(client: Client) {
 
   logger.info(`SCHEDPOTAPP: Bot is in ${client.guilds.cache.size} guild(s).`);
 
-  cron.schedule('*/2 * * * *', async () => {
+  cron.schedule(potentialApplicantPurgeCronSchedule, async () => {
     logger.info('[Job] Running Potential Applicant Cleanup');
     logger.info(`SCHEDPOTAPP->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
 
@@ -127,7 +130,7 @@ export function schedulePotentialApplicantCleanup(client: Client) {
         const kicked = await purgeMembers(
           guild,
           ROLE_NAME,
-          0, // Change to HOURS_TO_EXPIRE to enforce actual expiration
+          HOURS_TO_EXPIRE,
           'POTENTIAL APPLICANT TIME LIMIT',
           message
         );
