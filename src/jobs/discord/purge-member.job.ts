@@ -72,11 +72,12 @@ export function scheduleTemporaryMemberCleanup(client: Client) {
       try {
         const locale = guild.preferredLocale || 'en';
         const guildName = guild.name;
+        const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
 
         const message = i18n.__mf(
           { phrase: 'jobs.purgeMember.temporaryMemberKickMessage', locale },
           {
-            guildName,
+            cleanGuildName,
             hoursToExpire: HOURS_TO_EXPIRE.toString()
           }
         );
@@ -89,7 +90,7 @@ export function scheduleTemporaryMemberCleanup(client: Client) {
           message
         );
 
-        logger.info(`[${guildName}] Temporary Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
+        logger.info(`[${cleanGuildName}] Temporary Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
       } catch (error) {
         logger.error(`Temporary Member cleanup failed for guild ${guild.id}:`, error);
       }
@@ -114,11 +115,11 @@ export function schedulePotentialApplicantCleanup(client: Client) {
       try {
         const locale = guild.preferredLocale || 'en';
         const guildName = guild.name;
-
+        const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
         const message = i18n.__mf(
           { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
           {
-            guildName,
+            cleanGuildName,
             hoursToExpire: HOURS_TO_EXPIRE.toString()
           }
         );
@@ -131,7 +132,7 @@ export function schedulePotentialApplicantCleanup(client: Client) {
           message
         );
 
-        logger.info(`[${guildName}] Potential Applicant cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
+        logger.info(`[${cleanGuildName}] Potential Applicant cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
       } catch (error) {
         logger.error(`Potential Applicant cleanup failed for guild ${guild.id}:`, error);
       }
