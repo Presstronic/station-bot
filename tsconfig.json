@@ -14,7 +14,10 @@
     "declaration": false,
     "sourceMap": false,
     "allowSyntheticDefaultImports": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true    
 },
 "include": ["src/**/*", "types"], // Include all TypeScript files in src
-"exclude": ["node_modules", "**/*.test.ts"] // Exclude test files and node_modules
+"exclude": ["node_modules"] //, "**/*.test.ts"] // Exclude test files and node_modules
 }

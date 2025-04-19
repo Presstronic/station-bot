@@ -1,7 +1,7 @@
 import '../bootstrap.js';
 
 import { REST } from '@discordjs/rest';
-import { getLogger } from './logger.js';
+import { getLogger } from './logger.ts';
 
 const logger = getLogger();
 

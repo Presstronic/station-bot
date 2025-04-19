@@ -1,12 +1,11 @@
 import './bootstrap.js'; // Loads dotenv and any shared setup
 
 import { Client, IntentsBitField } from 'discord.js';
-import { registerCommands } from './commands/verify.js';
-import { handleInteraction } from './interactions/verifyButton.js';
-import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
-import { addMissingDefaultRoles } from './services/role.services.js';
-import { getLogger } from './utils/logger.js';
-import i18n from './utils/i18n-config.js';
+import { registerCommands } from './commands/verify.ts';
+import { handleInteraction } from './interactions/verifyButton.ts';
+import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
+import { addMissingDefaultRoles } from './services/role.services.ts';
+import { getLogger } from './utils/logger.ts';
 
 const logger = getLogger();
 

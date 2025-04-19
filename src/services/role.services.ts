@@ -1,5 +1,5 @@
 import { ButtonInteraction, Client, Guild } from 'discord.js';
-import { getLogger } from '../utils/logger.js';
+import { getLogger } from '../utils/logger.ts';
 
 const logger = getLogger();
 

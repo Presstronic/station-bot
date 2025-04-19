@@ -1,4 +1,6 @@
-import { purgeMembers } from '../purge-member.job';
+import { jest } from '@jest/globals';
+import i18n from '../../../utils/i18n-config.ts';
+import { purgeMembers } from '../purge-member.job.ts';
 import { Guild, GuildMember, Role } from 'discord.js';
 
 describe('purgeMembers - Temporary Member', () => {
@@ -17,6 +19,7 @@ describe('purgeMembers - Temporary Member', () => {
           send: jest.fn(() => Promise.resolve())
         },
         roles: { cache: [tempRole] },
+        kickable: true,
         joinedTimestamp: now - 49 * 60 * 60 * 1000, // 49 hours ago
         kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
@@ -26,6 +29,7 @@ describe('purgeMembers - Temporary Member', () => {
           send: jest.fn(() => Promise.resolve())
         },
         roles: { cache: [tempRole] },
+        kickable: true,
         joinedTimestamp: now - 10 * 60 * 60 * 1000, // 10 hours ago
         kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
@@ -35,6 +39,7 @@ describe('purgeMembers - Temporary Member', () => {
           send: jest.fn(() => Promise.resolve())
         },
         roles: { cache: [] },
+        kickable: true,
         joinedTimestamp: now - 100 * 60 * 60 * 1000, // 100 hours but no "Temporary Member" role
         kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
@@ -99,6 +104,7 @@ describe('purgeMembers - Potential Applicant', () => {
           send: jest.fn(() => Promise.resolve())
         },
         roles: { cache: [applicantRole] },
+        kickable: true,
         joinedTimestamp: now - 31 * 24 * 60 * 60 * 1000, // 31 days ago
         kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
@@ -108,6 +114,7 @@ describe('purgeMembers - Potential Applicant', () => {
           send: jest.fn(() => Promise.resolve())
         },
         roles: { cache: [applicantRole] },
+        kickable: true,
         joinedTimestamp: now - 10 * 24 * 60 * 60 * 1000, // 10 days ago
         kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
@@ -117,6 +124,7 @@ describe('purgeMembers - Potential Applicant', () => {
           send: jest.fn(() => Promise.resolve())
         },
         roles: { cache: [] },
+        kickable: true,
         joinedTimestamp: now - 50 * 24 * 60 * 60 * 1000, // 50 days, but no "Potential Applicant" role
         kick: jest.fn(() => Promise.resolve()),
       } as any as GuildMember,
@@ -124,6 +132,8 @@ describe('purgeMembers - Potential Applicant', () => {
 
     // Mock the Guild
     mockGuild = {
+      name: 'Test Guild',
+      preferredLocale: 'en-US',
       members: {
         fetch: jest.fn().mockResolvedValue(mockMembers),
         cache: new Map(mockMembers.map((m) => [m.user.tag, m])),

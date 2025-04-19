@@ -1,7 +1,7 @@
-import { getLogger } from '../utils/logger.js';
+import { getLogger } from '../utils/logger.ts';
 import axios from 'axios';
-import { scrapeAndCheckValueSpecific } from './web-scraping.services.js';
-import { getUserVerificationData } from '../commands/verify.js';
+import { scrapeAndCheckValueSpecific } from './web-scraping.services.ts';
+import { getUserVerificationData } from '../commands/verify.ts';
 
 const logger = getLogger();
 

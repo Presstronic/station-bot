@@ -4,11 +4,11 @@ import {
     Interaction,
     Client,
   } from 'discord.js';
-import { handleVerifyCommand, getUserVerificationData } from '../commands/verify.js';
-import { getLogger } from '../utils/logger.js';
-import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
-import { verifyRSIProfile } from '../services/rsi.services.js';
-import i18n from '../utils/i18n-config.js';
+import { handleVerifyCommand, getUserVerificationData } from '../commands/verify.ts';
+import { getLogger } from '../utils/logger.ts';
+import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.ts';
+import { verifyRSIProfile } from '../services/rsi.services.ts';
+import i18n from '../utils/i18n-config.ts';
 
 const logger = getLogger();
 const defaultLocale = 'en';
