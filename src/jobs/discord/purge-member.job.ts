@@ -33,6 +33,8 @@ export async function purgeMembers(
     const joinedTime = member.joinedTimestamp ?? 0;
     const isOverExpiration = Date.now() - joinedTime > expirationMs;
 
+    // If hoursToExpire is 0, bypass the expiration check and immediately trigger a kick.
+    // Otherwise, check if the member has exceeded the expiration time.
     if (hasRole && (hoursToExpire === 0 || isOverExpiration)) {
       if (!member.kickable) {
         logger.warn(`Cannot kick ${member.user.tag} in ${guild.name}; insufficient permissions.`);
