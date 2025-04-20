@@ -33,22 +33,24 @@ const client = new Client({
 
 client.once('ready', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
-  logger.info(`Length of guilds list: ${client.guilds.cache.size}`)
+  logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
+
   await Promise.all([
     registerCommands(),
     // TODO: initializeDatabase(),
     // TODO: initializeTelemetry(),
     Promise.all(
-      [...client.guilds.cache.values()].map((guild) =>
-        addMissingDefaultRoles(guild, client)
-      )
+      [...client.guilds.cache.values()].map(async (guild) => {
+        try {
+          await addMissingDefaultRoles(guild, client);
+        } catch (error) {
+          logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
+        }
+      })
     ),
   ]);
 
-  scheduleTemporaryMemberCleanup(client);
-  schedulePotentialApplicantCleanup(client);
-
-  logger.info('Startup tasks complete.');
+  logger.info('Startup tasks completed.');
 });
 
 client.on('guildCreate', async (guild) => {
@@ -56,8 +58,12 @@ client.on('guildCreate', async (guild) => {
 
   try {
     await addMissingDefaultRoles(guild, client);
+    logger.info(`[${guild.name}] Successfully ensured required roles.`);
   } catch (error) {
-    logger.error(`[${guild.name}] Error ensuring required roles:`, error);
+    logger.error(
+      `[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`,
+      error
+    );
   }
 });
 
