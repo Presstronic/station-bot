@@ -1,5 +1,3 @@
-// src/utils/generateCode.ts
-
 import crypto from 'crypto';
 
 export function generateDrdntVerificationCode(): string {

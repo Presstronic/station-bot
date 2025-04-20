@@ -4,12 +4,14 @@ import {
     Interaction,
     Client,
   } from 'discord.js';
-import { handleVerifyCommand, getUserVerificationData } from '../commands/citizen.js';
-import { getLogger } from '../utils/logger.js';
-import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
-import { verifyRSIProfile } from '../services/rsi.services.js';
- 
+import { handleVerifyCommand, getUserVerificationData } from '../commands/verify.ts';
+import { getLogger } from '../utils/logger.ts';
+import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.ts';
+import { verifyRSIProfile } from '../services/rsi.services.ts';
+import i18n from '../utils/i18n-config.ts';
+
 const logger = getLogger();
+const defaultLocale = 'en';
 
 export async function handleInteraction(
   interaction: Interaction,
@@ -33,25 +35,38 @@ async function handleButtonInteraction(
 
   if (interaction.customId === 'verify') {
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
-    
+    const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
+    logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`); 
+
     if (rsiProfileVerified) {
       const success = await assignVerifiedRole(interaction, interaction.user.id);
-
+      logger.debug(`Role assignment success: ${success}`);
+      
       if(success) {
+        logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
         await interaction.reply({
-          content: `✅ ${rsiInGameName} has been verified with RSI for discord member ${interaction.user.username}!`,
+          content: i18n.__mf(
+            { phrase: 'commands.verify.responses.success', locale },
+            { rsiName: rsiInGameName, username: interaction.user.username }
+          ),
           ephemeral: true,
         });
       } else {
         await interaction.reply({
-          content: `❌ Could not assign "Verfied" role for discord member ${interaction.user.username} for RSI profile ${rsiInGameName}. Please try again.`,
+          content: i18n.__mf(
+            { phrase: 'commands.verify.responses.assignFailed', locale },
+            { rsiName: rsiInGameName, username: interaction.user.username }
+          ),
           ephemeral: true,
         });
       }
     } else {
       const success = await removeVerifiedRole(interaction, interaction.user.id);
       await interaction.reply({
-        content: `❌ Could not verify citizenship for discord member ${interaction.user.username} for RSI profile ${rsiInGameName}. Please try again.`,
+        content: i18n.__mf(
+          { phrase: 'commands.verify.responses.verificationFailed', locale },
+          { rsiName: rsiInGameName, username: interaction.user.username }
+        ),
         ephemeral: true,
       });
     }    
