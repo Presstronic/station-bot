@@ -25,6 +25,7 @@ export async function verifyRSIProfile(userId: string): Promise<boolean>{
         // TODO: Move most of this to web-scraping.services.ts
         const rsiProfile = userData.rsiProfileName;
         const rsiProfileName = rsiProfile.split('/').pop();
+        // TODO : Move this to a config file until I can setup database
         const url = `https://robertsspaceindustries.com/en/citizens/${encodeURIComponent(rsiProfile)}`;
         const parentSelector = 'div.entry.bio';
         const childSelector = 'div.value';
