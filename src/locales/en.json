@@ -24,6 +24,7 @@
         }
       },
       "buttonLabel": "Verify",
+      "prompt": "Hello {{user}}, welcome! Please follow our verification process here: [your instructions or link]."
       "replyMessage": "Hello {user}, please add the following verification code to your RSI profile's short bio:\n\n {code}\n\n Once you've done that, click the {verifyButtonLabel} button below.",
       "responses": {
         "success": "✅ {rsiName} has been verified with RSI for Discord member {username}!",

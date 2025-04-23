@@ -6,6 +6,7 @@ import { handleInteraction } from './interactions/verifyButton.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
+import { event as guildMemberUpdateEvent } from './events/guildMemberUpdate';
 
 const logger = getLogger();
 
@@ -66,6 +67,8 @@ client.on('guildCreate', async (guild) => {
     );
   }
 });
+
+client.on(guildMemberUpdateEvent.name, guildMemberUpdateEvent.execute);
 
 client.on('interactionCreate', async (interaction) => {
   try {
