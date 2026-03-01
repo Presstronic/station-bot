@@ -9,14 +9,27 @@ import { getLogger } from '../utils/logger.ts';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.ts';
 import { verifyRSIProfile } from '../services/rsi.services.ts';
 import i18n from '../utils/i18n-config.ts';
+import { isReadOnlyMode } from '../config/runtime-flags.ts';
 
 const logger = getLogger();
 const defaultLocale = 'en';
+const readOnlyMode = isReadOnlyMode();
 
 export async function handleInteraction(
   interaction: Interaction,
   client: Client
 ) {
+  if (readOnlyMode && (interaction.isChatInputCommand() || interaction.isButton())) {
+    const maintenanceMessage = 'Bot is in read-only mode for maintenance. Commands are temporarily disabled.';
+
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: maintenanceMessage, ephemeral: true });
+    } else {
+      await interaction.reply({ content: maintenanceMessage, ephemeral: true });
+    }
+    return;
+  }
+
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'verify') {
       await handleVerifyCommand(interaction);
@@ -31,7 +44,7 @@ async function handleButtonInteraction(
   client: Client
 ) {
   const userData = getUserVerificationData(interaction.user.id);
-  const rsiInGameName = userData?.rsiProfileName.split('/').pop();
+  const rsiInGameName = userData?.rsiProfileName?.split('/').pop() ?? 'Unknown';
 
   if (interaction.customId === 'verify') {
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
@@ -61,7 +74,7 @@ async function handleButtonInteraction(
         });
       }
     } else {
-      const success = await removeVerifiedRole(interaction, interaction.user.id);
+      await removeVerifiedRole(interaction, interaction.user.id);
       await interaction.reply({
         content: i18n.__mf(
           { phrase: 'commands.verify.responses.verificationFailed', locale },

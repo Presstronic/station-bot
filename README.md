@@ -24,3 +24,18 @@ A Discord bot for verifying users against their RSI (Roberts Space Industries) p
    ```bash
    git clone https://github.com/yourusername/discord-verification-bot.git
    cd discord-verification-bot
+   ```
+
+## Runtime Safety Mode
+
+The bot now defaults to read-only mode for operational safety.
+
+- Default: `BOT_READ_ONLY_MODE=true`
+- Effect: command and button interactions return a maintenance message and perform no mutations.
+- Effect: startup side effects (command registration and default role creation) are skipped.
+
+To re-enable normal behavior explicitly:
+
+```bash
+BOT_READ_ONLY_MODE=false
+```

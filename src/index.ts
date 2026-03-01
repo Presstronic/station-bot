@@ -6,8 +6,10 @@ import { handleInteraction } from './interactions/verifyButton.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
+import { isReadOnlyMode } from './config/runtime-flags.ts';
 
 const logger = getLogger();
+const readOnlyMode = isReadOnlyMode();
 
 process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, error);
@@ -34,12 +36,16 @@ const client = new Client({
 client.once('ready', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
+  logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
 
-  await Promise.all([
-    registerCommands(),
-    // TODO: initializeDatabase(),
-    // TODO: initializeTelemetry(),
-    Promise.all(
+  if (!readOnlyMode) {
+    await registerCommands();
+  } else {
+    logger.warn('Read-only mode is enabled. Skipping command registration.');
+  }
+
+  if (!readOnlyMode) {
+    await Promise.all(
       [...client.guilds.cache.values()].map(async (guild) => {
         try {
           await addMissingDefaultRoles(guild, client);
@@ -47,14 +53,21 @@ client.once('ready', async () => {
           logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
         }
       })
-    ),
-  ]);
+    );
+  } else {
+    logger.warn('Read-only mode is enabled. Skipping default role creation.');
+  }
 
   logger.info('Startup tasks completed.');
 });
 
 client.on('guildCreate', async (guild) => {
   logger.info(`[guildCreate] Bot joined guild: ${guild.name} (${guild.id})`);
+
+  if (readOnlyMode) {
+    logger.warn(`[${guild.name}] Read-only mode enabled; skipping role setup on guild join.`);
+    return;
+  }
 
   try {
     await addMissingDefaultRoles(guild, client);
