@@ -3,6 +3,7 @@ import './bootstrap.js'; // Loads dotenv and any shared setup
 import { Client, IntentsBitField } from 'discord.js';
 import { registerCommands } from './commands/verify.ts';
 import { handleInteraction } from './interactions/verifyButton.ts';
+import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
 import { isReadOnlyMode } from './config/runtime-flags.ts';
@@ -53,8 +54,11 @@ client.once('ready', async () => {
         }
       })
     );
+    scheduleTemporaryMemberCleanup(client);
+    schedulePotentialApplicantCleanup(client);
+    logger.info('Scheduled member cleanup jobs.');
   } else {
-    logger.warn('Read-only mode is enabled. Skipping default role creation.');
+    logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
   }
 
   logger.info('Startup tasks completed.');

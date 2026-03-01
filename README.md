@@ -39,3 +39,12 @@ To re-enable normal behavior explicitly:
 ```bash
 BOT_READ_ONLY_MODE=false
 ```
+
+### Re-Enable Checklist (Production)
+
+1. Set `BOT_READ_ONLY_MODE=false` in your deployment environment.
+2. Redeploy or restart the bot process/container.
+3. Verify slash commands are registered and responding.
+4. Verify expected role automation is active (default role creation and verification role updates).
+5. Confirm scheduled cleanup jobs are registered and running.
+6. Monitor logs for interaction errors, role assignment failures, and scheduler startup messages.
