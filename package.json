@@ -6,9 +6,11 @@
     "scripts": {
         "dev": "tsx src/index.ts",
         "start": "NODE_ENV=production tsx src/index.ts",
+        "lint": "tsc -p tsconfig.lint.json --noEmit",
         "test": "NODE_ENV=test node --experimental-vm-modules node_modules/.bin/jest --detectOpenHandles",
         "test:watch": "jest --watch",
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "quality": "npm run lint && npm run typecheck && npm test -- --runInBand"
     },
     "type": "module",
     "author": "Demian",

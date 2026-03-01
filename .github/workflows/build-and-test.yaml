@@ -1,28 +1,41 @@
-name: CI - Test
+name: CI - Quality Gate
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
-    types: [opened, reopened, synchronize]
-    branches: [ main, dev, "feature/*" ]
+    types: [opened, reopened, synchronize, ready_for_review]
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-quality-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build-and-test:
+  quality-checks:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 20  # ✅ Node 18+ required for vm modules + ESM
+          node-version: 20
+          cache: npm
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
 
       - name: Type check
         run: npm run typecheck
 
-      - name: Run tests with VM modules
-        run: NODE_ENV=test node --experimental-vm-modules node_modules/.bin/jest
+      - name: Run tests
+        run: npm test -- --runInBand

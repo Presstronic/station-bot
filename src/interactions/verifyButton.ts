@@ -1,6 +1,5 @@
 import {
     ButtonInteraction,
-    ChatInputCommandInteraction,
     Interaction,
     Client,
   } from 'discord.js';
@@ -17,7 +16,7 @@ const readOnlyMode = isReadOnlyMode();
 
 export async function handleInteraction(
   interaction: Interaction,
-  client: Client
+  _client: Client
 ) {
   if (readOnlyMode && (interaction.isChatInputCommand() || interaction.isButton())) {
     const maintenanceMessage = 'Bot is in read-only mode for maintenance. Commands are temporarily disabled.';
@@ -35,13 +34,12 @@ export async function handleInteraction(
       await handleVerifyCommand(interaction);
     }
   } else if (interaction.isButton()) {
-    await handleButtonInteraction(interaction as ButtonInteraction, client);
+    await handleButtonInteraction(interaction as ButtonInteraction);
   }
 }
 
 async function handleButtonInteraction(
-  interaction: ButtonInteraction,
-  client: Client
+  interaction: ButtonInteraction
 ) {
   const userData = getUserVerificationData(interaction.user.id);
   const rsiInGameName = userData?.rsiProfileName?.split('/').pop() ?? 'Unknown';

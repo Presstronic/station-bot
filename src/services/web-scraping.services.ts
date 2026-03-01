@@ -1,7 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { getLogger } from '../utils/logger.ts';
-import { log } from 'console';
 
 const logger = getLogger();
 
