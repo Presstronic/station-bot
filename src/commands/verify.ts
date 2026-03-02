@@ -49,7 +49,11 @@ const verificationCodes = new Map<
   { rsiProfileName: string; dreadnoughtValidationCode: string }
 >();
 
-export async function registerCommands() {
+function getCommandsForMode(readOnlyMode: boolean) {
+  return readOnlyMode ? [healthcheckCommandBuilder] : commands;
+}
+
+export async function registerCommands(readOnlyMode = isReadOnlyMode()) {
   const CLIENT_ID = process.env.CLIENT_ID;
 
   if (!CLIENT_ID) {
@@ -59,8 +63,9 @@ export async function registerCommands() {
 
   try {
     logger.info('Started refreshing application (/) commands globally...');
+    const commandsToRegister = getCommandsForMode(readOnlyMode);
     await discordRestClient.put(Routes.applicationCommands(CLIENT_ID), {
-      body: commands.map((command) => command.toJSON()),
+      body: commandsToRegister.map((command) => command.toJSON()),
     });
     logger.info('Successfully registered global slash commands.');
   } catch (error) {
@@ -110,8 +115,8 @@ export function getUserVerificationData(userId: string) {
   return verificationCodes.get(userId);
 }
 
-export function getRegisteredCommandNames(): string[] {
-  return commands.map((command) => command.toJSON().name);
+export function getRegisteredCommandNames(readOnlyMode = isReadOnlyMode()): string[] {
+  return getCommandsForMode(readOnlyMode).map((command) => command.toJSON().name);
 }
 
 export async function handleHealthcheckCommand(interaction: ChatInputCommandInteraction) {
