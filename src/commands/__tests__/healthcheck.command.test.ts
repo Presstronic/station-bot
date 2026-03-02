@@ -16,6 +16,8 @@ afterEach(() => {
 
 describe('healthcheck command', () => {
   it('registers healthcheck in the active command list', async () => {
+    process.env.BOT_READ_ONLY_MODE = 'false';
+
     jest.unstable_mockModule('../../utils/discord-rest-client.ts', () => ({
       discordRestClient: { put: jest.fn() },
     }));
@@ -102,12 +104,12 @@ describe('healthcheck command', () => {
     expect(reply).toHaveBeenCalledTimes(1);
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('/verify'),
+        content: expect.stringContaining('/healthcheck'),
       })
     );
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('/healthcheck'),
+        content: expect.stringContaining('/verify'),
       })
     );
   });
