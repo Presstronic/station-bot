@@ -1,6 +1,5 @@
 import {
     ButtonInteraction,
-    ChatInputCommandInteraction,
     Interaction,
     Client,
   } from 'discord.js';
@@ -9,29 +8,46 @@ import { getLogger } from '../utils/logger.ts';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.ts';
 import { verifyRSIProfile } from '../services/rsi.services.ts';
 import i18n from '../utils/i18n-config.ts';
+import { isReadOnlyMode } from '../config/runtime-flags.ts';
 
 const logger = getLogger();
 const defaultLocale = 'en';
 
 export async function handleInteraction(
   interaction: Interaction,
-  client: Client
+  _client: Client
 ) {
+  const readOnlyMode = isReadOnlyMode();
+
+  if (readOnlyMode && (interaction.isChatInputCommand() || interaction.isButton())) {
+    const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
+    const maintenanceMessage = i18n.__({
+      phrase: 'interactions.readOnly.maintenance',
+      locale,
+    });
+
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({ content: maintenanceMessage, ephemeral: true });
+    } else {
+      await interaction.reply({ content: maintenanceMessage, ephemeral: true });
+    }
+    return;
+  }
+
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'verify') {
       await handleVerifyCommand(interaction);
     }
   } else if (interaction.isButton()) {
-    await handleButtonInteraction(interaction as ButtonInteraction, client);
+    await handleButtonInteraction(interaction as ButtonInteraction);
   }
 }
 
 async function handleButtonInteraction(
-  interaction: ButtonInteraction,
-  client: Client
+  interaction: ButtonInteraction
 ) {
   const userData = getUserVerificationData(interaction.user.id);
-  const rsiInGameName = userData?.rsiProfileName.split('/').pop();
+  const rsiInGameName = userData?.rsiProfileName?.split('/').pop() ?? 'Unknown';
 
   if (interaction.customId === 'verify') {
     const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
@@ -61,7 +77,7 @@ async function handleButtonInteraction(
         });
       }
     } else {
-      const success = await removeVerifiedRole(interaction, interaction.user.id);
+      await removeVerifiedRole(interaction, interaction.user.id);
       await interaction.reply({
         content: i18n.__mf(
           { phrase: 'commands.verify.responses.verificationFailed', locale },

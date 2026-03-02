@@ -76,7 +76,6 @@ export function scheduleTemporaryMemberCleanup(client: Client) {
     for (const guild of client.guilds.cache.values()) {
       try {
         const locale = guild.preferredLocale || 'en';
-        const guildName = guild.name;
         const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
 
         const message = i18n.__mf(
@@ -119,7 +118,6 @@ export function schedulePotentialApplicantCleanup(client: Client) {
     for (const guild of client.guilds.cache.values()) {
       try {
         const locale = guild.preferredLocale || 'en';
-        const guildName = guild.name;
         const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
         const message = i18n.__mf(
           { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },

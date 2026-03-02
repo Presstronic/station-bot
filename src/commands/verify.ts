@@ -1,5 +1,4 @@
 import {
-  Client,
   SlashCommandBuilder,
   ChatInputCommandInteraction,
   ActionRowBuilder,
@@ -11,7 +10,6 @@ import { discordRestClient } from '../utils/discord-rest-client.ts';
 import { generateDrdntVerificationCode } from '../services/verification-code.services.ts';
 import { getLogger } from '../utils/logger.ts';
 import i18n from '../utils/i18n-config.ts';
-import { log } from 'console';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
