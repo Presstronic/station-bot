@@ -1,4 +1,4 @@
-import './bootstrap.js'; // Loads dotenv and any shared setup
+import './bootstrap.ts'; // Loads dotenv and any shared setup
 
 import { Client, IntentsBitField } from 'discord.js';
 import { registerCommands } from './commands/verify.ts';

@@ -28,4 +28,16 @@ describe('isReadOnlyMode', () => {
       expect(isReadOnlyMode()).toBe(true);
     }
   });
+
+  it('accepts explicit false env variants', () => {
+    for (const value of ['0', 'false', 'no', 'off']) {
+      process.env.BOT_READ_ONLY_MODE = value;
+      expect(isReadOnlyMode()).toBe(false);
+    }
+  });
+
+  it('falls back to default for unrecognized values', () => {
+    process.env.BOT_READ_ONLY_MODE = 'enabled';
+    expect(isReadOnlyMode()).toBe(true);
+  });
 });
