@@ -7,7 +7,7 @@ WORKDIR /app
 # Copy package files first to leverage Docker layer caching
 COPY package*.json ./
 
-# Install dependencies (including dev deps because runtime uses tsx)
+# Install dependencies (builder includes dev deps for type checking)
 RUN npm ci
 
 # Copy source files
@@ -23,11 +23,14 @@ FROM node:22.14.0-alpine AS runner
 # Set the working directory
 WORKDIR /app
 
-# Copy runtime files and dependencies
-COPY --from=builder /app/node_modules ./node_modules
+# Install runtime dependencies only
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy runtime files
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
-COPY --from=builder /app/package.json ./
 
 # Set environment variables
 ENV NODE_ENV=production
