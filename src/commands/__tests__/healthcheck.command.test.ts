@@ -107,7 +107,7 @@ describe('healthcheck command', () => {
         content: expect.stringContaining('/healthcheck'),
       })
     );
-    expect(reply).not.toHaveBeenCalledWith(
+    expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('/verify'),
       })

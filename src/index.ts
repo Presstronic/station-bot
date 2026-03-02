@@ -38,9 +38,9 @@ client.once('ready', async () => {
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
 
-  await registerCommands(readOnlyMode);
+  await registerCommands();
   if (readOnlyMode) {
-    logger.warn('Read-only mode is enabled. Attempting to use maintenance commands only.');
+    logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
   }
 
   if (!readOnlyMode) {

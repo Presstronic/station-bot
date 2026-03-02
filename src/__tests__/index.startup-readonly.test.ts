@@ -97,7 +97,7 @@ describe('startup wiring with read-only mode', () => {
     } = await loadIndexAndRunReady('true');
 
     expect(registerCommands).toHaveBeenCalledTimes(1);
-    expect(registerCommands).toHaveBeenCalledWith(true);
+    expect(registerCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).not.toHaveBeenCalled();
     expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
     expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
@@ -112,7 +112,7 @@ describe('startup wiring with read-only mode', () => {
     } = await loadIndexAndRunReady('false');
 
     expect(registerCommands).toHaveBeenCalledTimes(1);
-    expect(registerCommands).toHaveBeenCalledWith(false);
+    expect(registerCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
     expect(scheduleTemporaryMemberCleanup).toHaveBeenCalledTimes(1);
     expect(schedulePotentialApplicantCleanup).toHaveBeenCalledTimes(1);
