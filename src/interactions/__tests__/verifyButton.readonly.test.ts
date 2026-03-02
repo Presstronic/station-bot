@@ -37,7 +37,7 @@ describe('handleInteraction in read-only mode', () => {
       verifyRSIProfile: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
-      default: { __mf: jest.fn() },
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
     const { handleInteraction } = await import('../verifyButton.ts');
@@ -83,7 +83,7 @@ describe('handleInteraction in read-only mode', () => {
       verifyRSIProfile: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
-      default: { __mf: jest.fn() },
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
     const { handleInteraction } = await import('../verifyButton.ts');
@@ -105,5 +105,50 @@ describe('handleInteraction in read-only mode', () => {
         ephemeral: true,
       })
     );
+  });
+
+  it('evaluates read-only mode at interaction time (not only at module import)', async () => {
+    const handleVerifyCommand = jest.fn(async () => undefined);
+
+    jest.unstable_mockModule('../../commands/verify.ts', () => ({
+      handleVerifyCommand,
+      getUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+      getLogger: () => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      }),
+    }));
+    jest.unstable_mockModule('../../services/role.services.ts', () => ({
+      assignVerifiedRole: jest.fn(),
+      removeVerifiedRole: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/rsi.services.ts', () => ({
+      verifyRSIProfile: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
+    }));
+
+    const { handleInteraction } = await import('../verifyButton.ts');
+
+    process.env.BOT_READ_ONLY_MODE = 'false';
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      isChatInputCommand: () => true,
+      isButton: () => false,
+      commandName: 'verify',
+      replied: false,
+      deferred: false,
+      reply,
+      followUp: jest.fn(async () => undefined),
+    } as any;
+
+    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
+    expect(reply).not.toHaveBeenCalled();
+    expect(handleVerifyCommand).toHaveBeenCalledTimes(1);
   });
 });

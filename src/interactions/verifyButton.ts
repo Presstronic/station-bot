@@ -12,14 +12,19 @@ import { isReadOnlyMode } from '../config/runtime-flags.ts';
 
 const logger = getLogger();
 const defaultLocale = 'en';
-const readOnlyMode = isReadOnlyMode();
 
 export async function handleInteraction(
   interaction: Interaction,
   _client: Client
 ) {
+  const readOnlyMode = isReadOnlyMode();
+
   if (readOnlyMode && (interaction.isChatInputCommand() || interaction.isButton())) {
-    const maintenanceMessage = 'Bot is in read-only mode for maintenance. Commands are temporarily disabled.';
+    const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
+    const maintenanceMessage = i18n.__({
+      phrase: 'interactions.readOnly.maintenance',
+      locale,
+    });
 
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({ content: maintenanceMessage, ephemeral: true });
