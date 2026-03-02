@@ -69,7 +69,7 @@ export async function registerCommands(readOnlyMode = isReadOnlyMode()) {
     });
     logger.info('Successfully registered global slash commands.');
   } catch (error) {
-    logger.error('Error registering verify command:', error);
+    logger.error('Error registering slash commands:', error);
   }
 }
 
