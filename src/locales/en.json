@@ -30,6 +30,19 @@
         "assignFailed": "❌ Could not assign the \"Verified\" role for Discord member {username} for RSI profile {rsiName}. Please try again.",
         "verificationFailed": "❌ Could not verify citizenship for Discord member {username} for RSI profile {rsiName}. Please try again."
       }    
+    },
+    "healthcheck": {
+      "name": "healthcheck",
+      "description": "Check bot runtime status.",
+      "readOnly": {
+        "enabled": "enabled",
+        "disabled": "disabled"
+      },
+      "responses": {
+        "adminOnly": "Only server administrators can run this command.",
+        "guildOnly": "This command can only be used in a server.",
+        "status": "Bot: {botTag}\nUTC Time: {currentUtc}\nRead-only mode: {readOnlyStatus}\nActive commands: {activeCommands}"
+      }
     }
   },
   "jobs": {
