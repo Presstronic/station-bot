@@ -1,7 +1,17 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
+const originalReadOnlyMode = process.env.BOT_READ_ONLY_MODE;
+
 beforeEach(() => {
   jest.resetModules();
+});
+
+afterEach(() => {
+  if (originalReadOnlyMode === undefined) {
+    delete process.env.BOT_READ_ONLY_MODE;
+  } else {
+    process.env.BOT_READ_ONLY_MODE = originalReadOnlyMode;
+  }
 });
 
 describe('healthcheck command', () => {
