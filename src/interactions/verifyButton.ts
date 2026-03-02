@@ -3,7 +3,7 @@ import {
     Interaction,
     Client,
   } from 'discord.js';
-import { handleVerifyCommand, getUserVerificationData } from '../commands/verify.ts';
+import { handleVerifyCommand, getUserVerificationData, handleHealthcheckCommand } from '../commands/verify.ts';
 import { getLogger } from '../utils/logger.ts';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.ts';
 import { verifyRSIProfile } from '../services/rsi.services.ts';
@@ -18,8 +18,9 @@ export async function handleInteraction(
   _client: Client
 ) {
   const readOnlyMode = isReadOnlyMode();
+  const isHealthcheckCommand = interaction.isChatInputCommand() && interaction.commandName === 'healthcheck';
 
-  if (readOnlyMode && (interaction.isChatInputCommand() || interaction.isButton())) {
+  if (readOnlyMode && !isHealthcheckCommand && (interaction.isChatInputCommand() || interaction.isButton())) {
     const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
     const maintenanceMessage = i18n.__({
       phrase: 'interactions.readOnly.maintenance',
@@ -37,6 +38,8 @@ export async function handleInteraction(
   if (interaction.isChatInputCommand()) {
     if (interaction.commandName === 'verify') {
       await handleVerifyCommand(interaction);
+    } else if (interaction.commandName === 'healthcheck') {
+      await handleHealthcheckCommand(interaction);
     }
   } else if (interaction.isButton()) {
     await handleButtonInteraction(interaction as ButtonInteraction);

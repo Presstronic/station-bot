@@ -17,8 +17,10 @@ afterEach(() => {
 
 describe('handleInteraction in read-only mode', () => {
   it('returns maintenance message for slash commands and does not execute command flow', async () => {
+    const handleHealthcheckCommand = jest.fn();
     jest.unstable_mockModule('../../commands/verify.ts', () => ({
       handleVerifyCommand: jest.fn(),
+      handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
@@ -63,8 +65,10 @@ describe('handleInteraction in read-only mode', () => {
   });
 
   it('returns maintenance message for button interactions and does not execute verify side effects', async () => {
+    const handleHealthcheckCommand = jest.fn();
     jest.unstable_mockModule('../../commands/verify.ts', () => ({
       handleVerifyCommand: jest.fn(),
+      handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
@@ -109,9 +113,11 @@ describe('handleInteraction in read-only mode', () => {
 
   it('evaluates read-only mode at interaction time (not only at module import)', async () => {
     const handleVerifyCommand = jest.fn(async () => undefined);
+    const handleHealthcheckCommand = jest.fn();
 
     jest.unstable_mockModule('../../commands/verify.ts', () => ({
       handleVerifyCommand,
+      handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
@@ -150,5 +156,50 @@ describe('handleInteraction in read-only mode', () => {
     await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
     expect(reply).not.toHaveBeenCalled();
     expect(handleVerifyCommand).toHaveBeenCalledTimes(1);
+  });
+
+  it('allows /healthcheck in read-only mode', async () => {
+    const handleVerifyCommand = jest.fn();
+    const handleHealthcheckCommand = jest.fn(async () => undefined);
+
+    jest.unstable_mockModule('../../commands/verify.ts', () => ({
+      handleVerifyCommand,
+      handleHealthcheckCommand,
+      getUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+      getLogger: () => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      }),
+    }));
+    jest.unstable_mockModule('../../services/role.services.ts', () => ({
+      assignVerifiedRole: jest.fn(),
+      removeVerifiedRole: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/rsi.services.ts', () => ({
+      verifyRSIProfile: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
+    }));
+
+    const { handleInteraction } = await import('../verifyButton.ts');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      isChatInputCommand: () => true,
+      isButton: () => false,
+      commandName: 'healthcheck',
+      replied: false,
+      deferred: false,
+      reply,
+    } as any;
+
+    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
+    expect(reply).not.toHaveBeenCalled();
+    expect(handleVerifyCommand).not.toHaveBeenCalled();
+    expect(handleHealthcheckCommand).toHaveBeenCalledTimes(1);
   });
 });
