@@ -40,6 +40,7 @@
       },
       "responses": {
         "adminOnly": "Only server administrators can run this command.",
+        "guildOnly": "This command can only be used in a server.",
         "status": "Bot: {botTag}\nUTC Time: {currentUtc}\nRead-only mode: {readOnlyStatus}\nActive commands: {activeCommands}"
       }
     }

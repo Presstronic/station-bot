@@ -41,6 +41,7 @@ describe('healthcheck command', () => {
 
     const interaction = {
       locale: 'en-US',
+      inGuild: () => true,
       memberPermissions: { has: () => false },
       reply,
       client: { user: { tag: 'station-bot#0001' } },
@@ -75,6 +76,7 @@ describe('healthcheck command', () => {
 
     const interaction = {
       locale: 'en-US',
+      inGuild: () => true,
       memberPermissions: { has: () => true },
       reply,
       client: { user: { tag: 'station-bot#0001' } },
@@ -96,6 +98,39 @@ describe('healthcheck command', () => {
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('/healthcheck'),
+      })
+    );
+  });
+
+  it('rejects usage outside guilds', async () => {
+    jest.unstable_mockModule('../../utils/discord-rest-client.ts', () => ({
+      discordRestClient: { put: jest.fn() },
+    }));
+    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+      getLogger: () => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      }),
+    }));
+
+    const { handleHealthcheckCommand } = await import('../verify.ts');
+    const reply = jest.fn(async () => undefined);
+
+    const interaction = {
+      locale: 'en-US',
+      inGuild: () => false,
+      memberPermissions: { has: () => true },
+      reply,
+      client: { user: { tag: 'station-bot#0001' } },
+    } as any;
+
+    await expect(handleHealthcheckCommand(interaction)).resolves.toBeUndefined();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('only be used in a server'),
+        ephemeral: true,
       })
     );
   });

@@ -36,7 +36,8 @@ const verifyCommandBuilder = new SlashCommandBuilder()
 const healthcheckCommandBuilder = new SlashCommandBuilder()
   .setName(i18n.__({ phrase: 'commands.healthcheck.name', locale: defaultLocale }))
   .setDescription(i18n.__({ phrase: 'commands.healthcheck.description', locale: defaultLocale }))
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator);
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+  .setDMPermission(false);
 
 const commands = [verifyCommandBuilder, healthcheckCommandBuilder];
 
@@ -112,6 +113,15 @@ export function getRegisteredCommandNames(): string[] {
 
 export async function handleHealthcheckCommand(interaction: ChatInputCommandInteraction) {
   const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
+
+  if (!interaction.inGuild()) {
+    await interaction.reply({
+      content: i18n.__({ phrase: 'commands.healthcheck.responses.guildOnly', locale }),
+      ephemeral: true,
+    });
+    return;
+  }
+
   const hasAdminPermission = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false;
 
   if (!hasAdminPermission) {
