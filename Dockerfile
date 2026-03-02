@@ -7,15 +7,15 @@ WORKDIR /app
 # Copy package files first to leverage Docker layer caching
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies (builder includes dev deps for type checking)
 RUN npm ci
 
 # Copy source files
 COPY tsconfig.json ./
 COPY src ./src
 
-# Build TypeScript files
-RUN npm run build
+# Enforced type-checking step during build
+RUN npm run typecheck
 
 # Use a minimal Node.js runtime for the final image
 FROM node:22.14.0-alpine AS runner
@@ -23,13 +23,17 @@ FROM node:22.14.0-alpine AS runner
 # Set the working directory
 WORKDIR /app
 
-# Copy only the built files and dependencies (NO `src/`)
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/dist ./dist
+# Install runtime dependencies only
 COPY --from=builder /app/package.json ./
+COPY --from=builder /app/package-lock.json ./
+RUN npm ci --omit=dev
+
+# Copy runtime files
+COPY --from=builder /app/src ./src
+COPY --from=builder /app/tsconfig.json ./
 
 # Set environment variables
 ENV NODE_ENV=production
 
-# Run the bot
-CMD ["node", "dist/index.js"]
+# Run the bot from source via tsx
+CMD ["node_modules/.bin/tsx", "src/index.ts"]
