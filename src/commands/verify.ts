@@ -16,10 +16,13 @@ import { isReadOnlyMode } from '../config/runtime-flags.ts';
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
+export const VERIFY_COMMAND_NAME = 'verify';
+export const HEALTHCHECK_COMMAND_NAME = 'healthcheck';
+
 const inGameNameKey = 'commands.verify.options.inGameName.name';
 
 const verifyCommandBuilder = new SlashCommandBuilder()
-  .setName(i18n.__({ phrase: 'commands.verify.name', locale: defaultLocale }))
+  .setName(VERIFY_COMMAND_NAME)
   .setDescription(i18n.__({ phrase: 'commands.verify.description', locale: defaultLocale }))
   .addStringOption((option) =>
     option
@@ -34,7 +37,7 @@ const verifyCommandBuilder = new SlashCommandBuilder()
   );
 
 const healthcheckCommandBuilder = new SlashCommandBuilder()
-  .setName(i18n.__({ phrase: 'commands.healthcheck.name', locale: defaultLocale }))
+  .setName(HEALTHCHECK_COMMAND_NAME)
   .setDescription(i18n.__({ phrase: 'commands.healthcheck.description', locale: defaultLocale }))
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);

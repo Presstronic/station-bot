@@ -19,6 +19,8 @@ describe('handleInteraction in read-only mode', () => {
   it('returns maintenance message for slash commands and does not execute command flow', async () => {
     const handleHealthcheckCommand = jest.fn();
     jest.unstable_mockModule('../../commands/verify.ts', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
@@ -67,6 +69,8 @@ describe('handleInteraction in read-only mode', () => {
   it('returns maintenance message for button interactions and does not execute verify side effects', async () => {
     const handleHealthcheckCommand = jest.fn();
     jest.unstable_mockModule('../../commands/verify.ts', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
@@ -116,6 +120,8 @@ describe('handleInteraction in read-only mode', () => {
     const handleHealthcheckCommand = jest.fn();
 
     jest.unstable_mockModule('../../commands/verify.ts', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand,
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
@@ -163,6 +169,8 @@ describe('handleInteraction in read-only mode', () => {
     const handleHealthcheckCommand = jest.fn(async () => undefined);
 
     jest.unstable_mockModule('../../commands/verify.ts', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand,
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
