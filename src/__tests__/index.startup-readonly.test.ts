@@ -15,6 +15,7 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
 
   const registerCommands = jest.fn(async () => undefined);
+  const registerNominationCommands = jest.fn(async () => undefined);
   const addMissingDefaultRoles = jest.fn(async () => undefined);
   const scheduleTemporaryMemberCleanup = jest.fn();
   const schedulePotentialApplicantCleanup = jest.fn();
@@ -31,7 +32,10 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
   await jest.unstable_mockModule('../commands/verify.ts', () => ({
     registerCommands,
   }));
-  await jest.unstable_mockModule('../interactions/verifyButton.ts', () => ({
+  await jest.unstable_mockModule('../commands/register-nomination-commands.ts', () => ({
+    registerNominationCommands,
+  }));
+  await jest.unstable_mockModule('../interactions/interactionRouter.ts', () => ({
     handleInteraction: jest.fn(async () => undefined),
   }));
   await jest.unstable_mockModule('../jobs/discord/purge-member.job.ts', () => ({
@@ -81,6 +85,7 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
 
   return {
     registerCommands,
+    registerNominationCommands,
     addMissingDefaultRoles,
     scheduleTemporaryMemberCleanup,
     schedulePotentialApplicantCleanup,
@@ -91,6 +96,7 @@ describe('startup wiring with read-only mode', () => {
   it('skips startup side effects when BOT_READ_ONLY_MODE=true', async () => {
     const {
       registerCommands,
+      registerNominationCommands,
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
@@ -98,6 +104,8 @@ describe('startup wiring with read-only mode', () => {
 
     expect(registerCommands).toHaveBeenCalledTimes(1);
     expect(registerCommands).toHaveBeenCalledWith();
+    expect(registerNominationCommands).toHaveBeenCalledTimes(1);
+    expect(registerNominationCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).not.toHaveBeenCalled();
     expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
     expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
@@ -106,6 +114,7 @@ describe('startup wiring with read-only mode', () => {
   it('runs startup side effects when BOT_READ_ONLY_MODE=false', async () => {
     const {
       registerCommands,
+      registerNominationCommands,
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
@@ -113,6 +122,8 @@ describe('startup wiring with read-only mode', () => {
 
     expect(registerCommands).toHaveBeenCalledTimes(1);
     expect(registerCommands).toHaveBeenCalledWith();
+    expect(registerNominationCommands).toHaveBeenCalledTimes(1);
+    expect(registerNominationCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
     expect(scheduleTemporaryMemberCleanup).toHaveBeenCalledTimes(1);
     expect(schedulePotentialApplicantCleanup).toHaveBeenCalledTimes(1);

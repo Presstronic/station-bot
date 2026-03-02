@@ -2,7 +2,8 @@ import './bootstrap.ts'; // Loads dotenv and any shared setup
 
 import { Client, IntentsBitField } from 'discord.js';
 import { registerCommands } from './commands/verify.ts';
-import { handleInteraction } from './interactions/verifyButton.ts';
+import { registerNominationCommands } from './commands/register-nomination-commands.ts';
+import { handleInteraction } from './interactions/interactionRouter.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
@@ -39,6 +40,7 @@ client.once('ready', async () => {
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
 
   await registerCommands();
+  await registerNominationCommands();
   if (readOnlyMode) {
     logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
   }
