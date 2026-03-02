@@ -32,7 +32,7 @@ The bot now defaults to read-only mode for operational safety.
 
 - Default: `BOT_READ_ONLY_MODE=true`
 - Effect: command and button interactions return a maintenance message and perform no mutations.
-- Effect: startup side effects (command registration and default role creation) are skipped.
+- Effect: startup side effects (command registration, default role creation, and scheduling of cleanup jobs) are skipped.
 
 To re-enable normal behavior explicitly:
 
