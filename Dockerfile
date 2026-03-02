@@ -14,7 +14,7 @@ RUN npm ci
 COPY tsconfig.json ./
 COPY src ./src
 
-# Optional safety check during build
+# Enforced type-checking step during build
 RUN npm run typecheck
 
 # Use a minimal Node.js runtime for the final image
