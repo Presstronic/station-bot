@@ -40,7 +40,7 @@ client.once('ready', async () => {
 
   await registerCommands(readOnlyMode);
   if (readOnlyMode) {
-    logger.warn('Read-only mode is enabled. Registered maintenance commands only.');
+    logger.warn('Read-only mode is enabled. Attempting to use maintenance commands only.');
   }
 
   if (!readOnlyMode) {
