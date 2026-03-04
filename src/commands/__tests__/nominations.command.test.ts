@@ -81,6 +81,7 @@ describe('nominations commands', () => {
       expect.objectContaining({
         content: expect.stringContaining('Nomination recorded'),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       })
     );
   });
@@ -177,6 +178,7 @@ describe('nominations commands', () => {
       expect.objectContaining({
         content: expect.stringContaining('Marked 1 nomination(s) as processed.'),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       })
     );
   });
@@ -212,6 +214,76 @@ describe('nominations commands', () => {
     expect(processReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Marked 1 nomination(s) as processed.'),
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+      })
+    );
+  });
+
+  it('returns configuration guidance for process command when database is misconfigured', async () => {
+    const markAllNominationsProcessed = jest.fn(async () => {
+      throw new Error('DATABASE_URL is required for nomination persistence');
+    });
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(async () => false),
+      markAllNominationsProcessed,
+    }));
+
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const processReply = jest.fn(async () => undefined);
+    const processInteraction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => null },
+      reply: processReply,
+    } as any;
+
+    await handleProcessNominationCommand(processInteraction);
+
+    expect(processReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('not configured correctly'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('returns configuration guidance when delegated access check cannot read role config', async () => {
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(async () => false),
+      markAllNominationsProcessed: jest.fn(async () => 1),
+    }));
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.ts', () => ({
+      getReviewProcessRoleIds: jest.fn(async () => {
+        throw new Error('Missing nomination schema objects');
+      }),
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const processReply = jest.fn(async () => undefined);
+    const processInteraction = createNominationInteraction({
+      user: { id: 'role-user' },
+      memberPermissions: { has: () => false },
+      options: { getString: () => null },
+      reply: processReply,
+    });
+
+    await handleProcessNominationCommand(processInteraction);
+
+    expect(processReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('not configured correctly'),
         ephemeral: true,
       })
     );

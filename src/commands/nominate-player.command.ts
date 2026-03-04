@@ -5,6 +5,7 @@ import {
   getCommandLocale,
   getOrganizationMemberRoleName,
   hasOrganizationMemberOrHigher,
+  isNominationConfigurationError,
 } from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
 
@@ -86,13 +87,12 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
         }
       ),
       ephemeral: true,
+      allowedMentions: { parse: [] },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`nominate-player command failed: ${errorMessage}`);
-    const isConfigurationError =
-      errorMessage.includes('DATABASE_URL') ||
-      errorMessage.includes('Missing nomination schema objects');
+    const isConfigurationError = isNominationConfigurationError(error);
     const responsePhrase = isConfigurationError
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';

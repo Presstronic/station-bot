@@ -16,6 +16,9 @@
         "migrate:down": "node-pg-migrate down -m ./migrations --database-url \"$DATABASE_URL\""
     },
     "type": "module",
+    "engines": {
+        "node": ">=20.11.0"
+    },
     "author": "Demian",
     "license": "GPL-3.0",
     "dependencies": {

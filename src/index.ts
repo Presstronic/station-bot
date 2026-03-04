@@ -11,6 +11,7 @@ import { ensureNominationsSchema, isDatabaseConfigured } from './services/nomina
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
+const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
 process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, error);
@@ -102,7 +103,19 @@ client.on('interactionCreate', async (interaction) => {
   try {
     await handleInteraction(interaction, client);
   } catch (error) {
-    logger.error('Error handling interaction:', error);
+    if (!interaction.isRepliable()) {
+      return;
+    }
+    if (interaction.replied || interaction.deferred) {
+      return;
+    }
+    await interaction.reply({
+      content: 'An unexpected error occurred while processing your request.',
+      ephemeral: true,
+      allowedMentions: { parse: [] },
+    }).catch(() => {
+      logger.debug(`Failed to send fallback interaction error reply (locale=${defaultLocale}).`);
+    });
   }
 });
 

@@ -7,7 +7,11 @@ import {
   markAllNominationsProcessed,
   markNominationProcessedByHandle,
 } from '../services/nominations/nominations.repository.ts';
-import { ensureCanManageReviewProcessing, getCommandLocale } from './nomination.helpers.ts';
+import {
+  ensureCanManageReviewProcessing,
+  getCommandLocale,
+  isNominationConfigurationError,
+} from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -55,6 +59,7 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
               { rsiHandle: handle }
             ),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -66,17 +71,22 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
         { processedCount: String(count) }
       ),
       ephemeral: true,
+      allowedMentions: { parse: [] },
     });
   } catch (error) {
-    logger.error(`process-nomination command failed: ${String(error)}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`process-nomination command failed: ${errorMessage}`);
+    const phrase = isNominationConfigurationError(error)
+      ? 'commands.nominationCommon.responses.configurationError'
+      : 'commands.nominationCommon.responses.unexpectedError';
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase, locale }),
         ephemeral: true,
       });
     } else {
       await interaction.reply({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase, locale }),
         ephemeral: true,
       });
     }

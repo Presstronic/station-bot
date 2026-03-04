@@ -10,7 +10,11 @@ import {
   removeReviewProcessRoleId,
   resetReviewProcessRoleIds,
 } from '../services/nominations/access-control.repository.ts';
-import { ensureAdmin, getCommandLocale } from './nomination.helpers.ts';
+import {
+  ensureAdmin,
+  getCommandLocale,
+  isNominationConfigurationError,
+} from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
 
 const logger = getLogger();
@@ -133,15 +137,19 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
       ephemeral: true,
     });
   } catch (error) {
-    logger.error(`nomination-access command failed: ${String(error)}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`nomination-access command failed: ${errorMessage}`);
+    const phrase = isNominationConfigurationError(error)
+      ? 'commands.nominationCommon.responses.configurationError'
+      : 'commands.nominationCommon.responses.unexpectedError';
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase, locale }),
         ephemeral: true,
       });
     } else {
       await interaction.reply({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase, locale }),
         ephemeral: true,
       });
     }

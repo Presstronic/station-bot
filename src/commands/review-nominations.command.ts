@@ -7,7 +7,12 @@ import i18n from '../utils/i18n-config.ts';
 import { getUnprocessedNominations, updateOrgCheckStatus } from '../services/nominations/nominations.repository.ts';
 import { checkHasAnyOrgMembership } from '../services/nominations/org-check.service.ts';
 import type { OrgCheckStatus } from '../services/nominations/types.ts';
-import { ensureCanManageReviewProcessing, formatNominationsAsTable, getCommandLocale } from './nomination.helpers.ts';
+import {
+  ensureCanManageReviewProcessing,
+  formatNominationsAsTable,
+  getCommandLocale,
+  isNominationConfigurationError,
+} from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -100,7 +105,7 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     );
 
     if (summary.length <= maxDiscordMessageLength) {
-      await interaction.editReply({ content: summary });
+      await interaction.editReply({ content: summary, allowedMentions: { parse: [] } });
       return;
     }
 
@@ -120,18 +125,25 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
           checkErrorHandles: checkErrorHandles.length > 0 ? checkErrorHandles.join(', ') : 'none',
         }
       ),
+      allowedMentions: { parse: [] },
       files: [attachment],
     });
   } catch (error) {
-    logger.error(`review-nominations command failed: ${String(error)}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`review-nominations command failed: ${errorMessage}`);
+    const phrase = isNominationConfigurationError(error)
+      ? 'commands.nominationCommon.responses.configurationError'
+      : 'commands.nominationCommon.responses.unexpectedError';
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase, locale }),
+        allowedMentions: { parse: [] },
       });
     } else {
       await interaction.reply({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase, locale }),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
     }
   }

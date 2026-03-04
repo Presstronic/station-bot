@@ -14,7 +14,7 @@ A Discord bot for verifying users against their RSI (Roberts Space Industries) p
 
 ### Prerequisites
 
-- Node.js v16.9.0 or higher.
+- Node.js v20.11.0 or higher.
 - Discord account with permissions to add bots to a server.
 
 ### Installation

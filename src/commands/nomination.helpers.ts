@@ -12,6 +12,11 @@ const organizationMemberRoleName = process.env.ORGANIZATION_MEMBER_ROLE_NAME || 
 const organizationMemberRoleId = process.env.ORGANIZATION_MEMBER_ROLE_ID;
 const organizationRoleCache = new Map<string, string>();
 
+export function isNominationConfigurationError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes('DATABASE_URL') || message.includes('Missing nomination schema objects');
+}
+
 export function getCommandLocale(interaction: ChatInputCommandInteraction): string {
   return interaction.locale?.substring(0, 2) ?? defaultLocale;
 }
@@ -116,7 +121,19 @@ export async function ensureCanManageReviewProcessing(
     return false;
   }
 
-  const allowedRoleIds = await getReviewProcessRoleIds();
+  let allowedRoleIds: string[];
+  try {
+    allowedRoleIds = await getReviewProcessRoleIds();
+  } catch (error) {
+    const phrase = isNominationConfigurationError(error)
+      ? 'commands.nominationCommon.responses.configurationError'
+      : 'commands.nominationCommon.responses.unexpectedError';
+    await interaction.reply({
+      content: i18n.__({ phrase, locale }),
+      ephemeral: true,
+    });
+    return false;
+  }
   if (allowedRoleIds.length === 0) {
     await interaction.reply({
       content: i18n.__({ phrase: 'commands.nominationCommon.responses.permissionsMissing', locale }),
