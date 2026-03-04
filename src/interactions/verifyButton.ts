@@ -9,12 +9,12 @@ const logger = getLogger();
 const defaultLocale = 'en';
 
 export async function handleVerifyButtonInteraction(interaction: ButtonInteraction) {
-  const userData = getUserVerificationData(interaction.user.id);
-  const rsiInGameName = userData?.rsiProfileName?.split('/').pop() ?? 'Unknown';
-
   if (interaction.customId !== 'verify') {
     return;
   }
+
+  const userData = getUserVerificationData(interaction.user.id);
+  const rsiInGameName = userData?.rsiProfileName?.split('/').pop() ?? 'Unknown';
 
   const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
   const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;

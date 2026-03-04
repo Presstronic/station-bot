@@ -1,16 +1,31 @@
 import { createLogger, format, transports } from 'winston';
 import { ElasticsearchTransport } from 'winston-elasticsearch';
+import Transport from 'winston-transport';
+
+let loggerInstance: ReturnType<typeof createLogger> | null = null;
 
 export const getLogger = () => {
-  const logLevel = process.env.LOG_LEVEL || 'info'; // Read environment variables dynamically
-  const esNode = process.env.ELASTICSEARCH_NODE || 'http://localhost:9200';
+  if (loggerInstance) {
+    return loggerInstance;
+  }
 
-  const esTransport = new ElasticsearchTransport({
-    level: logLevel,
-    clientOpts: { node: esNode },
-  });
+  const logLevel = process.env.LOG_LEVEL || 'info';
+  const esNode = process.env.ELASTICSEARCH_NODE;
+  const loggerTransports: Transport[] = [
+    new transports.Console(),
+    new transports.File({ filename: './logs/app.log' }),
+  ];
 
-  return createLogger({
+  if (esNode) {
+    loggerTransports.push(
+      new ElasticsearchTransport({
+        level: logLevel,
+        clientOpts: { node: esNode },
+      })
+    );
+  }
+
+  loggerInstance = createLogger({
     level: logLevel,
     format: format.combine(
       format.timestamp(),
@@ -19,10 +34,8 @@ export const getLogger = () => {
         return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
       })
     ),
-    transports: [
-      new transports.Console(),
-      new transports.File({ filename: './logs/app.log' }),
-      esTransport,
-    ],
+    transports: loggerTransports,
   });
+
+  return loggerInstance;
 };

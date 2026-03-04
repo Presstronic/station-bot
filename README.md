@@ -48,3 +48,27 @@ BOT_READ_ONLY_MODE=false
 4. Verify expected role automation is active (default role creation and verification role updates).
 5. Confirm scheduled cleanup jobs are registered and running.
 6. Monitor logs for interaction errors, role assignment failures, and scheduler startup messages.
+
+## Nomination Runtime Configuration
+
+Nomination commands now require PostgreSQL persistence.
+
+RSI request protection controls:
+
+- `RSI_HTTP_TIMEOUT_MS` (default: `12000`)
+- `RSI_HTTP_MAX_RETRIES` (default: `2`)
+- `RSI_HTTP_RETRY_BASE_MS` (default: `500`)
+- `RSI_HTTP_MAX_CONCURRENCY` (default: `2`)
+- `RSI_HTTP_MIN_INTERVAL_MS` (default: `400`)
+- `RSI_CITIZEN_URL_PATTERN` (default: `https://robertsspaceindustries.com/en/citizens/{handle}`)
+- `RSI_ORGANIZATIONS_URL_PATTERN` (default: `https://robertsspaceindustries.com/en/citizens/{handle}/organizations`)
+
+## PostgreSQL Container (Compose)
+
+`docker-compose.yml` and `docker-compose.prod.yml` now include a `postgres` service with persistent storage.
+Configure these in your environment:
+
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `DATABASE_URL` (for future app DB integration)

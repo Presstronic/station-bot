@@ -1,33 +1,7 @@
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { mkdtempSync, rmSync } from 'fs';
-import { join } from 'path';
-import { tmpdir } from 'os';
-
-const originalStorePath = process.env.NOMINATIONS_STORE_PATH;
-const originalRoleName = process.env.ORGANIZATION_MEMBER_ROLE_NAME;
-let tempDir = '';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 beforeEach(() => {
   jest.resetModules();
-  tempDir = mkdtempSync(join(tmpdir(), 'station-bot-nominations-cmd-'));
-  process.env.NOMINATIONS_STORE_PATH = join(tempDir, 'nominations.json');
-  process.env.ORGANIZATION_MEMBER_ROLE_NAME = 'Organization Member';
-});
-
-afterEach(() => {
-  if (originalStorePath === undefined) {
-    delete process.env.NOMINATIONS_STORE_PATH;
-  } else {
-    process.env.NOMINATIONS_STORE_PATH = originalStorePath;
-  }
-  if (originalRoleName === undefined) {
-    delete process.env.ORGANIZATION_MEMBER_ROLE_NAME;
-  } else {
-    process.env.ORGANIZATION_MEMBER_ROLE_NAME = originalRoleName;
-  }
-  if (tempDir) {
-    rmSync(tempDir, { recursive: true, force: true });
-  }
 });
 
 function createNominationInteraction(overrides: Record<string, unknown> = {}) {
@@ -54,6 +28,7 @@ function createNominationInteraction(overrides: Record<string, unknown> = {}) {
               highest: {
                 comparePositionTo: () => 1,
               },
+              cache: new Map([['review-role-1', { id: 'review-role-1' }]]),
             },
           }),
         },
@@ -75,11 +50,23 @@ function createNominationInteraction(overrides: Record<string, unknown> = {}) {
 
 describe('nominations commands', () => {
   it('creates nomination when role check passes', async () => {
+    const recordNomination = jest.fn(async () => ({
+      displayHandle: 'PilotNominee',
+      nominationCount: 1,
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
     const interaction = createNominationInteraction();
-
     await handleNominatePlayerCommand(interaction);
 
+    expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Nomination recorded'),
@@ -89,6 +76,14 @@ describe('nominations commands', () => {
   });
 
   it('rejects nomination when role check fails', async () => {
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
     const interaction = createNominationInteraction({
       guild: {
@@ -121,25 +116,65 @@ describe('nominations commands', () => {
   });
 
   it('processes all nominations when admin runs process command without handle', async () => {
-    const nominateModule = await import('../nominate-player.command.ts');
-    const processModule = await import('../process-nomination.command.ts');
-    const nominateInteraction = createNominationInteraction();
-    await nominateModule.handleNominatePlayerCommand(nominateInteraction);
+    const markAllNominationsProcessed = jest.fn(async () => 1);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(async () => false),
+      markAllNominationsProcessed,
+    }));
 
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = {
       inGuild: () => true,
       locale: 'en-US',
       user: { id: 'admin-1' },
       memberPermissions: { has: () => true },
-      options: {
-        getString: () => null,
-      },
+      options: { getString: () => null },
       reply: processReply,
     } as any;
 
-    await processModule.handleProcessNominationCommand(processInteraction);
+    await handleProcessNominationCommand(processInteraction);
 
+    expect(markAllNominationsProcessed).toHaveBeenCalledWith('admin-1');
+    expect(processReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('Marked 1 nomination(s) as processed.'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('allows configured non-admin role to run process command', async () => {
+    const markAllNominationsProcessed = jest.fn(async () => 1);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(async () => false),
+      markAllNominationsProcessed,
+    }));
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.ts', () => ({
+      getReviewProcessRoleIds: jest.fn(async () => ['review-role-1']),
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const processReply = jest.fn(async () => undefined);
+    const processInteraction = createNominationInteraction({
+      user: { id: 'role-user' },
+      memberPermissions: { has: () => false },
+      options: { getString: () => null },
+      reply: processReply,
+    });
+
+    await handleProcessNominationCommand(processInteraction);
+
+    expect(markAllNominationsProcessed).toHaveBeenCalledWith('role-user');
     expect(processReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Marked 1 nomination(s) as processed.'),

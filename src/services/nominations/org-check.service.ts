@@ -1,38 +1,170 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import type { OrgCheckStatus } from './types.ts';
+import { getLogger } from '../../utils/logger.ts';
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
+const defaultOrganizationsPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}/organizations';
+const defaultTimeoutMs = 12000;
+const defaultMaxRetries = 2;
+const defaultRetryBaseMs = 500;
+const defaultMaxConcurrency = 2;
+const defaultMinIntervalMs = 400;
+
+const logger = getLogger();
+const requestTimeoutMs = Number(process.env.RSI_HTTP_TIMEOUT_MS || defaultTimeoutMs);
+const maxRetries = Number(process.env.RSI_HTTP_MAX_RETRIES || defaultMaxRetries);
+const retryBaseMs = Number(process.env.RSI_HTTP_RETRY_BASE_MS || defaultRetryBaseMs);
+const maxConcurrency = Math.max(1, Number(process.env.RSI_HTTP_MAX_CONCURRENCY || defaultMaxConcurrency));
+const minIntervalMs = Math.max(0, Number(process.env.RSI_HTTP_MIN_INTERVAL_MS || defaultMinIntervalMs));
+
+let activeRequests = 0;
+let lastStartedAt = 0;
+let drainTimer: NodeJS.Timeout | null = null;
+const waitQueue: Array<() => void> = [];
 
 function buildCitizenUrl(handle: string): string {
   const pattern = process.env.RSI_CITIZEN_URL_PATTERN || defaultCitizenPattern;
   return pattern.replace('{handle}', encodeURIComponent(handle.trim()));
 }
 
-export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckStatus> {
-  const url = buildCitizenUrl(rsiHandle);
-  const response = await axios.get<string>(url, {
-    validateStatus: (status) => status < 500,
-  });
+function buildOrganizationsUrl(handle: string): string {
+  const pattern = process.env.RSI_ORGANIZATIONS_URL_PATTERN || defaultOrganizationsPattern;
+  return pattern.replace('{handle}', encodeURIComponent(handle.trim()));
+}
 
-  if (response.status !== 200 || !response.data) {
-    return 'unknown';
+function scheduleDrain(delayMs: number): void {
+  if (drainTimer) {
+    return;
+  }
+  drainTimer = setTimeout(() => {
+    drainTimer = null;
+    drainQueue();
+  }, delayMs);
+}
+
+function drainQueue(): void {
+  if (activeRequests >= maxConcurrency || waitQueue.length === 0) {
+    return;
   }
 
-  const $ = cheerio.load(response.data);
+  const now = Date.now();
+  const elapsed = now - lastStartedAt;
+  if (elapsed < minIntervalMs) {
+    scheduleDrain(minIntervalMs - elapsed);
+    return;
+  }
+
+  const next = waitQueue.shift();
+  if (!next) {
+    return;
+  }
+  activeRequests += 1;
+  lastStartedAt = Date.now();
+  next();
+}
+
+async function withRateLimit<T>(task: () => Promise<T>): Promise<T> {
+  await new Promise<void>((resolve) => {
+    waitQueue.push(resolve);
+    drainQueue();
+  });
+
+  try {
+    return await task();
+  } finally {
+    activeRequests -= 1;
+    drainQueue();
+  }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(url: string): Promise<string | null> {
+  let attempt = 0;
+  while (attempt <= maxRetries) {
+    try {
+      const response = await withRateLimit(async () =>
+        axios.get<string>(url, {
+          timeout: requestTimeoutMs,
+          validateStatus: () => true,
+          headers: {
+            'User-Agent': 'station-bot/1.0 (+discord nomination review)',
+          },
+        })
+      );
+
+      if (response.status === 200 && response.data) {
+        return response.data;
+      }
+
+      if (response.status === 404) {
+        return null;
+      }
+
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt >= maxRetries) {
+          throw new Error(`RSI response ${response.status} for URL ${url}`);
+        }
+        const retryAfterHeader = response.headers['retry-after'];
+        const retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : NaN;
+        const backoffMs = Number.isFinite(retryAfterMs)
+          ? retryAfterMs
+          : retryBaseMs * Math.pow(2, attempt);
+        await sleep(backoffMs);
+        attempt += 1;
+        continue;
+      }
+
+      return null;
+    } catch (error) {
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+      await sleep(retryBaseMs * Math.pow(2, attempt));
+      attempt += 1;
+    }
+  }
+
+  return null;
+}
+
+function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
+  const $ = cheerio.load(html);
   const orgLink = $('a[href*="/orgs/"]').first().text().trim();
   if (orgLink.length > 0) {
     return 'in_org';
   }
 
   const bodyText = $('body').text().toLowerCase();
-  if (bodyText.includes('no affiliation')) {
-    return 'not_in_org';
-  }
-
-  if (bodyText.includes('affiliation') && bodyText.includes('none')) {
+  if (
+    bodyText.includes('no organizations') ||
+    bodyText.includes('no affiliation') ||
+    (bodyText.includes('affiliation') && bodyText.includes('none'))
+  ) {
     return 'not_in_org';
   }
 
   return 'unknown';
+}
+
+export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckStatus> {
+  const citizenUrl = buildCitizenUrl(rsiHandle);
+  const organizationsUrl = buildOrganizationsUrl(rsiHandle);
+
+  const citizenPage = await fetchWithRetry(citizenUrl);
+  if (!citizenPage) {
+    logger.warn(`RSI citizen profile not found or unavailable for handle "${rsiHandle}"`);
+    return 'unknown';
+  }
+
+  const organizationsPage = await fetchWithRetry(organizationsUrl);
+  if (!organizationsPage) {
+    logger.warn(`RSI organizations page not found or unavailable for handle "${rsiHandle}"`);
+    return 'unknown';
+  }
+
+  return parseOrgStatusFromOrganizationsPage(organizationsPage);
 }

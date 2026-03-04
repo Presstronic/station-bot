@@ -6,8 +6,10 @@ import {
   getOrganizationMemberRoleName,
   hasOrganizationMemberOrHigher,
 } from './nomination.helpers.ts';
+import { getLogger } from '../utils/logger.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
+const logger = getLogger();
 
 export const NOMINATE_PLAYER_COMMAND_NAME = 'nominate-player';
 
@@ -47,42 +49,56 @@ function normalizeHandle(handle: string): string {
 
 export async function handleNominatePlayerCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
+  try {
+    if (!interaction.inGuild()) {
+      await interaction.reply({
+        content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
+        ephemeral: true,
+      });
+      return;
+    }
 
-  if (!interaction.inGuild()) {
-    await interaction.reply({
-      content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
-      ephemeral: true,
-    });
-    return;
-  }
+    const allowed = await hasOrganizationMemberOrHigher(interaction);
+    if (!allowed) {
+      await interaction.reply({
+        content: i18n.__mf(
+          { phrase: 'commands.nominatePlayer.responses.roleRequired', locale },
+          { roleName: getOrganizationMemberRoleName() }
+        ),
+        ephemeral: true,
+      });
+      return;
+    }
 
-  const allowed = await hasOrganizationMemberOrHigher(interaction);
-  if (!allowed) {
+    const rsiHandle = normalizeHandle(
+      interaction.options.getString(i18n.__({ phrase: rsiHandleNameKey, locale: defaultLocale }), true)
+    );
+    const reason =
+      interaction.options.getString(i18n.__({ phrase: reasonNameKey, locale: defaultLocale }))?.trim() || null;
+
+    const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
     await interaction.reply({
       content: i18n.__mf(
-        { phrase: 'commands.nominatePlayer.responses.roleRequired', locale },
-        { roleName: getOrganizationMemberRoleName() }
+        { phrase: 'commands.nominatePlayer.responses.created', locale },
+        {
+          rsiHandle: updated.displayHandle,
+          nominationCount: String(updated.nominationCount),
+        }
       ),
       ephemeral: true,
     });
-    return;
+  } catch (error) {
+    logger.error(`nominate-player command failed: ${String(error)}`);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({
+        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        ephemeral: true,
+      });
+    }
   }
-
-  const rsiHandle = normalizeHandle(
-    interaction.options.getString(i18n.__({ phrase: rsiHandleNameKey, locale: defaultLocale }), true)
-  );
-  const reason =
-    interaction.options.getString(i18n.__({ phrase: reasonNameKey, locale: defaultLocale }))?.trim() || null;
-
-  const updated = recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
-  await interaction.reply({
-    content: i18n.__mf(
-      { phrase: 'commands.nominatePlayer.responses.created', locale },
-      {
-        rsiHandle: updated.displayHandle,
-        nominationCount: String(updated.nominationCount),
-      }
-    ),
-    ephemeral: true,
-  });
 }

@@ -1,6 +1,5 @@
 import {
   ChatInputCommandInteraction,
-  PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
@@ -8,10 +7,12 @@ import {
   markAllNominationsProcessed,
   markNominationProcessedByHandle,
 } from '../services/nominations/nominations.repository.ts';
-import { ensureAdmin, getCommandLocale } from './nomination.helpers.ts';
+import { ensureCanManageReviewProcessing, getCommandLocale } from './nomination.helpers.ts';
+import { getLogger } from '../utils/logger.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const processHandleKey = 'commands.processNomination.options.rsiHandle.name';
+const logger = getLogger();
 
 export const PROCESS_NOMINATION_COMMAND_NAME = 'process-nomination';
 
@@ -19,7 +20,6 @@ export const processNominationCommandBuilder = new SlashCommandBuilder()
   .setName(PROCESS_NOMINATION_COMMAND_NAME)
   .setDescription(i18n.__({ phrase: 'commands.processNomination.description', locale: defaultLocale }))
   .setDMPermission(false)
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .addStringOption((option) =>
     option
       .setName(i18n.__({ phrase: processHandleKey, locale: defaultLocale }))
@@ -34,37 +34,51 @@ export const processNominationCommandBuilder = new SlashCommandBuilder()
 
 export async function handleProcessNominationCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
+  try {
+    if (!(await ensureCanManageReviewProcessing(interaction))) {
+      return;
+    }
 
-  if (!(await ensureAdmin(interaction))) {
-    return;
-  }
+    const handle =
+      interaction.options.getString(i18n.__({ phrase: processHandleKey, locale: defaultLocale }))?.trim() || null;
 
-  const handle =
-    interaction.options.getString(i18n.__({ phrase: processHandleKey, locale: defaultLocale }))?.trim() || null;
+    if (handle) {
+      const updated = await markNominationProcessedByHandle(handle, interaction.user.id);
+      await interaction.reply({
+        content: updated
+          ? i18n.__mf(
+              { phrase: 'commands.processNomination.responses.singleProcessed', locale },
+              { rsiHandle: handle }
+            )
+          : i18n.__mf(
+              { phrase: 'commands.processNomination.responses.singleNotFound', locale },
+              { rsiHandle: handle }
+            ),
+        ephemeral: true,
+      });
+      return;
+    }
 
-  if (handle) {
-    const updated = markNominationProcessedByHandle(handle, interaction.user.id);
+    const count = await markAllNominationsProcessed(interaction.user.id);
     await interaction.reply({
-      content: updated
-        ? i18n.__mf(
-            { phrase: 'commands.processNomination.responses.singleProcessed', locale },
-            { rsiHandle: handle }
-          )
-        : i18n.__mf(
-            { phrase: 'commands.processNomination.responses.singleNotFound', locale },
-            { rsiHandle: handle }
-          ),
+      content: i18n.__mf(
+        { phrase: 'commands.processNomination.responses.allProcessed', locale },
+        { processedCount: String(count) }
+      ),
       ephemeral: true,
     });
-    return;
+  } catch (error) {
+    logger.error(`process-nomination command failed: ${String(error)}`);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({
+        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        ephemeral: true,
+      });
+    }
   }
-
-  const count = markAllNominationsProcessed(interaction.user.id);
-  await interaction.reply({
-    content: i18n.__mf(
-      { phrase: 'commands.processNomination.responses.allProcessed', locale },
-      { processedCount: String(count) }
-    ),
-    ephemeral: true,
-  });
 }

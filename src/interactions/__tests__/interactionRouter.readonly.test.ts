@@ -37,6 +37,10 @@ describe('handleInteraction in read-only mode', () => {
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -98,6 +102,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
@@ -162,6 +170,10 @@ describe('handleInteraction in read-only mode', () => {
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -222,6 +234,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({

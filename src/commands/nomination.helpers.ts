@@ -5,6 +5,7 @@ import {
 } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
 import type { NominationRecord } from '../services/nominations/types.ts';
+import { getReviewProcessRoleIds } from '../services/nominations/access-control.repository.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const organizationMemberRoleName = process.env.ORGANIZATION_MEMBER_ROLE_NAME || 'Organization Member';
@@ -75,19 +76,72 @@ export async function ensureAdmin(interaction: ChatInputCommandInteraction): Pro
   return true;
 }
 
+export async function ensureCanManageReviewProcessing(
+  interaction: ChatInputCommandInteraction
+): Promise<boolean> {
+  const locale = getCommandLocale(interaction);
+
+  if (!interaction.inGuild()) {
+    await interaction.reply({
+      content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  if (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+    return true;
+  }
+
+  const member = await getGuildMember(interaction);
+  if (!member) {
+    await interaction.reply({
+      content: i18n.__({ phrase: 'commands.nominationCommon.responses.permissionsMissing', locale }),
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  const allowedRoleIds = await getReviewProcessRoleIds();
+  if (allowedRoleIds.length === 0) {
+    await interaction.reply({
+      content: i18n.__({ phrase: 'commands.nominationCommon.responses.permissionsMissing', locale }),
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  const hasAllowedRole = allowedRoleIds.some((roleId) => member.roles.cache.has(roleId));
+  if (!hasAllowedRole) {
+    await interaction.reply({
+      content: i18n.__({ phrase: 'commands.nominationCommon.responses.permissionsMissing', locale }),
+      ephemeral: true,
+    });
+    return false;
+  }
+
+  return true;
+}
+
 export function getOrganizationMemberRoleName(): string {
   return organizationMemberRoleName;
+}
+
+function sanitizeForMarkdownCodeBlock(value: string): string {
+  return value.replace(/`/g, "'").replace(/[\r\n]+/g, ' ');
 }
 
 export function formatNominationsAsTable(records: NominationRecord[]): string {
   const headers = ['Handle', 'Count', 'Org', 'Last Nomination', 'Nominators'];
   const rows = records.map((record) => {
     const latestEvent = record.events[record.events.length - 1];
-    const nominators = [...new Set(record.events.map((e) => e.nominatorUserTag))].slice(0, 3).join(', ');
+    const nominators = sanitizeForMarkdownCodeBlock(
+      [...new Set(record.events.map((e) => e.nominatorUserTag))].slice(0, 3).join(', ')
+    );
     const orgLabel = record.lastOrgCheckStatus ?? 'unknown';
 
     return [
-      record.displayHandle,
+      sanitizeForMarkdownCodeBlock(record.displayHandle),
       String(record.nominationCount),
       orgLabel,
       latestEvent?.createdAt ?? '-',
@@ -104,5 +158,5 @@ export function formatNominationsAsTable(records: NominationRecord[]): string {
 
   const separator = widths.map((width) => '-'.repeat(width)).join('-+-');
   const lines = [formatRow(headers), separator, ...rows.map(formatRow)];
-  return `\`\`\`\n${lines.join('\n')}\n\`\`\``;
+  return lines.join('\n');
 }

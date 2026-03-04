@@ -17,6 +17,10 @@ import {
   handleProcessNominationCommand,
   PROCESS_NOMINATION_COMMAND_NAME,
 } from '../commands/process-nomination.command.ts';
+import {
+  handleNominationAccessCommand,
+  NOMINATION_ACCESS_COMMAND_NAME,
+} from '../commands/nomination-access.command.ts';
 import i18n from '../utils/i18n-config.ts';
 import { isReadOnlyMode } from '../config/runtime-flags.ts';
 import { handleVerifyButtonInteraction } from './verifyButton.ts';
@@ -54,6 +58,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
       await handleReviewNominationsCommand(interaction);
     } else if (interaction.commandName === PROCESS_NOMINATION_COMMAND_NAME) {
       await handleProcessNominationCommand(interaction);
+    } else if (interaction.commandName === NOMINATION_ACCESS_COMMAND_NAME) {
+      await handleNominationAccessCommand(interaction);
     }
     return;
   }

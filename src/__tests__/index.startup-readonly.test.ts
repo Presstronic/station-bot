@@ -5,6 +5,7 @@ const originalEnv = { ...process.env };
 beforeEach(() => {
   jest.resetModules();
   process.env = { ...originalEnv, DISCORD_BOT_TOKEN: 'test-token' };
+  delete process.env.DATABASE_URL;
 });
 
 afterEach(() => {
@@ -14,8 +15,7 @@ afterEach(() => {
 async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
 
-  const registerCommands = jest.fn(async () => undefined);
-  const registerNominationCommands = jest.fn(async () => undefined);
+  const registerNominationCommands = jest.fn(async () => ({ passed: [], failed: [] }));
   const addMissingDefaultRoles = jest.fn(async () => undefined);
   const scheduleTemporaryMemberCleanup = jest.fn();
   const schedulePotentialApplicantCleanup = jest.fn();
@@ -29,9 +29,6 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
   let readyHandler: (() => Promise<void>) | undefined;
 
   await jest.unstable_mockModule('../bootstrap.ts', () => ({}));
-  await jest.unstable_mockModule('../commands/verify.ts', () => ({
-    registerCommands,
-  }));
   await jest.unstable_mockModule('../commands/register-nomination-commands.ts', () => ({
     registerNominationCommands,
   }));
@@ -84,7 +81,6 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
   await readyHandler!();
 
   return {
-    registerCommands,
     registerNominationCommands,
     addMissingDefaultRoles,
     scheduleTemporaryMemberCleanup,
@@ -95,15 +91,12 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
 describe('startup wiring with read-only mode', () => {
   it('skips startup side effects when BOT_READ_ONLY_MODE=true', async () => {
     const {
-      registerCommands,
       registerNominationCommands,
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
     } = await loadIndexAndRunReady('true');
 
-    expect(registerCommands).toHaveBeenCalledTimes(1);
-    expect(registerCommands).toHaveBeenCalledWith();
     expect(registerNominationCommands).toHaveBeenCalledTimes(1);
     expect(registerNominationCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).not.toHaveBeenCalled();
@@ -113,15 +106,12 @@ describe('startup wiring with read-only mode', () => {
 
   it('runs startup side effects when BOT_READ_ONLY_MODE=false', async () => {
     const {
-      registerCommands,
       registerNominationCommands,
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
     } = await loadIndexAndRunReady('false');
 
-    expect(registerCommands).toHaveBeenCalledTimes(1);
-    expect(registerCommands).toHaveBeenCalledWith();
     expect(registerNominationCommands).toHaveBeenCalledTimes(1);
     expect(registerNominationCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);

@@ -12,6 +12,10 @@ import { generateDrdntVerificationCode } from '../services/verification-code.ser
 import { getLogger } from '../utils/logger.ts';
 import i18n from '../utils/i18n-config.ts';
 import { isReadOnlyMode } from '../config/runtime-flags.ts';
+import { NOMINATE_PLAYER_COMMAND_NAME } from './nominate-player.command.ts';
+import { REVIEW_NOMINATIONS_COMMAND_NAME } from './review-nominations.command.ts';
+import { PROCESS_NOMINATION_COMMAND_NAME } from './process-nomination.command.ts';
+import { NOMINATION_ACCESS_COMMAND_NAME } from './nomination-access.command.ts';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -21,7 +25,7 @@ export const HEALTHCHECK_COMMAND_NAME = 'healthcheck';
 
 const inGameNameKey = 'commands.verify.options.inGameName.name';
 
-const verifyCommandBuilder = new SlashCommandBuilder()
+export const verifyCommandBuilder = new SlashCommandBuilder()
   .setName(VERIFY_COMMAND_NAME)
   .setDescription(i18n.__({ phrase: 'commands.verify.description', locale: defaultLocale }))
   .addStringOption((option) =>
@@ -36,13 +40,21 @@ const verifyCommandBuilder = new SlashCommandBuilder()
       .setRequired(true)
   );
 
-const healthcheckCommandBuilder = new SlashCommandBuilder()
+export const healthcheckCommandBuilder = new SlashCommandBuilder()
   .setName(HEALTHCHECK_COMMAND_NAME)
   .setDescription(i18n.__({ phrase: 'commands.healthcheck.description', locale: defaultLocale }))
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
   .setDMPermission(false);
 
 const commands = [verifyCommandBuilder, healthcheckCommandBuilder];
+const registeredCommandNames = [
+  VERIFY_COMMAND_NAME,
+  HEALTHCHECK_COMMAND_NAME,
+  NOMINATE_PLAYER_COMMAND_NAME,
+  REVIEW_NOMINATIONS_COMMAND_NAME,
+  PROCESS_NOMINATION_COMMAND_NAME,
+  NOMINATION_ACCESS_COMMAND_NAME,
+];
 
 const verificationCodes = new Map<
   string,
@@ -111,7 +123,7 @@ export function getUserVerificationData(userId: string) {
 }
 
 export function getRegisteredCommandNames(): string[] {
-  return commands.map((command) => command.toJSON().name);
+  return registeredCommandNames;
 }
 
 export async function handleHealthcheckCommand(interaction: ChatInputCommandInteraction) {

@@ -1,13 +1,13 @@
 import './bootstrap.ts'; // Loads dotenv and any shared setup
 
 import { Client, IntentsBitField } from 'discord.js';
-import { registerCommands } from './commands/verify.ts';
 import { registerNominationCommands } from './commands/register-nomination-commands.ts';
 import { handleInteraction } from './interactions/interactionRouter.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
 import { isReadOnlyMode } from './config/runtime-flags.ts';
+import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.ts';
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
@@ -38,9 +38,20 @@ client.once('ready', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
+  if (isDatabaseConfigured()) {
+    try {
+      await ensureNominationsSchema();
+    } catch (error) {
+      logger.error(`Failed to initialize nominations database schema: ${String(error)}`);
+    }
+  }
 
-  await registerCommands();
-  await registerNominationCommands();
+  const nominationRegistration = await registerNominationCommands();
+  if (nominationRegistration.failed.length > 0) {
+    logger.warn(
+      `Some nomination commands failed registration: ${nominationRegistration.failed.join(', ')}`
+    );
+  }
   if (readOnlyMode) {
     logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
   }
