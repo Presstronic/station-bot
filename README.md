@@ -124,7 +124,7 @@ npm ci
 
 ### 3) Create env file
 
-Create `.env` with at least:
+Create `.env` with at least (for running the bot on your host via `npm run dev`):
 
 ```bash
 DISCORD_BOT_TOKEN=...
@@ -136,8 +136,18 @@ DEFAULT_LOCALE=en
 
 ### 4) Start local Postgres (optional but recommended)
 
+If you run the bot on your host (`npm run dev`), your DB must be reachable at `localhost:5432`.
+
+If you use `docker compose up -d postgres`, the default compose file does **not** publish port `5432` to the host.
+Use one of these approaches:
+
+- run Postgres locally on host (`localhost:5432`)
+- or run the bot in Docker too (`docker compose up -d`) and set `DATABASE_URL` host to `postgres` in container env
+
+For a full local Docker stack (bot + DB), use:
+
 ```bash
-docker compose up -d postgres
+docker compose up -d
 ```
 
 ### 5) Run migrations
@@ -222,7 +232,7 @@ High-level release flow:
 
 ## 🩺 Troubleshooting
 
-### “Missing nominations schema objects …” on startup
+### "Missing nomination schema objects (...)" on startup
 
 - Run: `npm run migrate:up`
 - Confirm `DATABASE_URL` points to expected DB
