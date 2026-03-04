@@ -6,7 +6,7 @@ import { verifyRSIProfile } from '../services/rsi.services.ts';
 import i18n from '../utils/i18n-config.ts';
 
 const logger = getLogger();
-const defaultLocale = 'en';
+const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
 export async function handleVerifyButtonInteraction(interaction: ButtonInteraction) {
   if (interaction.customId !== 'verify') {

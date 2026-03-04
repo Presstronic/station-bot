@@ -83,6 +83,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
       await interaction.reply({
         content: i18n.__({ phrase: 'commands.nominationAccess.responses.roleRequired', locale }),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -99,6 +100,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
           }
         ),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -115,6 +117,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
           }
         ),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -124,6 +127,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
       await interaction.reply({
         content: i18n.__({ phrase: 'commands.nominationAccess.responses.reset', locale }),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -135,6 +139,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         { roles: formatRoleIds(roleIds) }
       ),
       ephemeral: true,
+      allowedMentions: { parse: [] },
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -146,11 +151,13 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
       await interaction.followUp({
         content: i18n.__({ phrase, locale }),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
     } else {
       await interaction.reply({
         content: i18n.__({ phrase, locale }),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
     }
   }

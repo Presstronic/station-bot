@@ -27,7 +27,7 @@ import { handleVerifyButtonInteraction } from './verifyButton.ts';
 import { runWithCorrelationId } from '../utils/request-context.ts';
 import { getLogger } from '../utils/logger.ts';
 
-const defaultLocale = 'en';
+const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 
 export async function handleInteraction(interaction: Interaction, _client: Client) {
