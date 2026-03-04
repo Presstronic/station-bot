@@ -64,19 +64,19 @@ export async function refreshOrgStatusesForNominations(
   }
 
   const results = await mapWithConcurrency(nominations, concurrency, async (nomination): Promise<RefreshResult> => {
-    let status: OrgCheckStatus = 'unknown';
+    const previousStatus: OrgCheckStatus = nomination.lastOrgCheckStatus ?? 'unknown';
+    let status: OrgCheckStatus = previousStatus;
     let checkErrored = false;
 
     try {
       status = await checkHasAnyOrgMembership(nomination.displayHandle);
+      await updateOrgCheckStatus(nomination.normalizedHandle, status);
+      nomination.lastOrgCheckStatus = status;
+      nomination.lastOrgCheckAt = new Date().toISOString();
     } catch (error) {
       checkErrored = true;
       logger.error(`Org refresh failed for handle ${nomination.displayHandle}: ${String(error)}`);
     }
-
-    await updateOrgCheckStatus(nomination.normalizedHandle, status);
-    nomination.lastOrgCheckStatus = status;
-    nomination.lastOrgCheckAt = new Date().toISOString();
 
     return {
       handle: sanitizeHandleForList(nomination.displayHandle),

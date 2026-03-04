@@ -1,6 +1,9 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
-import { getUnprocessedNominations } from '../services/nominations/nominations.repository.ts';
+import {
+  getUnprocessedNominationByHandle,
+  getUnprocessedNominations,
+} from '../services/nominations/nominations.repository.ts';
 import {
   ensureCanManageReviewProcessing,
   getCommandLocale,
@@ -12,6 +15,7 @@ import { getLogger } from '../utils/logger.ts';
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 const rsiHandleKey = 'commands.refreshNominationOrgStatus.options.rsiHandle.name';
+const maxDiscordMessageLength = 1800;
 
 export const REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME = 'refresh-nomination-org-status';
 
@@ -44,12 +48,13 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     const requestedHandle =
       interaction.options.getString(i18n.__({ phrase: rsiHandleKey, locale: defaultLocale }))?.trim() || null;
 
-    const nominations = await getUnprocessedNominations();
-    const targets = requestedHandle
-      ? nominations.filter(
-          (nomination) => nomination.normalizedHandle === requestedHandle.trim().toLowerCase()
-        )
-      : nominations;
+    let targets: Awaited<ReturnType<typeof getUnprocessedNominations>> = [];
+    if (requestedHandle) {
+      const nomination = await getUnprocessedNominationByHandle(requestedHandle);
+      targets = nomination ? [nomination] : [];
+    } else {
+      targets = await getUnprocessedNominations();
+    }
 
     if (requestedHandle && targets.length === 0) {
       await interaction.editReply({
@@ -71,6 +76,32 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     }
 
     const summary = await refreshOrgStatusesForNominations(targets);
+    const summaryTemplateWithoutHandles = i18n.__mf(
+      { phrase: 'commands.refreshNominationOrgStatus.responses.summary', locale },
+      {
+        targetCount: String(summary.targetCount),
+        refreshedCount: String(summary.refreshedCount),
+        errorCount: String(summary.errorCount),
+        inOrgCount: String(summary.inOrgCount),
+        notInOrgCount: String(summary.notInOrgCount),
+        unknownCount: String(summary.unknownCount),
+        errorHandles: '',
+      }
+    );
+    const maxErrorHandlesLength = Math.max(0, maxDiscordMessageLength - summaryTemplateWithoutHandles.length);
+    const errorHandles = (() => {
+      if (summary.errorHandles.length === 0) {
+        return 'none';
+      }
+
+      const joinedErrorHandles = summary.errorHandles.join(', ');
+      if (joinedErrorHandles.length <= maxErrorHandlesLength) {
+        return joinedErrorHandles;
+      }
+
+      return `${joinedErrorHandles.slice(0, Math.max(0, maxErrorHandlesLength - 3))}...`;
+    })();
+
     await interaction.editReply({
       content: i18n.__mf(
         { phrase: 'commands.refreshNominationOrgStatus.responses.summary', locale },
@@ -81,7 +112,7 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
           inOrgCount: String(summary.inOrgCount),
           notInOrgCount: String(summary.notInOrgCount),
           unknownCount: String(summary.unknownCount),
-          errorHandles: summary.errorHandles.length > 0 ? summary.errorHandles.join(', ') : 'none',
+          errorHandles,
         }
       ),
       allowedMentions: { parse: [] },
