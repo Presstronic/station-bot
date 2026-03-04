@@ -1,6 +1,7 @@
 import { createLogger, format, transports } from 'winston';
 import { ElasticsearchTransport } from 'winston-elasticsearch';
 import Transport from 'winston-transport';
+import { getCorrelationId } from './request-context.ts';
 
 let loggerInstance: ReturnType<typeof createLogger> | null = null;
 
@@ -31,7 +32,9 @@ export const getLogger = () => {
       format.timestamp(),
       format.json(),
       format.printf(({ timestamp, level, message }) => {
-        return `[${timestamp}] ${level.toUpperCase()}: ${message}`;
+        const correlationId = getCorrelationId();
+        const correlationTag = correlationId ? ` [cid:${correlationId}]` : '';
+        return `[${timestamp}] ${level.toUpperCase()}${correlationTag}: ${message}`;
       })
     ),
     transports: loggerTransports,

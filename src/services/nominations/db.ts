@@ -1,5 +1,6 @@
 import { Pool, type PoolClient } from 'pg';
 import { getLogger } from '../../utils/logger.ts';
+import { readFileSync } from 'fs';
 
 const logger = getLogger();
 
@@ -8,6 +9,43 @@ let schemaEnsured = false;
 
 export function isDatabaseConfigured(): boolean {
   return Boolean(process.env.DATABASE_URL);
+}
+
+function envFlag(name: string, defaultValue = false): boolean {
+  const raw = process.env[name];
+  if (!raw) {
+    return defaultValue;
+  }
+
+  const normalized = raw.trim().toLowerCase();
+  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+    return true;
+  }
+  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+    return false;
+  }
+  return defaultValue;
+}
+
+function getSslConfig() {
+  const sslEnabled = envFlag('PG_SSL_ENABLED', false);
+  if (!sslEnabled) {
+    return undefined;
+  }
+
+  const rejectUnauthorized = envFlag('PG_SSL_REJECT_UNAUTHORIZED', true);
+  const caPath = process.env.PG_SSL_CA_PATH;
+  if (!caPath) {
+    return { rejectUnauthorized };
+  }
+
+  try {
+    const ca = readFileSync(caPath, 'utf8');
+    return { rejectUnauthorized, ca };
+  } catch (error) {
+    logger.error(`Failed reading PG_SSL_CA_PATH (${caPath}): ${String(error)}`);
+    throw error;
+  }
 }
 
 export function getDbPool(): Pool {
@@ -22,7 +60,9 @@ export function getDbPool(): Pool {
     connectionString: process.env.DATABASE_URL,
     max: Number(process.env.PG_POOL_MAX || 10),
     idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 30000),
+    connectionTimeoutMillis: Number(process.env.PG_CONNECT_TIMEOUT_MS || 10000),
     statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS || 15000),
+    ssl: getSslConfig(),
   });
 
   poolInstance.on('error', (error) => {
@@ -46,46 +86,28 @@ export async function ensureNominationsSchema(): Promise<void> {
     return;
   }
 
-  await withClient(async (client) => {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS nominations (
-        normalized_handle TEXT PRIMARY KEY,
-        display_handle TEXT NOT NULL,
-        nomination_count INTEGER NOT NULL DEFAULT 0,
-        is_processed BOOLEAN NOT NULL DEFAULT FALSE,
-        processed_by_user_id TEXT NULL,
-        processed_at TIMESTAMPTZ NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        last_org_check_status TEXT NULL,
-        last_org_check_at TIMESTAMPTZ NULL
-      );
-    `);
+  const result = await withClient((client) =>
+    client.query(`
+      SELECT
+        to_regclass('public.nominations') AS nominations_table,
+        to_regclass('public.nomination_events') AS nomination_events_table,
+        to_regclass('public.nomination_access_roles') AS nomination_access_roles_table
+    `)
+  );
 
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS nomination_events (
-        id BIGSERIAL PRIMARY KEY,
-        normalized_handle TEXT NOT NULL REFERENCES nominations(normalized_handle) ON DELETE CASCADE,
-        nominator_user_id TEXT NOT NULL,
-        nominator_user_tag TEXT NOT NULL,
-        reason TEXT NULL,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
+  const row = result.rows[0];
+  const missing = [
+    row?.nominations_table ? null : 'nominations',
+    row?.nomination_events_table ? null : 'nomination_events',
+    row?.nomination_access_roles_table ? null : 'nomination_access_roles',
+  ].filter((value): value is string => Boolean(value));
 
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_nomination_events_handle_created_at
-      ON nomination_events(normalized_handle, created_at DESC);
-    `);
-
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS nomination_access_roles (
-        role_id TEXT PRIMARY KEY,
-        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
-    `);
-  });
+  if (missing.length > 0) {
+    throw new Error(
+      `Missing nomination schema objects (${missing.join(', ')}). Run database migrations before starting the bot.`
+    );
+  }
 
   schemaEnsured = true;
-  logger.info('Nomination schema ensured.');
+  logger.info('Nomination schema check passed.');
 }

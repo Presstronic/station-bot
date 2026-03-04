@@ -10,7 +10,10 @@
         "test": "NODE_ENV=test node --experimental-vm-modules node_modules/.bin/jest --detectOpenHandles",
         "test:watch": "jest --watch",
         "typecheck": "tsc --noEmit",
-        "quality": "npm run lint && npm run typecheck && npm test -- --runInBand"
+        "quality": "npm run lint && npm run typecheck && npm test -- --runInBand",
+        "migrate:create": "node-pg-migrate create -m ./migrations",
+        "migrate:up": "node-pg-migrate up -m ./migrations --database-url \"$DATABASE_URL\"",
+        "migrate:down": "node-pg-migrate down -m ./migrations --database-url \"$DATABASE_URL\""
     },
     "type": "module",
     "author": "Demian",
@@ -42,6 +45,7 @@
         "@types/pg": "^8.18.0",
         "@types/winston": "^2.4.4",
         "jest": "^29.7.0",
+        "node-pg-migrate": "^8.0.4",
         "ts-jest": "^29.3.2",
         "ts-jest-resolver": "^2.0.1",
         "ts-node": "^10.9.2",

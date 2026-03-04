@@ -53,6 +53,24 @@ BOT_READ_ONLY_MODE=false
 
 Nomination commands now require PostgreSQL persistence.
 
+PostgreSQL connection controls:
+
+- `DATABASE_URL` (required)
+- `PG_POOL_MAX` (default: `10`)
+- `PG_IDLE_TIMEOUT_MS` (default: `30000`)
+- `PG_CONNECT_TIMEOUT_MS` (default: `10000`)
+- `PG_STATEMENT_TIMEOUT_MS` (default: `15000`)
+
+PostgreSQL TLS controls:
+
+- `PG_SSL_ENABLED` (default: `false`)
+- `PG_SSL_REJECT_UNAUTHORIZED` (default: `true`)
+- `PG_SSL_CA_PATH` (optional filesystem path to CA cert)
+
+Request correlation:
+
+- every interaction is assigned a correlation ID (`interaction.id`) and automatically attached to logs as `cid:<id>` for traceability.
+
 RSI request protection controls:
 
 - `RSI_HTTP_TIMEOUT_MS` (default: `12000`)
@@ -71,4 +89,14 @@ Configure these in your environment:
 - `POSTGRES_DB`
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
-- `DATABASE_URL` (for future app DB integration)
+- `DATABASE_URL`
+
+## Database Migrations
+
+The project uses `node-pg-migrate` for schema changes.
+
+- create migration: `npm run migrate:create -- migration_name`
+- apply migrations: `npm run migrate:up`
+- rollback one migration: `npm run migrate:down`
+
+Run migrations before starting the bot in environments where the DB may be empty.
