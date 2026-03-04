@@ -12,11 +12,24 @@ const defaultMaxConcurrency = 2;
 const defaultMinIntervalMs = 400;
 
 const logger = getLogger();
-const requestTimeoutMs = Number(process.env.RSI_HTTP_TIMEOUT_MS || defaultTimeoutMs);
-const maxRetries = Number(process.env.RSI_HTTP_MAX_RETRIES || defaultMaxRetries);
-const retryBaseMs = Number(process.env.RSI_HTTP_RETRY_BASE_MS || defaultRetryBaseMs);
-const maxConcurrency = Math.max(1, Number(process.env.RSI_HTTP_MAX_CONCURRENCY || defaultMaxConcurrency));
-const minIntervalMs = Math.max(0, Number(process.env.RSI_HTTP_MIN_INTERVAL_MS || defaultMinIntervalMs));
+
+function parseEnvInt(name: string, defaultValue: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw.trim() === '') {
+    return defaultValue;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : defaultValue;
+}
+
+const requestTimeoutMs = Math.max(1, parseEnvInt('RSI_HTTP_TIMEOUT_MS', defaultTimeoutMs));
+const maxRetries = Math.max(0, parseEnvInt('RSI_HTTP_MAX_RETRIES', defaultMaxRetries));
+const retryBaseMs = Math.max(0, parseEnvInt('RSI_HTTP_RETRY_BASE_MS', defaultRetryBaseMs));
+const maxConcurrency = Math.max(
+  1,
+  parseEnvInt('RSI_HTTP_MAX_CONCURRENCY', defaultMaxConcurrency)
+);
+const minIntervalMs = Math.max(0, parseEnvInt('RSI_HTTP_MIN_INTERVAL_MS', defaultMinIntervalMs));
 
 let activeRequests = 0;
 let lastStartedAt = 0;

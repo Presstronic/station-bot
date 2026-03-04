@@ -27,6 +27,15 @@ function envFlag(name: string, defaultValue = false): boolean {
   return defaultValue;
 }
 
+function envInt(name: string, defaultValue: number): number {
+  const raw = process.env[name];
+  if (raw === undefined || raw === null || raw.trim() === '') {
+    return defaultValue;
+  }
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : defaultValue;
+}
+
 function getSslConfig() {
   const sslEnabled = envFlag('PG_SSL_ENABLED', false);
   if (!sslEnabled) {
@@ -58,10 +67,10 @@ export function getDbPool(): Pool {
 
   poolInstance = new Pool({
     connectionString: process.env.DATABASE_URL,
-    max: Number(process.env.PG_POOL_MAX || 10),
-    idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 30000),
-    connectionTimeoutMillis: Number(process.env.PG_CONNECT_TIMEOUT_MS || 10000),
-    statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS || 15000),
+    max: Math.max(1, envInt('PG_POOL_MAX', 10)),
+    idleTimeoutMillis: Math.max(0, envInt('PG_IDLE_TIMEOUT_MS', 30000)),
+    connectionTimeoutMillis: Math.max(0, envInt('PG_CONNECT_TIMEOUT_MS', 10000)),
+    statement_timeout: Math.max(0, envInt('PG_STATEMENT_TIMEOUT_MS', 15000)),
     ssl: getSslConfig(),
   });
 

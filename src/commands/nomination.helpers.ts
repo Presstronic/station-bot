@@ -159,7 +159,10 @@ export function getOrganizationMemberRoleName(): string {
 }
 
 function sanitizeForMarkdownCodeBlock(value: string): string {
-  return value.replace(/`/g, "'").replace(/[\r\n]+/g, ' ');
+  return value
+    .replace(/`/g, "'")
+    .replace(/\|/g, '/')
+    .replace(/[\r\n]+/g, ' ');
 }
 
 export function formatNominationsAsTable(records: NominationRecord[]): string {
