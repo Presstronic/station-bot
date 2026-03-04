@@ -28,17 +28,27 @@ export async function addReviewProcessRoleId(
   assertDatabaseConfigured();
   await ensureNominationsSchema();
 
-  const result = await withClient((client) =>
-    client.query(
+  return withClient(async (client) => {
+    const result = await client.query(
       `
       INSERT INTO nomination_access_roles(role_id)
       VALUES ($1)
       ON CONFLICT (role_id) DO NOTHING
       `,
       [roleId]
-    )
-  );
-  return { added: (result.rowCount ?? 0) > 0, roleIds: await getReviewProcessRoleIds() };
+    );
+    const rolesResult = await client.query(
+      `
+      SELECT role_id
+      FROM nomination_access_roles
+      ORDER BY role_id ASC
+      `
+    );
+    return {
+      added: (result.rowCount ?? 0) > 0,
+      roleIds: rolesResult.rows.map((row) => row.role_id as string),
+    };
+  });
 }
 
 export async function removeReviewProcessRoleId(
@@ -47,16 +57,26 @@ export async function removeReviewProcessRoleId(
   assertDatabaseConfigured();
   await ensureNominationsSchema();
 
-  const result = await withClient((client) =>
-    client.query(
+  return withClient(async (client) => {
+    const result = await client.query(
       `
       DELETE FROM nomination_access_roles
       WHERE role_id = $1
       `,
       [roleId]
-    )
-  );
-  return { removed: (result.rowCount ?? 0) > 0, roleIds: await getReviewProcessRoleIds() };
+    );
+    const rolesResult = await client.query(
+      `
+      SELECT role_id
+      FROM nomination_access_roles
+      ORDER BY role_id ASC
+      `
+    );
+    return {
+      removed: (result.rowCount ?? 0) > 0,
+      roleIds: rolesResult.rows.map((row) => row.role_id as string),
+    };
+  });
 }
 
 export async function resetReviewProcessRoleIds(): Promise<void> {

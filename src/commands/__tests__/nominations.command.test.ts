@@ -85,6 +85,30 @@ describe('nominations commands', () => {
     );
   });
 
+  it('returns configuration guidance when nomination persistence is misconfigured', async () => {
+    const recordNomination = jest.fn(async () => {
+      throw new Error('DATABASE_URL is required for nomination persistence');
+    });
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction();
+    await handleNominatePlayerCommand(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('not configured correctly'),
+        ephemeral: true,
+      })
+    );
+  });
+
   it('rejects nomination when role check fails', async () => {
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),

@@ -23,6 +23,7 @@ export async function registerAllCommands() {
   const clientId = process.env.CLIENT_ID;
   if (!clientId) {
     logger.error('Missing CLIENT_ID in environment');
+    setRegisteredCommandNames([]);
     return { passed: [], failed: ['missing-client-id'] };
   }
 

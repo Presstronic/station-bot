@@ -49,6 +49,7 @@
         "guildOnly": "This command can only be used in a server.",
         "adminOnly": "Only server administrators can run this command.",
         "permissionsMissing": "You are not authorized to run this nomination command.",
+        "configurationError": "Nomination features are not configured correctly right now. Please contact a server admin.",
         "unexpectedError": "Something went wrong while handling this command. Please try again."
       }
     },

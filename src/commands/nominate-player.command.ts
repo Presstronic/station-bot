@@ -88,15 +88,23 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       ephemeral: true,
     });
   } catch (error) {
-    logger.error(`nominate-player command failed: ${String(error)}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(`nominate-player command failed: ${errorMessage}`);
+    const isConfigurationError =
+      errorMessage.includes('DATABASE_URL') ||
+      errorMessage.includes('Missing nomination schema objects');
+    const responsePhrase = isConfigurationError
+      ? 'commands.nominationCommon.responses.configurationError'
+      : 'commands.nominationCommon.responses.unexpectedError';
+
     if (interaction.replied || interaction.deferred) {
       await interaction.followUp({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase: responsePhrase, locale }),
         ephemeral: true,
       });
     } else {
       await interaction.reply({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+        content: i18n.__({ phrase: responsePhrase, locale }),
         ephemeral: true,
       });
     }
