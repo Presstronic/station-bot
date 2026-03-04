@@ -35,6 +35,7 @@ export const getLogger = () => {
       format.timestamp(),
       format.printf((info) => {
         const { timestamp, level, message, stack, ...meta } = info;
+        const splat = (info as Record<PropertyKey, unknown>)[Symbol.for('splat')];
         const correlationId = getCorrelationId();
         const correlationTag = correlationId ? ` [cid:${correlationId}]` : '';
         const renderedMessage =
@@ -43,9 +44,16 @@ export const getLogger = () => {
             : inspect(message, { depth: 5, breakLength: 120, compact: true });
         const renderedStack =
           typeof stack === 'string' && stack.length > 0 ? `\n${stack}` : '';
+        const renderedMetaFields: Record<string, unknown> = {};
+        if (Object.keys(meta).length > 0) {
+          renderedMetaFields.meta = meta;
+        }
+        if (Array.isArray(splat) && splat.length > 0) {
+          renderedMetaFields.splat = splat;
+        }
         const renderedMeta =
-          Object.keys(meta).length > 0
-            ? `\nmeta=${inspect(meta, { depth: 5, breakLength: 120, compact: true })}`
+          Object.keys(renderedMetaFields).length > 0
+            ? `\nmeta=${inspect(renderedMetaFields, { depth: 5, breakLength: 120, compact: true })}`
             : '';
         return `[${timestamp}] ${String(level).toUpperCase()}${correlationTag}: ${renderedMessage}${renderedStack}${renderedMeta}`;
       })

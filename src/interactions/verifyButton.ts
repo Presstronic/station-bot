@@ -13,6 +13,22 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
 
+  if (!interaction.deferred && !interaction.replied) {
+    await interaction.deferReply({ ephemeral: true });
+  }
+
+  async function respond(content: string): Promise<void> {
+    if (interaction.deferred && !interaction.replied) {
+      await interaction.editReply({ content });
+      return;
+    }
+    if (interaction.replied) {
+      await interaction.followUp({ content, ephemeral: true });
+      return;
+    }
+    await interaction.reply({ content, ephemeral: true });
+  }
+
   const userData = getUserVerificationData(interaction.user.id);
   const rsiInGameName = userData?.rsiProfileName?.split('/').pop() ?? 'Unknown';
 
@@ -26,31 +42,28 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
 
     if (success) {
       logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
-      await interaction.reply({
-        content: i18n.__mf(
+      await respond(
+        i18n.__mf(
           { phrase: 'commands.verify.responses.success', locale },
           { rsiName: rsiInGameName, username: interaction.user.username }
-        ),
-        ephemeral: true,
-      });
+        )
+      );
     } else {
-      await interaction.reply({
-        content: i18n.__mf(
+      await respond(
+        i18n.__mf(
           { phrase: 'commands.verify.responses.assignFailed', locale },
           { rsiName: rsiInGameName, username: interaction.user.username }
-        ),
-        ephemeral: true,
-      });
+        )
+      );
     }
     return;
   }
 
   await removeVerifiedRole(interaction, interaction.user.id);
-  await interaction.reply({
-    content: i18n.__mf(
+  await respond(
+    i18n.__mf(
       { phrase: 'commands.verify.responses.verificationFailed', locale },
       { rsiName: rsiInGameName, username: interaction.user.username }
-    ),
-    ephemeral: true,
-  });
+    )
+  );
 }

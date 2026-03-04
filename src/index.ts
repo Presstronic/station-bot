@@ -43,7 +43,7 @@ client.once('ready', async () => {
     try {
       await ensureNominationsSchema();
     } catch (error) {
-      logger.error(`Failed to initialize nominations database schema: ${String(error)}`);
+      logger.error('Failed to initialize nominations database schema', error);
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
       process.exit(1);
       return;
