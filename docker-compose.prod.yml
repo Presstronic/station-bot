@@ -41,7 +41,7 @@ services:
       - ./logs:/app/logs # Persistent writable logs directory
     environment:
       LOG_LEVEL: "${LOG_LEVEL:-info}" # Default log level to info if not set
-      DATABASE_URL: "${DATABASE_URL:-}"
+      DATABASE_URL: "${DATABASE_URL:-postgresql://${POSTGRES_USER:-station_bot}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-station_bot}}"
 
 networks:
   bot-network:

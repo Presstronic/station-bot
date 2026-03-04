@@ -81,9 +81,10 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
       return { handle: nomination.displayHandle, status, checkErrored };
     });
 
-    const inOrgCount = results.filter((result) => result.status === 'in_org').length;
-    const notInOrgCount = results.filter((result) => result.status === 'not_in_org').length;
-    const unknownCount = results.filter((result) => result.status === 'unknown').length;
+    const completedResults = results.filter((result) => !result.checkErrored);
+    const inOrgCount = completedResults.filter((result) => result.status === 'in_org').length;
+    const notInOrgCount = completedResults.filter((result) => result.status === 'not_in_org').length;
+    const unknownCount = completedResults.filter((result) => result.status === 'unknown').length;
     const checkErrorHandles = results
       .filter((result) => result.checkErrored)
       .map((result) => result.handle);
