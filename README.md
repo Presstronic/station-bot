@@ -4,7 +4,7 @@
 
 [![CI - Quality Gate](https://github.com/Presstronic/station-bot/actions/workflows/build-and-test.yaml/badge.svg)](https://github.com/Presstronic/station-bot/actions/workflows/build-and-test.yaml)
 [![Build & Publish Docker Image](https://github.com/Presstronic/station-bot/actions/workflows/docker-build-publish.yml/badge.svg)](https://github.com/Presstronic/station-bot/actions/workflows/docker-build-publish.yml)
-[![CodeQL](https://github.com/Presstronic/station-bot/actions/workflows/241327931/badge.svg)](https://github.com/Presstronic/station-bot/actions/workflows/241327931)
+[![CodeQL](https://github.com/Presstronic/station-bot/actions/workflows/codeql.yml/badge.svg)](https://github.com/Presstronic/station-bot/actions/workflows/codeql.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 
 ---
