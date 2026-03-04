@@ -62,7 +62,7 @@ export const nominationAccessCommandBuilder = new SlashCommandBuilder()
   );
 
 function formatRoleIds(roleIds: string[]): string {
-  return roleIds.length > 0 ? roleIds.map((id) => `<@&${id}>`).join(', ') : 'none';
+  return roleIds.length > 0 ? roleIds.join(', ') : 'none';
 }
 
 export async function handleNominationAccessCommand(interaction: ChatInputCommandInteraction) {
@@ -94,7 +94,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.added', locale },
           {
-            roleMention: `<@&${role!.id}>`,
+            roleMention: `@${role!.name}`,
             changed: result.added ? 'yes' : 'no',
             roles: formatRoleIds(result.roleIds),
           }
@@ -111,7 +111,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.removed', locale },
           {
-            roleMention: `<@&${role!.id}>`,
+            roleMention: `@${role!.name}`,
             changed: result.removed ? 'yes' : 'no',
             roles: formatRoleIds(result.roleIds),
           }

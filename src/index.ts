@@ -112,16 +112,27 @@ client.on('interactionCreate', async (interaction) => {
     if (!interaction.isRepliable()) {
       return;
     }
-    if (interaction.replied || interaction.deferred) {
+    if (interaction.replied) {
       return;
     }
-    await interaction.reply({
-      content: 'An unexpected error occurred while processing your request.',
-      ephemeral: true,
-      allowedMentions: { parse: [] },
-    }).catch(() => {
-      logger.debug(`Failed to send fallback interaction error reply (locale=${defaultLocale}).`);
-    });
+    if (interaction.deferred) {
+      await interaction.editReply({
+        content: 'An unexpected error occurred while processing your request.',
+        allowedMentions: { parse: [] },
+      }).catch(() => {
+        logger.debug(`Failed to send fallback interaction error editReply (locale=${defaultLocale}).`);
+      });
+      return;
+    }
+    await interaction
+      .reply({
+        content: 'An unexpected error occurred while processing your request.',
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => {
+        logger.debug(`Failed to send fallback interaction error reply (locale=${defaultLocale}).`);
+      });
   }
 });
 
