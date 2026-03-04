@@ -6,6 +6,7 @@ import { reviewNominationsCommandBuilder } from './review-nominations.command.ts
 import { processNominationCommandBuilder } from './process-nomination.command.ts';
 import { nominationAccessCommandBuilder } from './nomination-access.command.ts';
 import { verifyCommandBuilder, healthcheckCommandBuilder } from './verify.ts';
+import { setRegisteredCommandNames } from './registration-state.ts';
 
 const logger = getLogger();
 
@@ -31,9 +32,11 @@ export async function registerAllCommands() {
     await discordRestClient.put(Routes.applicationCommands(clientId), {
       body: allCommands.map((command) => command.toJSON()),
     });
+    setRegisteredCommandNames(commandNames);
     logger.info(`Global slash command registration complete. Registered: [${commandNames.join(', ')}]`);
     return { passed: commandNames, failed: [] };
   } catch (error) {
+    setRegisteredCommandNames([]);
     logger.error(`Failed to register global slash commands atomically: ${String(error)}`);
     return { passed: [], failed: commandNames };
   }

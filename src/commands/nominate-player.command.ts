@@ -43,7 +43,7 @@ export const nominatePlayerCommandBuilder = new SlashCommandBuilder()
       .setRequired(false)
   );
 
-function normalizeHandle(handle: string): string {
+function trimHandle(handle: string): string {
   return handle.trim();
 }
 
@@ -70,7 +70,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       return;
     }
 
-    const rsiHandle = normalizeHandle(
+    const rsiHandle = trimHandle(
       interaction.options.getString(i18n.__({ phrase: rsiHandleNameKey, locale: defaultLocale }), true)
     );
     const reason =

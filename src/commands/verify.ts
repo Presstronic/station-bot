@@ -6,16 +6,11 @@ import {
   ButtonStyle,
   PermissionFlagsBits,
 } from 'discord.js';
-import { Routes } from 'discord-api-types/v10';
-import { discordRestClient } from '../utils/discord-rest-client.ts';
 import { generateDrdntVerificationCode } from '../services/verification-code.services.ts';
 import { getLogger } from '../utils/logger.ts';
 import i18n from '../utils/i18n-config.ts';
 import { isReadOnlyMode } from '../config/runtime-flags.ts';
-import { NOMINATE_PLAYER_COMMAND_NAME } from './nominate-player.command.ts';
-import { REVIEW_NOMINATIONS_COMMAND_NAME } from './review-nominations.command.ts';
-import { PROCESS_NOMINATION_COMMAND_NAME } from './process-nomination.command.ts';
-import { NOMINATION_ACCESS_COMMAND_NAME } from './nomination-access.command.ts';
+import { getRegisteredCommandNamesState } from './registration-state.ts';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -47,14 +42,6 @@ export const healthcheckCommandBuilder = new SlashCommandBuilder()
   .setDMPermission(false);
 
 const commands = [verifyCommandBuilder, healthcheckCommandBuilder];
-const registeredCommandNames = [
-  VERIFY_COMMAND_NAME,
-  HEALTHCHECK_COMMAND_NAME,
-  NOMINATE_PLAYER_COMMAND_NAME,
-  REVIEW_NOMINATIONS_COMMAND_NAME,
-  PROCESS_NOMINATION_COMMAND_NAME,
-  NOMINATION_ACCESS_COMMAND_NAME,
-];
 
 const verificationCodes = new Map<
   string,
@@ -62,22 +49,9 @@ const verificationCodes = new Map<
 >();
 
 export async function registerCommands() {
-  const CLIENT_ID = process.env.CLIENT_ID;
-
-  if (!CLIENT_ID) {
-    logger.error('Missing CLIENT_ID in environment');
-    return;
-  }
-
-  try {
-    logger.info('Started refreshing application (/) commands globally...');
-    await discordRestClient.put(Routes.applicationCommands(CLIENT_ID), {
-      body: commands.map((command) => command.toJSON()),
-    });
-    logger.info('Successfully registered global slash commands.');
-  } catch (error) {
-    logger.error('Error registering slash commands:', error);
-  }
+  // Backward-compatible wrapper for older imports.
+  const { registerAllCommands } = await import('./register-commands.ts');
+  await registerAllCommands();
 }
 
 export async function handleVerifyCommand(interaction: ChatInputCommandInteraction) {
@@ -123,7 +97,11 @@ export function getUserVerificationData(userId: string) {
 }
 
 export function getRegisteredCommandNames(): string[] {
-  return registeredCommandNames;
+  const registeredCommandNames = getRegisteredCommandNamesState();
+  if (registeredCommandNames.length > 0) {
+    return registeredCommandNames;
+  }
+  return commands.map((command) => command.toJSON().name);
 }
 
 export async function handleHealthcheckCommand(interaction: ChatInputCommandInteraction) {
