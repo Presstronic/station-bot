@@ -74,7 +74,12 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
         await handleVerifyButtonInteraction(interaction);
       }
     } catch (error) {
-      logger.error(`Error while handling interaction in router: ${String(error)}`);
+      if (error instanceof Error) {
+        const stackText = error.stack ? `\n${error.stack}` : '';
+        logger.error(`Error while handling interaction in router: ${error.message}${stackText}`);
+      } else {
+        logger.error(`Error while handling interaction in router: ${String(error)}`);
+      }
       throw error;
     }
   });

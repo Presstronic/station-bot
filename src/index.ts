@@ -103,6 +103,12 @@ client.on('interactionCreate', async (interaction) => {
   try {
     await handleInteraction(interaction, client);
   } catch (error) {
+    if (error instanceof Error) {
+      const stackText = error.stack ? `\n${error.stack}` : '';
+      logger.error(`Unhandled interaction error in index handler: ${error.message}${stackText}`);
+    } else {
+      logger.error(`Unhandled interaction error in index handler: ${String(error)}`);
+    }
     if (!interaction.isRepliable()) {
       return;
     }

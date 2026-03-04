@@ -68,6 +68,7 @@
       },
       "responses": {
         "roleRequired": "You must have the role {roleName} or higher to nominate players.",
+        "invalidHandle": "Please provide a valid RSI handle.",
         "created": "Nomination recorded for {rsiHandle}. Total nominations: {nominationCount}."
       }
     },

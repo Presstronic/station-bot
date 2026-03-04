@@ -70,6 +70,9 @@ export async function recordNomination(
   await ensureNominationsSchema();
 
   const normalizedHandle = normalizeHandle(rsiHandle);
+  if (!normalizedHandle) {
+    throw new Error('RSI handle is required for nomination');
+  }
 
   return withClient(async (client) => {
     await client.query('BEGIN');

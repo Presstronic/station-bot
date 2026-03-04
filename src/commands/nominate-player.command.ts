@@ -74,6 +74,13 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     const rsiHandle = trimHandle(
       interaction.options.getString(i18n.__({ phrase: rsiHandleNameKey, locale: defaultLocale }), true)
     );
+    if (!rsiHandle) {
+      await interaction.reply({
+        content: i18n.__({ phrase: 'commands.nominatePlayer.responses.invalidHandle', locale }),
+        ephemeral: true,
+      });
+      return;
+    }
     const reason =
       interaction.options.getString(i18n.__({ phrase: reasonNameKey, locale: defaultLocale }))?.trim() || null;
 
@@ -93,8 +100,11 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`nominate-player command failed: ${errorMessage}`);
     const isConfigurationError = isNominationConfigurationError(error);
+    const isHandleValidationError = errorMessage.includes('RSI handle is required for nomination');
     const responsePhrase = isConfigurationError
       ? 'commands.nominationCommon.responses.configurationError'
+      : isHandleValidationError
+        ? 'commands.nominatePlayer.responses.invalidHandle'
       : 'commands.nominationCommon.responses.unexpectedError';
 
     if (interaction.replied || interaction.deferred) {

@@ -86,6 +86,42 @@ describe('nominations commands', () => {
     );
   });
 
+  it('rejects blank RSI handles before persistence', async () => {
+    const recordNomination = jest.fn(async () => ({
+      displayHandle: 'PilotNominee',
+      nominationCount: 1,
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction({
+      options: {
+        getString: (name: string, required?: boolean) => {
+          if (name === 'rsi-handle') return '   ';
+          if (name === 'reason') return 'Helpful in chat';
+          if (required) return '';
+          return null;
+        },
+      },
+    });
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(recordNomination).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('Please provide a valid RSI handle.'),
+        ephemeral: true,
+      })
+    );
+  });
+
   it('returns configuration guidance when nomination persistence is misconfigured', async () => {
     const recordNomination = jest.fn(async () => {
       throw new Error('DATABASE_URL is required for nomination persistence');

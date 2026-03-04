@@ -1,6 +1,6 @@
 import { createLogger, format, transports } from 'winston';
 import { ElasticsearchTransport } from 'winston-elasticsearch';
-import Transport from 'winston-transport';
+import type Transport from 'winston-transport';
 import { getCorrelationId } from './request-context.ts';
 
 let loggerInstance: ReturnType<typeof createLogger> | null = null;
