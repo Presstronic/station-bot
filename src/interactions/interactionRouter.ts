@@ -14,6 +14,10 @@ import {
   REVIEW_NOMINATIONS_COMMAND_NAME,
 } from '../commands/review-nominations.command.ts';
 import {
+  handleRefreshNominationOrgStatusCommand,
+  REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME,
+} from '../commands/refresh-nomination-org-status.command.ts';
+import {
   handleProcessNominationCommand,
   PROCESS_NOMINATION_COMMAND_NAME,
 } from '../commands/process-nomination.command.ts';
@@ -62,6 +66,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleNominatePlayerCommand(interaction);
         } else if (interaction.commandName === REVIEW_NOMINATIONS_COMMAND_NAME) {
           await handleReviewNominationsCommand(interaction);
+        } else if (interaction.commandName === REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME) {
+          await handleRefreshNominationOrgStatusCommand(interaction);
         } else if (interaction.commandName === PROCESS_NOMINATION_COMMAND_NAME) {
           await handleProcessNominationCommand(interaction);
         } else if (interaction.commandName === NOMINATION_ACCESS_COMMAND_NAME) {

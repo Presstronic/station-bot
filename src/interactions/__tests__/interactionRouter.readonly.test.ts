@@ -33,6 +33,10 @@ describe('handleInteraction in read-only mode', () => {
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
+      handleRefreshNominationOrgStatusCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
@@ -98,6 +102,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
+      handleRefreshNominationOrgStatusCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
@@ -166,6 +174,10 @@ describe('handleInteraction in read-only mode', () => {
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
+      handleRefreshNominationOrgStatusCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
@@ -230,6 +242,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
+      handleRefreshNominationOrgStatusCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',

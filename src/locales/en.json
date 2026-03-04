@@ -77,8 +77,23 @@
       "description": "Review all unprocessed player nominations.",
       "responses": {
         "none": "There are no unprocessed nominations.",
-        "summary": "Unprocessed nominations:\n{table}\nChecks attempted: {checkedCount}\nChecks completed: {checksCompletedCount}\nCheck errors: {checkErrorsCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nCheck error handles: {checkErrorHandles}",
-        "summaryAttachment": "Unprocessed nominations are attached as a file.\nChecks attempted: {checkedCount}\nChecks completed: {checksCompletedCount}\nCheck errors: {checkErrorsCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nCheck error handles: {checkErrorHandles}"
+        "summary": "Unprocessed nominations (persisted status):\n{table}\nTotal nominations: {totalCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now.",
+        "summaryAttachment": "Unprocessed nominations are attached as a file.\nTotal nominations: {totalCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now."
+      }
+    },
+    "refreshNominationOrgStatus": {
+      "name": "refresh-nomination-org-status",
+      "description": "Refresh org membership status for unprocessed nominations.",
+      "options": {
+        "rsiHandle": {
+          "name": "rsi-handle",
+          "description": "Optional RSI handle to refresh. Leave empty to refresh all unprocessed nominations."
+        }
+      },
+      "responses": {
+        "none": "There are no unprocessed nominations to refresh.",
+        "singleNotFound": "Could not find an unprocessed nomination for {rsiHandle}.",
+        "summary": "Refresh complete.\nTargets: {targetCount}\nUpdated: {refreshedCount}\nErrors: {errorCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nError handles: {errorHandles}"
       }
     },
     "processNomination": {
