@@ -1,6 +1,24 @@
 version: '3.8'
 
 services:
+  postgres:
+    container_name: station-bot-postgres
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-station_bot}"
+      POSTGRES_USER: "${POSTGRES_USER:-station_bot}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-change_me}"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - bot-network
+
   discord-bot:
     container_name: station-bot
     image: ghcr.io/presstronic/station-bot:latest
@@ -10,6 +28,9 @@ services:
       - ALL
     read_only: true # Container filesystem is read-only except for specified volumes
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     networks:
       - bot-network
     # Uncomment if your bot has a web server or exposed ports
@@ -20,7 +41,11 @@ services:
       - ./logs:/app/logs # Persistent writable logs directory
     environment:
       LOG_LEVEL: "${LOG_LEVEL:-info}" # Default log level to info if not set
+      DATABASE_URL: "${DATABASE_URL:-postgresql://${POSTGRES_USER:-station_bot}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-station_bot}}"
 
 networks:
   bot-network:
     driver: bridge
+
+volumes:
+  postgres-data:

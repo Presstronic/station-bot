@@ -6,12 +6,11 @@ import {
   ButtonStyle,
   PermissionFlagsBits,
 } from 'discord.js';
-import { Routes } from 'discord-api-types/v10';
-import { discordRestClient } from '../utils/discord-rest-client.ts';
 import { generateDrdntVerificationCode } from '../services/verification-code.services.ts';
 import { getLogger } from '../utils/logger.ts';
 import i18n from '../utils/i18n-config.ts';
 import { isReadOnlyMode } from '../config/runtime-flags.ts';
+import { getRegisteredCommandNamesState } from './registration-state.ts';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -21,7 +20,7 @@ export const HEALTHCHECK_COMMAND_NAME = 'healthcheck';
 
 const inGameNameKey = 'commands.verify.options.inGameName.name';
 
-const verifyCommandBuilder = new SlashCommandBuilder()
+export const verifyCommandBuilder = new SlashCommandBuilder()
   .setName(VERIFY_COMMAND_NAME)
   .setDescription(i18n.__({ phrase: 'commands.verify.description', locale: defaultLocale }))
   .addStringOption((option) =>
@@ -36,7 +35,7 @@ const verifyCommandBuilder = new SlashCommandBuilder()
       .setRequired(true)
   );
 
-const healthcheckCommandBuilder = new SlashCommandBuilder()
+export const healthcheckCommandBuilder = new SlashCommandBuilder()
   .setName(HEALTHCHECK_COMMAND_NAME)
   .setDescription(i18n.__({ phrase: 'commands.healthcheck.description', locale: defaultLocale }))
   .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
@@ -50,22 +49,9 @@ const verificationCodes = new Map<
 >();
 
 export async function registerCommands() {
-  const CLIENT_ID = process.env.CLIENT_ID;
-
-  if (!CLIENT_ID) {
-    logger.error('Missing CLIENT_ID in environment');
-    return;
-  }
-
-  try {
-    logger.info('Started refreshing application (/) commands globally...');
-    await discordRestClient.put(Routes.applicationCommands(CLIENT_ID), {
-      body: commands.map((command) => command.toJSON()),
-    });
-    logger.info('Successfully registered global slash commands.');
-  } catch (error) {
-    logger.error('Error registering slash commands:', error);
-  }
+  // Backward-compatible wrapper for older imports.
+  const { registerAllCommands } = await import('./register-commands.ts');
+  await registerAllCommands();
 }
 
 export async function handleVerifyCommand(interaction: ChatInputCommandInteraction) {
@@ -111,6 +97,10 @@ export function getUserVerificationData(userId: string) {
 }
 
 export function getRegisteredCommandNames(): string[] {
+  const registeredCommandNames = getRegisteredCommandNamesState();
+  if (registeredCommandNames.length > 0) {
+    return registeredCommandNames;
+  }
   return commands.map((command) => command.toJSON().name);
 }
 

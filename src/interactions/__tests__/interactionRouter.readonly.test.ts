@@ -25,6 +25,22 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
+      handleReviewNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
+      handleProcessNominationCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -44,7 +60,7 @@ describe('handleInteraction in read-only mode', () => {
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../verifyButton.ts');
+    const { handleInteraction } = await import('../interactionRouter.ts');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -75,6 +91,22 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
+      handleReviewNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
+      handleProcessNominationCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -94,7 +126,7 @@ describe('handleInteraction in read-only mode', () => {
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../verifyButton.ts');
+    const { handleInteraction } = await import('../interactionRouter.ts');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -126,6 +158,22 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
+      handleReviewNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
+      handleProcessNominationCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -145,7 +193,7 @@ describe('handleInteraction in read-only mode', () => {
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../verifyButton.ts');
+    const { handleInteraction } = await import('../interactionRouter.ts');
 
     process.env.BOT_READ_ONLY_MODE = 'false';
     const reply = jest.fn(async () => undefined);
@@ -175,6 +223,22 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
+      handleReviewNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
+      handleProcessNominationCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -194,7 +258,7 @@ describe('handleInteraction in read-only mode', () => {
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../verifyButton.ts');
+    const { handleInteraction } = await import('../interactionRouter.ts');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       isChatInputCommand: () => true,

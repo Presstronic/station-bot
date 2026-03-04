@@ -1,15 +1,17 @@
 import './bootstrap.ts'; // Loads dotenv and any shared setup
 
 import { Client, IntentsBitField } from 'discord.js';
-import { registerCommands } from './commands/verify.ts';
-import { handleInteraction } from './interactions/verifyButton.ts';
+import { registerAllCommands } from './commands/register-commands.ts';
+import { handleInteraction } from './interactions/interactionRouter.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
 import { isReadOnlyMode } from './config/runtime-flags.ts';
+import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.ts';
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
+const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
 process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, error);
@@ -37,8 +39,23 @@ client.once('ready', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
+  if (isDatabaseConfigured()) {
+    try {
+      await ensureNominationsSchema();
+    } catch (error) {
+      logger.error('Failed to initialize nominations database schema', error);
+      logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
+      process.exit(1);
+      return;
+    }
+  }
 
-  await registerCommands();
+  const commandRegistration = await registerAllCommands();
+  if (commandRegistration.failed.length > 0) {
+    logger.warn(
+      `Some slash commands failed registration: ${commandRegistration.failed.join(', ')}`
+    );
+  }
   if (readOnlyMode) {
     logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
   }
@@ -86,7 +103,36 @@ client.on('interactionCreate', async (interaction) => {
   try {
     await handleInteraction(interaction, client);
   } catch (error) {
-    logger.error('Error handling interaction:', error);
+    if (error instanceof Error) {
+      const stackText = error.stack ? `\n${error.stack}` : '';
+      logger.error(`Unhandled interaction error in index handler: ${error.message}${stackText}`);
+    } else {
+      logger.error(`Unhandled interaction error in index handler: ${String(error)}`);
+    }
+    if (!interaction.isRepliable()) {
+      return;
+    }
+    if (interaction.replied) {
+      return;
+    }
+    if (interaction.deferred) {
+      await interaction.editReply({
+        content: 'An unexpected error occurred while processing your request.',
+        allowedMentions: { parse: [] },
+      }).catch(() => {
+        logger.debug(`Failed to send fallback interaction error editReply (locale=${defaultLocale}).`);
+      });
+      return;
+    }
+    await interaction
+      .reply({
+        content: 'An unexpected error occurred while processing your request.',
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+      })
+      .catch(() => {
+        logger.debug(`Failed to send fallback interaction error reply (locale=${defaultLocale}).`);
+      });
   }
 });
 
