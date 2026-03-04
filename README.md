@@ -1,6 +1,6 @@
 # 🚀 Station-Bot
 
-> A Discord operations bot for **verification + nomination-driven recruiting workflow** in Star Citizen communities.
+> Station-Bot is a Discord operations platform for Star Citizen organizations, combining member verification, safety-first runtime controls, and a nomination pipeline that helps admins identify and process promising recruits with clear, auditable workflows.
 
 [![CI - Quality Gate](https://github.com/Presstronic/station-bot/actions/workflows/build-and-test.yaml/badge.svg)](https://github.com/Presstronic/station-bot/actions/workflows/build-and-test.yaml)
 [![Build & Publish Docker Image](https://github.com/Presstronic/station-bot/actions/workflows/docker-build-publish.yml/badge.svg)](https://github.com/Presstronic/station-bot/actions/workflows/docker-build-publish.yml)
