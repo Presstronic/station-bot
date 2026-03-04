@@ -9,6 +9,8 @@ import { getReviewProcessRoleIds } from '../services/nominations/access-control.
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const organizationMemberRoleName = process.env.ORGANIZATION_MEMBER_ROLE_NAME || 'Organization Member';
+const organizationMemberRoleId = process.env.ORGANIZATION_MEMBER_ROLE_ID;
+const organizationRoleCache = new Map<string, string>();
 
 export function getCommandLocale(interaction: ChatInputCommandInteraction): string {
   return interaction.locale?.substring(0, 2) ?? defaultLocale;
@@ -45,12 +47,24 @@ export async function hasOrganizationMemberOrHigher(
     return false;
   }
 
-  await guild.roles.fetch();
-  const organizationRole = guild.roles.cache.find((role) => role.name === organizationMemberRoleName);
+  const cachedRoleId = organizationRoleCache.get(guild.id);
+  let organizationRole =
+    (cachedRoleId && guild.roles.cache.get(cachedRoleId)) ||
+    (organizationMemberRoleId && guild.roles.cache.get(organizationMemberRoleId)) ||
+    guild.roles.cache.find((role) => role.name === organizationMemberRoleName);
+
+  if (!organizationRole) {
+    await guild.roles.fetch();
+    organizationRole =
+      (organizationMemberRoleId && guild.roles.cache.get(organizationMemberRoleId)) ||
+      guild.roles.cache.find((role) => role.name === organizationMemberRoleName);
+  }
+
   if (!organizationRole) {
     return false;
   }
 
+  organizationRoleCache.set(guild.id, organizationRole.id);
   return member.roles.highest.comparePositionTo(organizationRole) >= 0;
 }
 

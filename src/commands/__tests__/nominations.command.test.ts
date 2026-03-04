@@ -1,7 +1,17 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
+const originalOrganizationRoleId = process.env.ORGANIZATION_MEMBER_ROLE_ID;
 
 beforeEach(() => {
   jest.resetModules();
+});
+
+afterEach(() => {
+  if (originalOrganizationRoleId === undefined) {
+    delete process.env.ORGANIZATION_MEMBER_ROLE_ID;
+  } else {
+    process.env.ORGANIZATION_MEMBER_ROLE_ID = originalOrganizationRoleId;
+  }
 });
 
 function createNominationInteraction(overrides: Record<string, unknown> = {}) {
@@ -181,5 +191,53 @@ describe('nominations commands', () => {
         ephemeral: true,
       })
     );
+  });
+
+  it('does not fetch guild roles when configured organization role id is already cached', async () => {
+    process.env.ORGANIZATION_MEMBER_ROLE_ID = 'org-role-id';
+    const rolesFetch = jest.fn(async () => undefined);
+    const recordNomination = jest.fn(async () => ({
+      displayHandle: 'PilotNominee',
+      nominationCount: 1,
+    }));
+
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction({
+      guild: {
+        roles: {
+          fetch: rolesFetch,
+          cache: {
+            find: () => undefined,
+            get: (roleId: string) =>
+              roleId === 'org-role-id' ? { id: 'org-role-id', name: 'Organization Member', position: 10 } : undefined,
+          },
+        },
+        members: {
+          cache: {
+            get: () => ({
+              roles: {
+                highest: {
+                  comparePositionTo: () => 1,
+                },
+                cache: new Map(),
+              },
+            }),
+          },
+          fetch: async () => null,
+        },
+      },
+    });
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(rolesFetch).not.toHaveBeenCalled();
   });
 });

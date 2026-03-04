@@ -53,6 +53,11 @@ BOT_READ_ONLY_MODE=false
 
 Nomination commands now require PostgreSQL persistence.
 
+Access policy:
+
+- `/nominate-player`: requires Organization Member role (or higher) or admin
+- `/review-nominations` and `/process-nomination`: admin by default, plus any roles explicitly granted via `/nomination-access`
+
 PostgreSQL connection controls:
 
 - `DATABASE_URL` (required)

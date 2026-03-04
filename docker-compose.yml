@@ -41,7 +41,7 @@ services:
       - /etc/localtime:/etc/localtime:ro # Sync container time with host
       - ./logs:/app/logs
     environment:
-      DATABASE_URL: "${DATABASE_URL:-}"
+      DATABASE_URL: "${DATABASE_URL:-postgresql://station_bot:change_me@postgres:5432/station_bot}"
 
 networks:
   bot-network:

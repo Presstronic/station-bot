@@ -1,7 +1,7 @@
 import './bootstrap.ts'; // Loads dotenv and any shared setup
 
 import { Client, IntentsBitField } from 'discord.js';
-import { registerNominationCommands } from './commands/register-nomination-commands.ts';
+import { registerAllCommands } from './commands/register-commands.ts';
 import { handleInteraction } from './interactions/interactionRouter.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
@@ -43,13 +43,16 @@ client.once('ready', async () => {
       await ensureNominationsSchema();
     } catch (error) {
       logger.error(`Failed to initialize nominations database schema: ${String(error)}`);
+      logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
+      process.exit(1);
+      return;
     }
   }
 
-  const nominationRegistration = await registerNominationCommands();
-  if (nominationRegistration.failed.length > 0) {
+  const commandRegistration = await registerAllCommands();
+  if (commandRegistration.failed.length > 0) {
     logger.warn(
-      `Some nomination commands failed registration: ${nominationRegistration.failed.join(', ')}`
+      `Some slash commands failed registration: ${commandRegistration.failed.join(', ')}`
     );
   }
   if (readOnlyMode) {

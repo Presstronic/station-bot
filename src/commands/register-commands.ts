@@ -18,7 +18,7 @@ const allCommands = [
   nominationAccessCommandBuilder,
 ];
 
-export async function registerNominationCommands() {
+export async function registerAllCommands() {
   const clientId = process.env.CLIENT_ID;
   if (!clientId) {
     logger.error('Missing CLIENT_ID in environment');

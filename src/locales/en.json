@@ -75,8 +75,8 @@
       "description": "Review all unprocessed player nominations.",
       "responses": {
         "none": "There are no unprocessed nominations.",
-        "summary": "Unprocessed nominations:\n{table}\nChecks run: {checkedCount}\nPassed: {passedCount}\nFailed: {failedCount}\nFailed handles: {failedHandles}",
-        "summaryAttachment": "Unprocessed nominations are attached as a file.\nChecks run: {checkedCount}\nPassed: {passedCount}\nFailed: {failedCount}\nFailed handles: {failedHandles}"
+        "summary": "Unprocessed nominations:\n{table}\nChecks attempted: {checkedCount}\nChecks completed: {checksCompletedCount}\nCheck errors: {checkErrorsCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nCheck error handles: {checkErrorHandles}",
+        "summaryAttachment": "Unprocessed nominations are attached as a file.\nChecks attempted: {checkedCount}\nChecks completed: {checksCompletedCount}\nCheck errors: {checkErrorsCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nCheck error handles: {checkErrorHandles}"
       }
     },
     "processNomination": {
