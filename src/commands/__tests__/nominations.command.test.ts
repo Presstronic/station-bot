@@ -445,6 +445,83 @@ describe('nominations commands', () => {
     );
   });
 
+  it('reports unknown and never-checked counts without double-counting unset status', async () => {
+    const getUnprocessedNominations = jest.fn(async () => [
+      {
+        normalizedHandle: 'unknownpilot',
+        displayHandle: 'UnknownPilot',
+        nominationCount: 1,
+        isProcessed: false,
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: 'unknown',
+        lastOrgCheckAt: '2026-01-02T00:00:00.000Z',
+        events: [
+          {
+            nominatorUserId: 'u1',
+            nominatorUserTag: 'tester#0001',
+            reason: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+      {
+        normalizedHandle: 'neverchecked',
+        displayHandle: 'NeverChecked',
+        nominationCount: 1,
+        isProcessed: false,
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null,
+        lastOrgCheckAt: null,
+        events: [
+          {
+            nominatorUserId: 'u2',
+            nominatorUserTag: 'tester2#0002',
+            reason: null,
+            createdAt: '2026-01-01T00:00:00.000Z',
+          },
+        ],
+      },
+    ]);
+
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckStatus: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkHasAnyOrgMembership: jest.fn(async () => 'in_org'),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const editPayload = (editReply as unknown as { mock: { calls: any[][] } }).mock.calls[0]?.[0] as
+      | { content?: string }
+      | undefined;
+    const content = editPayload?.content ?? '';
+    expect(content).toContain('Unknown status: 1');
+    expect(content).toContain('Never checked: 1');
+  });
+
   it('refreshes org status for unprocessed nominations via dedicated command', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {

@@ -60,9 +60,7 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
 
     const inOrgCount = nominations.filter((nomination) => nomination.lastOrgCheckStatus === 'in_org').length;
     const notInOrgCount = nominations.filter((nomination) => nomination.lastOrgCheckStatus === 'not_in_org').length;
-    const unknownCount = nominations.filter(
-      (nomination) => nomination.lastOrgCheckStatus !== 'in_org' && nomination.lastOrgCheckStatus !== 'not_in_org'
-    ).length;
+    const unknownCount = nominations.filter((nomination) => nomination.lastOrgCheckStatus === 'unknown').length;
     const neverCheckedCount = nominations.filter((nomination) => !nomination.lastOrgCheckAt).length;
     const lastRefreshedAt = getLastRefreshedAtUtc(nominations.map((nomination) => nomination.lastOrgCheckAt));
 
