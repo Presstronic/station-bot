@@ -63,7 +63,12 @@ export async function refreshOrgStatusesForNominations(
     };
   }
 
-  const results = await mapWithConcurrency(nominations, concurrency, async (nomination): Promise<RefreshResult> => {
+  const safeConcurrency =
+    Number.isFinite(concurrency) && concurrency > 0
+      ? Math.max(1, Math.floor(concurrency))
+      : defaultRefreshConcurrency;
+
+  const results = await mapWithConcurrency(nominations, safeConcurrency, async (nomination): Promise<RefreshResult> => {
     const previousStatus: OrgCheckStatus = nomination.lastOrgCheckStatus ?? 'unknown';
     let status: OrgCheckStatus = previousStatus;
     let checkErrored = false;

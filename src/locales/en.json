@@ -91,6 +91,7 @@
         }
       },
       "responses": {
+        "invalidHandle": "Please provide a valid RSI handle.",
         "none": "There are no unprocessed nominations to refresh.",
         "singleNotFound": "Could not find an unprocessed nomination for {rsiHandle}.",
         "summary": "Refresh complete.\nTargets: {targetCount}\nUpdated: {refreshedCount}\nErrors: {errorCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nError handles: {errorHandles}"

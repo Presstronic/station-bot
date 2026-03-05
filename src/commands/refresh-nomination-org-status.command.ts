@@ -45,8 +45,17 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
 
     await interaction.deferReply({ ephemeral: true });
 
-    const requestedHandle =
-      interaction.options.getString(i18n.__({ phrase: rsiHandleKey, locale: defaultLocale }))?.trim() || null;
+    const rawRequestedHandle = interaction.options.getString(
+      i18n.__({ phrase: rsiHandleKey, locale: defaultLocale })
+    );
+    if (rawRequestedHandle !== null && rawRequestedHandle.trim().length === 0) {
+      await interaction.editReply({
+        content: i18n.__({ phrase: 'commands.refreshNominationOrgStatus.responses.invalidHandle', locale }),
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+    const requestedHandle = rawRequestedHandle?.trim() ?? null;
 
     let targets: Awaited<ReturnType<typeof getUnprocessedNominations>> = [];
     if (requestedHandle) {

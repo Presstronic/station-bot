@@ -649,6 +649,51 @@ describe('nominations commands', () => {
     expect(updateOrgCheckStatus).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects whitespace-only handle for refresh command instead of refreshing all nominations', async () => {
+    const getUnprocessedNominations = jest.fn(async () => []);
+    const getUnprocessedNominationByHandle = jest.fn(async () => null);
+    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
+
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle,
+      updateOrgCheckStatus,
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkHasAnyOrgMembership,
+    }));
+
+    const { handleRefreshNominationOrgStatusCommand } = await import(
+      '../refresh-nomination-org-status.command.ts'
+    );
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => '   ' },
+    } as any;
+
+    await handleRefreshNominationOrgStatusCommand(interaction);
+
+    expect(getUnprocessedNominations).not.toHaveBeenCalled();
+    expect(getUnprocessedNominationByHandle).not.toHaveBeenCalled();
+    expect(checkHasAnyOrgMembership).not.toHaveBeenCalled();
+    expect(updateOrgCheckStatus).not.toHaveBeenCalled();
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('Please provide a valid RSI handle.'),
+      })
+    );
+  });
+
   it('truncates refresh summary error handles to stay within discord limits', async () => {
     const getUnprocessedNominations = jest.fn(async () =>
       Array.from({ length: 15 }, (_, index) => ({
