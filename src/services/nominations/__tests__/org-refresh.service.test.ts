@@ -44,4 +44,34 @@ describe('refreshOrgStatusesForNominations', () => {
     expect(summary.refreshedCount).toBe(2);
     expect(summary.errorCount).toBe(0);
   });
+
+  it('sanitizes handle text before logging refresh failures', async () => {
+    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const checkHasAnyOrgMembership = jest.fn(async () => {
+      throw new Error('transient');
+    });
+    const loggerError = jest.fn();
+
+    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+      updateOrgCheckStatus,
+    }));
+    jest.unstable_mockModule('../org-check.service.ts', () => ({
+      checkHasAnyOrgMembership,
+    }));
+    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+      getLogger: () => ({
+        error: loggerError,
+      }),
+    }));
+
+    const { refreshOrgStatusesForNominations } = await import('../org-refresh.service.ts');
+    const summary = await refreshOrgStatusesForNominations([buildNomination('Bad\n|`Handle') as any], 1);
+
+    expect(summary.errorHandles).toEqual(["Bad /'Handle"]);
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining("Org refresh failed for handle Bad /'Handle:")
+    );
+    expect(loggerError).toHaveBeenCalledWith(expect.not.stringContaining('\n'));
+    expect(updateOrgCheckStatus).not.toHaveBeenCalled();
+  });
 });

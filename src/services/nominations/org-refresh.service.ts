@@ -2,6 +2,7 @@ import { checkHasAnyOrgMembership } from './org-check.service.ts';
 import { updateOrgCheckStatus } from './nominations.repository.ts';
 import type { NominationRecord, OrgCheckStatus } from './types.ts';
 import { getLogger } from '../../utils/logger.ts';
+import { sanitizeForInlineText } from '../../utils/sanitize.ts';
 
 const logger = getLogger();
 const defaultRefreshConcurrency = 5;
@@ -20,10 +21,6 @@ export interface OrgRefreshSummary {
   notInOrgCount: number;
   unknownCount: number;
   errorHandles: string[];
-}
-
-function sanitizeHandleForList(handle: string): string {
-  return handle.replace(/`/g, "'").replace(/\|/g, '/').replace(/[\r\n]+/g, ' ');
 }
 
 async function mapWithConcurrency<T, R>(
@@ -80,11 +77,13 @@ export async function refreshOrgStatusesForNominations(
       nomination.lastOrgCheckAt = new Date().toISOString();
     } catch (error) {
       checkErrored = true;
-      logger.error(`Org refresh failed for handle ${nomination.displayHandle}: ${String(error)}`);
+      logger.error(
+        `Org refresh failed for handle ${sanitizeForInlineText(nomination.displayHandle)}: ${String(error)}`
+      );
     }
 
     return {
-      handle: sanitizeHandleForList(nomination.displayHandle),
+      handle: sanitizeForInlineText(nomination.displayHandle),
       status,
       checkErrored,
     };
