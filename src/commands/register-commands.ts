@@ -3,6 +3,7 @@ import { discordRestClient } from '../utils/discord-rest-client.ts';
 import { getLogger } from '../utils/logger.ts';
 import { nominatePlayerCommandBuilder } from './nominate-player.command.ts';
 import { reviewNominationsCommandBuilder } from './review-nominations.command.ts';
+import { refreshNominationOrgStatusCommandBuilder } from './refresh-nomination-org-status.command.ts';
 import { processNominationCommandBuilder } from './process-nomination.command.ts';
 import { nominationAccessCommandBuilder } from './nomination-access.command.ts';
 import { verifyCommandBuilder, healthcheckCommandBuilder } from './verify.ts';
@@ -15,6 +16,7 @@ const allCommands = [
   healthcheckCommandBuilder,
   nominatePlayerCommandBuilder,
   reviewNominationsCommandBuilder,
+  refreshNominationOrgStatusCommandBuilder,
   processNominationCommandBuilder,
   nominationAccessCommandBuilder,
 ];

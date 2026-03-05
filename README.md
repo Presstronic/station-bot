@@ -19,7 +19,8 @@ Station-Bot currently provides two major capabilities:
 2. **🧭 Nomination and review workflow**
 - Community members can nominate potential recruits.
 - Admins (and delegated roles) can review/process nominations.
-- RSI org checks are performed with retry, timeout, and rate-limit protections.
+- `/review-nominations` is a fast DB-backed listing view.
+- `/refresh-nomination-org-status` performs RSI org checks with retry, timeout, and rate-limit protections.
 
 ---
 
@@ -30,7 +31,8 @@ Station-Bot currently provides two major capabilities:
 | `/verify` | Server members | Starts RSI verification flow and provides verification button. |
 | `/healthcheck` | Server administrators | Returns bot tag, UTC time, read-only state, and active commands. |
 | `/nominate-player` | `Organization Member` role (or higher) and admins | Submits a candidate RSI handle with optional reason. |
-| `/review-nominations` | Admins + delegated access roles | Reviews unprocessed nominations and checks org membership status. |
+| `/review-nominations` | Admins + delegated access roles | Reviews unprocessed nominations using persisted org-check status (DB-only). |
+| `/refresh-nomination-org-status` | Admins + delegated access roles | Refreshes org membership checks for one or all unprocessed nominations. |
 | `/process-nomination` | Admins + delegated access roles | Marks one nomination (by handle) or all unprocessed nominations as processed. |
 | `/nomination-access` | Admins | Manages delegated roles for review/process commands (`add/remove/list/reset`). |
 

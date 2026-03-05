@@ -6,6 +6,7 @@ import {
 import i18n from '../utils/i18n-config.ts';
 import type { NominationRecord } from '../services/nominations/types.ts';
 import { getReviewProcessRoleIds } from '../services/nominations/access-control.repository.ts';
+import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const organizationMemberRoleName = process.env.ORGANIZATION_MEMBER_ROLE_NAME || 'Organization Member';
@@ -158,24 +159,17 @@ export function getOrganizationMemberRoleName(): string {
   return organizationMemberRoleName;
 }
 
-function sanitizeForMarkdownCodeBlock(value: string): string {
-  return value
-    .replace(/`/g, "'")
-    .replace(/\|/g, '/')
-    .replace(/[\r\n]+/g, ' ');
-}
-
 export function formatNominationsAsTable(records: NominationRecord[]): string {
   const headers = ['Handle', 'Count', 'Org', 'Last Nomination', 'Nominators'];
   const rows = records.map((record) => {
     const latestEvent = record.events[record.events.length - 1];
-    const nominators = sanitizeForMarkdownCodeBlock(
+    const nominators = sanitizeForInlineText(
       [...new Set(record.events.map((e) => e.nominatorUserTag))].slice(0, 3).join(', ')
     );
     const orgLabel = record.lastOrgCheckStatus ?? 'unknown';
 
     return [
-      sanitizeForMarkdownCodeBlock(record.displayHandle),
+      sanitizeForInlineText(record.displayHandle),
       String(record.nominationCount),
       orgLabel,
       latestEvent?.createdAt ?? '-',

@@ -158,6 +158,39 @@ export async function getUnprocessedNominations(): Promise<NominationRecord[]> {
   );
 }
 
+export async function getUnprocessedNominationByHandle(rsiHandle: string): Promise<NominationRecord | null> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
+  const normalizedHandle = normalizeHandle(rsiHandle);
+  if (!normalizedHandle) {
+    return null;
+  }
+
+  const nominationResult = await withClient((client) =>
+    client.query(
+      `
+      SELECT *
+      FROM nominations
+      WHERE normalized_handle = $1
+        AND is_processed = FALSE
+      LIMIT 1
+      `,
+      [normalizedHandle]
+    )
+  );
+
+  if (nominationResult.rows.length === 0) {
+    return null;
+  }
+
+  const eventsByHandle = await getEventsByHandles([normalizedHandle]);
+  return mapDbRowToNomination(
+    nominationResult.rows[0],
+    eventsByHandle.get(normalizedHandle) || []
+  );
+}
+
 export async function updateOrgCheckStatus(
   normalizedHandle: string,
   status: OrgCheckStatus
