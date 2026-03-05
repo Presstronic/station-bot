@@ -4,7 +4,7 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
-import type { NominationRecord } from '../services/nominations/types.ts';
+import type { NominationRecord, OrgCheckResultCode } from '../services/nominations/types.ts';
 import { getReviewProcessRoleIds } from '../services/nominations/access-control.repository.ts';
 import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
@@ -159,6 +159,25 @@ export function getOrganizationMemberRoleName(): string {
   return organizationMemberRoleName;
 }
 
+export function resolveNominationOrgResultCode(nomination: {
+  lastOrgCheckResultCode: OrgCheckResultCode | null;
+  lastOrgCheckStatus: string | null;
+}): OrgCheckResultCode | null {
+  if (nomination.lastOrgCheckResultCode) {
+    return nomination.lastOrgCheckResultCode;
+  }
+  if (nomination.lastOrgCheckStatus === 'in_org') {
+    return 'in_org';
+  }
+  if (nomination.lastOrgCheckStatus === 'not_in_org') {
+    return 'not_in_org';
+  }
+  if (nomination.lastOrgCheckStatus === 'unknown') {
+    return 'http_error';
+  }
+  return null;
+}
+
 export function formatNominationsAsTable(records: NominationRecord[]): string {
   const headers = ['Handle', 'Count', 'Org', 'Last Nomination', 'Nominators'];
   const rows = records.map((record) => {
@@ -166,7 +185,7 @@ export function formatNominationsAsTable(records: NominationRecord[]): string {
     const nominators = sanitizeForInlineText(
       [...new Set(record.events.map((e) => e.nominatorUserTag))].slice(0, 3).join(', ')
     );
-    const orgLabel = record.lastOrgCheckResultCode ?? record.lastOrgCheckStatus ?? 'unknown';
+    const orgLabel = resolveNominationOrgResultCode(record) ?? 'unknown';
 
     return [
       sanitizeForInlineText(record.displayHandle),

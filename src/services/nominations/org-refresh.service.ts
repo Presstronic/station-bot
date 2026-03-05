@@ -1,6 +1,6 @@
 import { checkHasAnyOrgMembership } from './org-check.service.ts';
 import { updateOrgCheckResult } from './nominations.repository.ts';
-import type { NominationRecord, OrgCheckResult } from './types.ts';
+import type { NominationRecord, OrgCheckResult, OrgCheckResultCode } from './types.ts';
 import { getLogger } from '../../utils/logger.ts';
 import { sanitizeForInlineText } from '../../utils/sanitize.ts';
 
@@ -13,15 +13,7 @@ interface RefreshResult {
   checkErrored: boolean;
 }
 
-interface OrgCheckReasonCounts {
-  in_org: number;
-  not_in_org: number;
-  not_found: number;
-  http_timeout: number;
-  rate_limited: number;
-  parse_failed: number;
-  http_error: number;
-}
+type OrgCheckReasonCounts = Record<OrgCheckResultCode, number>;
 
 export interface OrgRefreshSummary {
   targetCount: number;
@@ -42,7 +34,7 @@ function createEmptyReasonCounts(): OrgCheckReasonCounts {
     rate_limited: 0,
     parse_failed: 0,
     http_error: 0,
-  };
+  } satisfies Record<OrgCheckResultCode, number>;
 }
 
 async function mapWithConcurrency<T, R>(

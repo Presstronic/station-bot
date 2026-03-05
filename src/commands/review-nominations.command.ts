@@ -10,6 +10,7 @@ import {
   formatNominationsAsTable,
   getCommandLocale,
   isNominationConfigurationError,
+  resolveNominationOrgResultCode,
 } from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
 import type { OrgCheckResultCode } from '../services/nominations/types.ts';
@@ -35,22 +36,6 @@ function createEmptyReasonCounts(): Record<OrgCheckResultCode, number> {
     parse_failed: 0,
     http_error: 0,
   };
-}
-
-function resolveResultCode(nomination: { lastOrgCheckResultCode: OrgCheckResultCode | null; lastOrgCheckStatus: string | null }): OrgCheckResultCode | null {
-  if (nomination.lastOrgCheckResultCode) {
-    return nomination.lastOrgCheckResultCode;
-  }
-  if (nomination.lastOrgCheckStatus === 'in_org') {
-    return 'in_org';
-  }
-  if (nomination.lastOrgCheckStatus === 'not_in_org') {
-    return 'not_in_org';
-  }
-  if (nomination.lastOrgCheckStatus === 'unknown') {
-    return 'http_error';
-  }
-  return null;
 }
 
 export const REVIEW_NOMINATIONS_COMMAND_NAME = 'review-nominations';
@@ -97,7 +82,7 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     const reasonCounts = createEmptyReasonCounts();
     let unclassifiedCount = 0;
     for (const nomination of nominations) {
-      const code = resolveResultCode(nomination);
+      const code = resolveNominationOrgResultCode(nomination);
       if (!code) {
         unclassifiedCount += 1;
         continue;

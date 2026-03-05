@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import type { OrgCheckResult, OrgCheckResultCode, OrgCheckStatus } from './types.ts';
 import { getLogger } from '../../utils/logger.ts';
+import { sanitizeForInlineText } from '../../utils/sanitize.ts';
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
 const defaultOrganizationsPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}/organizations';
@@ -229,12 +230,14 @@ function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
 }
 
 export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckResult> {
-  const citizenUrl = buildCitizenUrl(rsiHandle);
-  const organizationsUrl = buildOrganizationsUrl(rsiHandle);
+  const normalizedHandle = rsiHandle.trim();
+  const safeHandle = sanitizeForInlineText(normalizedHandle);
+  const citizenUrl = buildCitizenUrl(normalizedHandle);
+  const organizationsUrl = buildOrganizationsUrl(normalizedHandle);
 
   const citizenPage = await fetchPageWithReason(citizenUrl);
   if (!citizenPage.ok) {
-    logger.warn(`RSI citizen profile not found or unavailable for handle "${rsiHandle}"`);
+    logger.warn(`RSI citizen profile not found or unavailable for handle "${safeHandle}"`);
     return mapFetchFailureToOrgCheckResult(
       citizenPage.code,
       citizenPage.message
@@ -243,7 +246,7 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
 
   const organizationsPage = await fetchPageWithReason(organizationsUrl);
   if (!organizationsPage.ok) {
-    logger.warn(`RSI organizations page not found or unavailable for handle "${rsiHandle}"`);
+    logger.warn(`RSI organizations page not found or unavailable for handle "${safeHandle}"`);
     return mapFetchFailureToOrgCheckResult(
       organizationsPage.code,
       organizationsPage.message
@@ -254,7 +257,7 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
   if (status === 'unknown') {
     return createTechnicalResult(
       'parse_failed',
-      `Could not infer organization status from organizations page for handle "${rsiHandle}"`
+      `Could not infer organization status from organizations page for handle "${safeHandle}"`
     );
   }
 
