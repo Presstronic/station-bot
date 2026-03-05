@@ -85,45 +85,45 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     }
 
     const summary = await refreshOrgStatusesForNominations(targets);
-    const summaryTemplateWithoutHandles = i18n.__mf(
-      { phrase: 'commands.refreshNominationOrgStatus.responses.summary', locale },
-      {
-        targetCount: String(summary.targetCount),
-        refreshedCount: String(summary.refreshedCount),
-        errorCount: String(summary.errorCount),
-        inOrgCount: String(summary.inOrgCount),
-        notInOrgCount: String(summary.notInOrgCount),
-        unknownCount: String(summary.unknownCount),
-        errorHandles: '',
-      }
-    );
-    const maxErrorHandlesLength = Math.max(0, maxDiscordMessageLength - summaryTemplateWithoutHandles.length);
+    const baseSummaryFields = {
+      targetCount: String(summary.targetCount),
+      refreshedCount: String(summary.refreshedCount),
+      errorCount: String(summary.errorCount),
+      inOrgCount: String(summary.inOrgCount),
+      notInOrgCount: String(summary.notInOrgCount),
+      unknownCount: String(summary.unknownCount),
+    };
+    const buildSummaryContent = (errorHandles: string) =>
+      i18n.__mf(
+        { phrase: 'commands.refreshNominationOrgStatus.responses.summary', locale },
+        {
+          ...baseSummaryFields,
+          errorHandles,
+        }
+      );
     const errorHandles = (() => {
       if (summary.errorHandles.length === 0) {
         return 'none';
       }
 
-      const joinedErrorHandles = summary.errorHandles.join(', ');
-      if (joinedErrorHandles.length <= maxErrorHandlesLength) {
-        return joinedErrorHandles;
+      for (let shownCount = summary.errorHandles.length; shownCount >= 1; shownCount -= 1) {
+        const hiddenCount = summary.errorHandles.length - shownCount;
+        const shownHandles = summary.errorHandles.slice(0, shownCount).join(', ');
+        const candidate = hiddenCount > 0 ? `${shownHandles} (+${hiddenCount} more)` : shownHandles;
+        if (buildSummaryContent(candidate).length <= maxDiscordMessageLength) {
+          return candidate;
+        }
       }
 
-      return `${joinedErrorHandles.slice(0, Math.max(0, maxErrorHandlesLength - 3))}...`;
+      return 'too many to display';
     })();
 
+    const summaryContent = buildSummaryContent(errorHandles);
     await interaction.editReply({
-      content: i18n.__mf(
-        { phrase: 'commands.refreshNominationOrgStatus.responses.summary', locale },
-        {
-          targetCount: String(summary.targetCount),
-          refreshedCount: String(summary.refreshedCount),
-          errorCount: String(summary.errorCount),
-          inOrgCount: String(summary.inOrgCount),
-          notInOrgCount: String(summary.notInOrgCount),
-          unknownCount: String(summary.unknownCount),
-          errorHandles,
-        }
-      ),
+      content:
+        summaryContent.length <= maxDiscordMessageLength
+          ? summaryContent
+          : `${summaryContent.slice(0, maxDiscordMessageLength - 3)}...`,
       allowedMentions: { parse: [] },
     });
   } catch (error) {

@@ -749,7 +749,7 @@ describe('nominations commands', () => {
     const content = editPayload?.content ?? '';
     expect(content.length).toBeLessThanOrEqual(1800);
     expect(content).toContain('Error handles:');
-    expect(content).toContain('...');
+    expect(content).toMatch(/\(\+\d+ more\)|too many to display/);
     expect(updateOrgCheckStatus).toHaveBeenCalledTimes(0);
   });
 });
