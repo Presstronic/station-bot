@@ -649,6 +649,50 @@ describe('nominations commands', () => {
     expect(updateOrgCheckStatus).toHaveBeenCalledTimes(1);
   });
 
+  it('sanitizes handle text in single-not-found refresh response', async () => {
+    const getUnprocessedNominations = jest.fn(async () => []);
+    const getUnprocessedNominationByHandle = jest.fn(async () => null);
+    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
+
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle,
+      updateOrgCheckStatus,
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkHasAnyOrgMembership,
+    }));
+
+    const { handleRefreshNominationOrgStatusCommand } = await import(
+      '../refresh-nomination-org-status.command.ts'
+    );
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => 'Bad\n|`Handle' },
+    } as any;
+
+    await handleRefreshNominationOrgStatusCommand(interaction);
+
+    const editPayload = (editReply as unknown as { mock: { calls: any[][] } }).mock.calls[0]?.[0] as
+      | { content?: string }
+      | undefined;
+    const content = editPayload?.content ?? '';
+    expect(content).toContain("Bad /'Handle");
+    expect(content).not.toContain('\n|`');
+    expect(getUnprocessedNominations).not.toHaveBeenCalled();
+    expect(checkHasAnyOrgMembership).not.toHaveBeenCalled();
+  });
+
   it('rejects whitespace-only handle for refresh command instead of refreshing all nominations', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     const getUnprocessedNominationByHandle = jest.fn(async () => null);

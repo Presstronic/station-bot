@@ -30,7 +30,15 @@ function getLastRefreshedAtUtc(lastCheckTimes: Array<string | null>): string {
     return 'never';
   }
 
-  return validTimes.sort((left, right) => left.localeCompare(right))[validTimes.length - 1];
+  let latest = validTimes[0];
+  for (let index = 1; index < validTimes.length; index += 1) {
+    const current = validTimes[index];
+    if (current.localeCompare(latest) > 0) {
+      latest = current;
+    }
+  }
+
+  return latest;
 }
 
 export async function handleReviewNominationsCommand(interaction: ChatInputCommandInteraction) {

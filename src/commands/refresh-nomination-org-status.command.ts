@@ -11,6 +11,7 @@ import {
 } from './nomination.helpers.ts';
 import { refreshOrgStatusesForNominations } from '../services/nominations/org-refresh.service.ts';
 import { getLogger } from '../utils/logger.ts';
+import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
@@ -69,7 +70,7 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
       await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.refreshNominationOrgStatus.responses.singleNotFound', locale },
-          { rsiHandle: requestedHandle }
+          { rsiHandle: sanitizeForInlineText(requestedHandle) }
         ),
         allowedMentions: { parse: [] },
       });
