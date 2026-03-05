@@ -117,6 +117,35 @@ export async function ensureNominationsSchema(): Promise<void> {
     );
   }
 
+  const nominationsColumnsResult = await withClient((client) =>
+    client.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'nominations'
+      `
+    )
+  );
+  const nominationColumns = new Set<string>(
+    nominationsColumnsResult.rows.map((row) => String(row.column_name))
+  );
+  const requiredNominationColumns = [
+    'last_org_check_status',
+    'last_org_check_result_code',
+    'last_org_check_result_message',
+    'last_org_check_result_at',
+    'last_org_check_at',
+  ];
+  const missingNominationColumns = requiredNominationColumns.filter(
+    (columnName) => !nominationColumns.has(columnName)
+  );
+  if (missingNominationColumns.length > 0) {
+    throw new Error(
+      `Missing nominations columns (${missingNominationColumns.join(', ')}). Run database migrations before starting the bot.`
+    );
+  }
+
   schemaEnsured = true;
   logger.info('Nomination schema check passed.');
 }

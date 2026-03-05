@@ -1,6 +1,6 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import type { OrgCheckStatus } from './types.ts';
+import type { OrgCheckResult, OrgCheckResultCode, OrgCheckStatus } from './types.ts';
 import { getLogger } from '../../utils/logger.ts';
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
@@ -95,7 +95,43 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function fetchWithRetry(url: string): Promise<string | null> {
+type FetchCode = 'not_found' | 'http_timeout' | 'rate_limited' | 'http_error';
+type TechnicalResultCode = Exclude<OrgCheckResultCode, 'in_org' | 'not_in_org' | 'not_found'>;
+
+type FetchResult =
+  | { ok: true; html: string }
+  | { ok: false; code: FetchCode; message: string };
+
+function trimMessage(message: string, maxLength = 180): string {
+  if (message.length <= maxLength) {
+    return message;
+  }
+  return `${message.slice(0, maxLength - 3)}...`;
+}
+
+function createTechnicalResult(code: TechnicalResultCode, message: string): OrgCheckResult {
+  return {
+    code,
+    status: 'unknown',
+    message: trimMessage(message),
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+function mapFetchFailureToOrgCheckResult(code: FetchCode, message: string): OrgCheckResult {
+  if (code === 'not_found') {
+    return {
+      code: 'not_found',
+      status: 'unknown',
+      message: trimMessage(message),
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  return createTechnicalResult(code, message);
+}
+
+async function fetchPageWithReason(url: string): Promise<FetchResult> {
   let attempt = 0;
   while (attempt <= maxRetries) {
     try {
@@ -110,16 +146,20 @@ async function fetchWithRetry(url: string): Promise<string | null> {
       );
 
       if (response.status === 200 && response.data) {
-        return response.data;
+        return { ok: true, html: response.data };
       }
 
       if (response.status === 404) {
-        return null;
+        return { ok: false, code: 'not_found', message: `RSI page not found (${url})` };
       }
 
       if (response.status === 429 || response.status >= 500) {
         if (attempt >= maxRetries) {
-          throw new Error(`RSI response ${response.status} for URL ${url}`);
+          return {
+            ok: false,
+            code: response.status === 429 ? 'rate_limited' : 'http_error',
+            message: `RSI response ${response.status} for URL ${url}`,
+          };
         }
         const retryAfterHeader = response.headers['retry-after'];
         const retryAfterMs = retryAfterHeader ? Number(retryAfterHeader) * 1000 : NaN;
@@ -131,17 +171,42 @@ async function fetchWithRetry(url: string): Promise<string | null> {
         continue;
       }
 
-      return null;
+      return {
+        ok: false,
+        code: 'http_error',
+        message: `Unexpected RSI response ${response.status} for URL ${url}`,
+      };
     } catch (error) {
+      const timeoutCode =
+        typeof error === 'object' &&
+        error &&
+        'code' in error &&
+        (error as { code?: string }).code === 'ECONNABORTED';
+
       if (attempt >= maxRetries) {
-        throw error;
+        if (timeoutCode) {
+          return {
+            ok: false,
+            code: 'http_timeout',
+            message: `Request timeout after ${requestTimeoutMs}ms for URL ${url}`,
+          };
+        }
+        return {
+          ok: false,
+          code: 'http_error',
+          message: `Request failed for URL ${url}: ${String(error)}`,
+        };
       }
       await sleep(retryBaseMs * Math.pow(2, attempt));
       attempt += 1;
     }
   }
 
-  return null;
+  return {
+    ok: false,
+    code: 'http_error',
+    message: `Request retries exhausted for URL ${url}`,
+  };
 }
 
 function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
@@ -163,21 +228,39 @@ function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
   return 'unknown';
 }
 
-export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckStatus> {
+export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckResult> {
   const citizenUrl = buildCitizenUrl(rsiHandle);
   const organizationsUrl = buildOrganizationsUrl(rsiHandle);
 
-  const citizenPage = await fetchWithRetry(citizenUrl);
-  if (!citizenPage) {
+  const citizenPage = await fetchPageWithReason(citizenUrl);
+  if (!citizenPage.ok) {
     logger.warn(`RSI citizen profile not found or unavailable for handle "${rsiHandle}"`);
-    return 'unknown';
+    return mapFetchFailureToOrgCheckResult(
+      citizenPage.code,
+      citizenPage.message
+    );
   }
 
-  const organizationsPage = await fetchWithRetry(organizationsUrl);
-  if (!organizationsPage) {
+  const organizationsPage = await fetchPageWithReason(organizationsUrl);
+  if (!organizationsPage.ok) {
     logger.warn(`RSI organizations page not found or unavailable for handle "${rsiHandle}"`);
-    return 'unknown';
+    return mapFetchFailureToOrgCheckResult(
+      organizationsPage.code,
+      organizationsPage.message
+    );
   }
 
-  return parseOrgStatusFromOrganizationsPage(organizationsPage);
+  const status = parseOrgStatusFromOrganizationsPage(organizationsPage.html);
+  if (status === 'unknown') {
+    return createTechnicalResult(
+      'parse_failed',
+      `Could not infer organization status from organizations page for handle "${rsiHandle}"`
+    );
+  }
+
+  return {
+    code: status,
+    status,
+    checkedAt: new Date().toISOString(),
+  };
 }

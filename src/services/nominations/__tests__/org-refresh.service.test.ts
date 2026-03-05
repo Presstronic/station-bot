@@ -15,6 +15,9 @@ function buildNomination(handle: string) {
     createdAt: '2026-01-01T00:00:00.000Z',
     updatedAt: '2026-01-01T00:00:00.000Z',
     lastOrgCheckStatus: null,
+    lastOrgCheckResultCode: null,
+    lastOrgCheckResultMessage: null,
+    lastOrgCheckResultAt: null,
     lastOrgCheckAt: null,
     events: [],
   };
@@ -22,11 +25,15 @@ function buildNomination(handle: string) {
 
 describe('refreshOrgStatusesForNominations', () => {
   it('sanitizes invalid concurrency values and still processes nominations', async () => {
-    const updateOrgCheckStatus = jest.fn(async () => undefined);
-    const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
+    const updateOrgCheckResult = jest.fn(async () => undefined);
+    const checkHasAnyOrgMembership = jest.fn(async () => ({
+      code: 'not_in_org',
+      status: 'not_in_org',
+      checkedAt: '2026-01-01T00:00:00.000Z',
+    }));
 
     jest.unstable_mockModule('../nominations.repository.ts', () => ({
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
     }));
     jest.unstable_mockModule('../org-check.service.ts', () => ({
       checkHasAnyOrgMembership,
@@ -39,21 +46,24 @@ describe('refreshOrgStatusesForNominations', () => {
     );
 
     expect(checkHasAnyOrgMembership).toHaveBeenCalledTimes(2);
-    expect(updateOrgCheckStatus).toHaveBeenCalledTimes(2);
+    expect(updateOrgCheckResult).toHaveBeenCalledTimes(2);
     expect(summary.targetCount).toBe(2);
     expect(summary.refreshedCount).toBe(2);
     expect(summary.errorCount).toBe(0);
+    expect(summary.reasonCounts.not_in_org).toBe(2);
+    expect(summary.businessOutcomeCount).toBe(2);
+    expect(summary.technicalOutcomeCount).toBe(0);
   });
 
   it('sanitizes handle text before logging refresh failures', async () => {
-    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const updateOrgCheckResult = jest.fn(async () => undefined);
     const checkHasAnyOrgMembership = jest.fn(async () => {
       throw new Error('transient');
     });
     const loggerError = jest.fn();
 
     jest.unstable_mockModule('../nominations.repository.ts', () => ({
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
     }));
     jest.unstable_mockModule('../org-check.service.ts', () => ({
       checkHasAnyOrgMembership,
@@ -72,6 +82,6 @@ describe('refreshOrgStatusesForNominations', () => {
       expect.stringContaining("Org refresh failed for handle Bad /'Handle:")
     );
     expect(loggerError).toHaveBeenCalledWith(expect.not.stringContaining('\n'));
-    expect(updateOrgCheckStatus).not.toHaveBeenCalled();
+    expect(updateOrgCheckResult).not.toHaveBeenCalled();
   });
 });

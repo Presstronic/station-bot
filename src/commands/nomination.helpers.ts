@@ -166,7 +166,7 @@ export function formatNominationsAsTable(records: NominationRecord[]): string {
     const nominators = sanitizeForInlineText(
       [...new Set(record.events.map((e) => e.nominatorUserTag))].slice(0, 3).join(', ')
     );
-    const orgLabel = record.lastOrgCheckStatus ?? 'unknown';
+    const orgLabel = record.lastOrgCheckResultCode ?? record.lastOrgCheckStatus ?? 'unknown';
 
     return [
       sanitizeForInlineText(record.displayHandle),

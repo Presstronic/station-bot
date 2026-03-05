@@ -68,7 +68,7 @@ describe('nominations commands', () => {
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -96,7 +96,7 @@ describe('nominations commands', () => {
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -132,7 +132,7 @@ describe('nominations commands', () => {
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -154,7 +154,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -196,7 +196,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed,
     }));
@@ -230,7 +230,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed,
     }));
@@ -270,7 +270,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed,
     }));
@@ -301,7 +301,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed: jest.fn(async () => 1),
     }));
@@ -345,7 +345,7 @@ describe('nominations commands', () => {
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -405,14 +405,14 @@ describe('nominations commands', () => {
         ],
       },
     ]);
-    const updateOrgCheckStatus = jest.fn();
+    const updateOrgCheckResult = jest.fn();
     const checkHasAnyOrgMembership = jest.fn(async () => 'in_org');
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -437,7 +437,7 @@ describe('nominations commands', () => {
     expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(getUnprocessedNominations).toHaveBeenCalledTimes(1);
     expect(checkHasAnyOrgMembership).not.toHaveBeenCalled();
-    expect(updateOrgCheckStatus).not.toHaveBeenCalled();
+    expect(updateOrgCheckResult).not.toHaveBeenCalled();
     expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Tip: run /refresh-nomination-org-status'),
@@ -493,7 +493,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -518,7 +518,8 @@ describe('nominations commands', () => {
       | { content?: string }
       | undefined;
     const content = editPayload?.content ?? '';
-    expect(content).toContain('Unknown status: 1');
+    expect(content).toContain('HTTP error: 1');
+    expect(content).toContain('Unclassified legacy: 1');
     expect(content).toContain('Never checked: 1');
   });
 
@@ -551,10 +552,14 @@ describe('nominations commands', () => {
         events: [],
       },
     ]);
-    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const updateOrgCheckResult = jest.fn(async () => undefined);
     const checkHasAnyOrgMembership = jest
-      .fn<() => Promise<'in_org' | 'unknown'>>()
-      .mockImplementationOnce(async () => 'in_org')
+      .fn<() => Promise<{ code: 'in_org'; status: 'in_org'; checkedAt: string }>>()
+      .mockImplementationOnce(async () => ({
+        code: 'in_org',
+        status: 'in_org',
+        checkedAt: '2026-01-03T00:00:00.000Z',
+      }))
       .mockImplementationOnce(async () => {
         throw new Error('transient');
       });
@@ -563,7 +568,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -590,7 +595,7 @@ describe('nominations commands', () => {
 
     expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(checkHasAnyOrgMembership).toHaveBeenCalledTimes(2);
-    expect(updateOrgCheckStatus).toHaveBeenCalledTimes(1);
+    expect(updateOrgCheckResult).toHaveBeenCalledTimes(1);
     expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Refresh complete.'),
@@ -627,22 +632,32 @@ describe('nominations commands', () => {
         events: [],
       },
     ]);
-    const updateOrgCheckStatus = jest
+    const updateOrgCheckResult = jest
       .fn<() => Promise<void>>()
       .mockImplementationOnce(async () => undefined)
       .mockImplementationOnce(async () => {
         throw new Error('db write failed');
       });
     const checkHasAnyOrgMembership = jest
-      .fn<() => Promise<'in_org' | 'not_in_org'>>()
-      .mockImplementationOnce(async () => 'in_org')
-      .mockImplementationOnce(async () => 'not_in_org');
+      .fn<
+        () => Promise<{ code: 'in_org'; status: 'in_org'; checkedAt: string } | { code: 'not_in_org'; status: 'not_in_org'; checkedAt: string }>
+      >()
+      .mockImplementationOnce(async () => ({
+        code: 'in_org',
+        status: 'in_org',
+        checkedAt: '2026-01-03T00:00:00.000Z',
+      }))
+      .mockImplementationOnce(async () => ({
+        code: 'not_in_org',
+        status: 'not_in_org',
+        checkedAt: '2026-01-03T00:01:00.000Z',
+      }));
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -667,7 +682,7 @@ describe('nominations commands', () => {
     await handleRefreshNominationOrgStatusCommand(interaction);
 
     expect(checkHasAnyOrgMembership).toHaveBeenCalledTimes(2);
-    expect(updateOrgCheckStatus).toHaveBeenCalledTimes(2);
+    expect(updateOrgCheckResult).toHaveBeenCalledTimes(2);
     expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Errors: 1'),
@@ -690,14 +705,18 @@ describe('nominations commands', () => {
       lastOrgCheckAt: null,
       events: [],
     }));
-    const updateOrgCheckStatus = jest.fn(async () => undefined);
-    const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
+    const updateOrgCheckResult = jest.fn(async () => undefined);
+    const checkHasAnyOrgMembership = jest.fn(async () => ({
+      code: 'not_in_org',
+      status: 'not_in_org',
+      checkedAt: '2026-01-03T00:00:00.000Z',
+    }));
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle,
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -723,20 +742,20 @@ describe('nominations commands', () => {
     expect(getUnprocessedNominationByHandle).toHaveBeenCalledWith('PilotNominee');
     expect(getUnprocessedNominations).not.toHaveBeenCalled();
     expect(checkHasAnyOrgMembership).toHaveBeenCalledTimes(1);
-    expect(updateOrgCheckStatus).toHaveBeenCalledTimes(1);
+    expect(updateOrgCheckResult).toHaveBeenCalledTimes(1);
   });
 
   it('sanitizes handle text in single-not-found refresh response', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     const getUnprocessedNominationByHandle = jest.fn(async () => null);
-    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const updateOrgCheckResult = jest.fn(async () => undefined);
     const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle,
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -773,14 +792,14 @@ describe('nominations commands', () => {
   it('rejects whitespace-only handle for refresh command instead of refreshing all nominations', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     const getUnprocessedNominationByHandle = jest.fn(async () => null);
-    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const updateOrgCheckResult = jest.fn(async () => undefined);
     const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle,
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -807,7 +826,7 @@ describe('nominations commands', () => {
     expect(getUnprocessedNominations).not.toHaveBeenCalled();
     expect(getUnprocessedNominationByHandle).not.toHaveBeenCalled();
     expect(checkHasAnyOrgMembership).not.toHaveBeenCalled();
-    expect(updateOrgCheckStatus).not.toHaveBeenCalled();
+    expect(updateOrgCheckResult).not.toHaveBeenCalled();
     expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Please provide a valid RSI handle.'),
@@ -831,7 +850,7 @@ describe('nominations commands', () => {
         events: [],
       }))
     );
-    const updateOrgCheckStatus = jest.fn(async () => undefined);
+    const updateOrgCheckResult = jest.fn(async () => undefined);
     const checkHasAnyOrgMembership = jest.fn(async () => {
       throw new Error('transient');
     });
@@ -840,7 +859,7 @@ describe('nominations commands', () => {
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
-      updateOrgCheckStatus,
+      updateOrgCheckResult,
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
@@ -871,6 +890,6 @@ describe('nominations commands', () => {
     expect(content.length).toBeLessThanOrEqual(1800);
     expect(content).toContain('Error handles:');
     expect(content).toMatch(/\(\+\d+ more\)|too many to display/);
-    expect(updateOrgCheckStatus).toHaveBeenCalledTimes(0);
+    expect(updateOrgCheckResult).toHaveBeenCalledTimes(0);
   });
 });

@@ -1,4 +1,4 @@
-import type { NominationEvent, NominationRecord, OrgCheckStatus } from './types.ts';
+import type { NominationEvent, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.ts';
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
 
 function normalizeHandle(handle: string): string {
@@ -8,6 +8,22 @@ function normalizeHandle(handle: string): string {
 function assertDatabaseConfigured(): void {
   if (!isDatabaseConfigured()) {
     throw new Error('DATABASE_URL is required for nomination persistence');
+  }
+}
+
+function assertOrgCheckResultConsistency(result: OrgCheckResult): void {
+  const isBusinessCode = result.code === 'in_org' || result.code === 'not_in_org';
+  if (isBusinessCode && result.status !== result.code) {
+    throw new Error(`Invalid org-check result consistency: code=${result.code}, status=${result.status}`);
+  }
+  const isTechnicalOrNotFoundCode =
+    result.code === 'not_found' ||
+    result.code === 'http_timeout' ||
+    result.code === 'rate_limited' ||
+    result.code === 'parse_failed' ||
+    result.code === 'http_error';
+  if (isTechnicalOrNotFoundCode && result.status !== 'unknown') {
+    throw new Error(`Invalid org-check result consistency: code=${result.code}, status=${result.status}`);
   }
 }
 
@@ -22,6 +38,11 @@ function mapDbRowToNomination(row: any, events: NominationEvent[]): NominationRe
     createdAt: new Date(row.created_at).toISOString(),
     updatedAt: new Date(row.updated_at).toISOString(),
     lastOrgCheckStatus: row.last_org_check_status,
+    lastOrgCheckResultCode: row.last_org_check_result_code,
+    lastOrgCheckResultMessage: row.last_org_check_result_message,
+    lastOrgCheckResultAt: row.last_org_check_result_at
+      ? new Date(row.last_org_check_result_at).toISOString()
+      : null,
     lastOrgCheckAt: row.last_org_check_at ? new Date(row.last_org_check_at).toISOString() : null,
     events,
   };
@@ -82,9 +103,10 @@ export async function recordNomination(
         INSERT INTO nominations (
           normalized_handle, display_handle, nomination_count, is_processed,
           processed_by_user_id, processed_at, created_at, updated_at,
-          last_org_check_status, last_org_check_at
+          last_org_check_status, last_org_check_result_code, last_org_check_result_message,
+          last_org_check_result_at, last_org_check_at
         )
-        VALUES ($1, $2, 1, FALSE, NULL, NULL, NOW(), NOW(), NULL, NULL)
+        VALUES ($1, $2, 1, FALSE, NULL, NULL, NOW(), NOW(), NULL, NULL, NULL, NULL, NULL)
         ON CONFLICT (normalized_handle)
         DO UPDATE SET
           display_handle = EXCLUDED.display_handle,
@@ -191,11 +213,12 @@ export async function getUnprocessedNominationByHandle(rsiHandle: string): Promi
   );
 }
 
-export async function updateOrgCheckStatus(
+export async function updateOrgCheckResult(
   normalizedHandle: string,
-  status: OrgCheckStatus
+  result: OrgCheckResult
 ): Promise<void> {
   assertDatabaseConfigured();
+  assertOrgCheckResultConsistency(result);
   await ensureNominationsSchema();
 
   await withClient((client) =>
@@ -203,13 +226,34 @@ export async function updateOrgCheckStatus(
       `
       UPDATE nominations
       SET last_org_check_status = $2,
-          last_org_check_at = NOW(),
+          last_org_check_result_code = $3,
+          last_org_check_result_message = $4,
+          last_org_check_result_at = $5::timestamptz,
+          last_org_check_at = $5::timestamptz,
           updated_at = NOW()
       WHERE normalized_handle = $1
       `,
-      [normalizedHandle, status]
+      [
+        normalizedHandle,
+        result.status,
+        result.code,
+        result.message ?? null,
+        result.checkedAt,
+      ]
     )
   );
+}
+
+export async function updateOrgCheckStatus(
+  normalizedHandle: string,
+  status: OrgCheckStatus
+): Promise<void> {
+  await updateOrgCheckResult(normalizedHandle, {
+    status,
+    checkedAt: new Date().toISOString(),
+    code: status === 'in_org' ? 'in_org' : status === 'not_in_org' ? 'not_in_org' : 'http_error',
+    message: 'Legacy status-only update path',
+  });
 }
 
 export async function markNominationProcessedByHandle(

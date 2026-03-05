@@ -12,10 +12,46 @@ import {
   isNominationConfigurationError,
 } from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
+import type { OrgCheckResultCode } from '../services/nominations/types.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 const maxDiscordMessageLength = 1800;
+
+const technicalResultCodes: OrgCheckResultCode[] = [
+  'http_timeout',
+  'rate_limited',
+  'parse_failed',
+  'http_error',
+];
+
+function createEmptyReasonCounts(): Record<OrgCheckResultCode, number> {
+  return {
+    in_org: 0,
+    not_in_org: 0,
+    not_found: 0,
+    http_timeout: 0,
+    rate_limited: 0,
+    parse_failed: 0,
+    http_error: 0,
+  };
+}
+
+function resolveResultCode(nomination: { lastOrgCheckResultCode: OrgCheckResultCode | null; lastOrgCheckStatus: string | null }): OrgCheckResultCode | null {
+  if (nomination.lastOrgCheckResultCode) {
+    return nomination.lastOrgCheckResultCode;
+  }
+  if (nomination.lastOrgCheckStatus === 'in_org') {
+    return 'in_org';
+  }
+  if (nomination.lastOrgCheckStatus === 'not_in_org') {
+    return 'not_in_org';
+  }
+  if (nomination.lastOrgCheckStatus === 'unknown') {
+    return 'http_error';
+  }
+  return null;
+}
 
 export const REVIEW_NOMINATIONS_COMMAND_NAME = 'review-nominations';
 
@@ -58,9 +94,22 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
       return;
     }
 
-    const inOrgCount = nominations.filter((nomination) => nomination.lastOrgCheckStatus === 'in_org').length;
-    const notInOrgCount = nominations.filter((nomination) => nomination.lastOrgCheckStatus === 'not_in_org').length;
-    const unknownCount = nominations.filter((nomination) => nomination.lastOrgCheckStatus === 'unknown').length;
+    const reasonCounts = createEmptyReasonCounts();
+    let unclassifiedCount = 0;
+    for (const nomination of nominations) {
+      const code = resolveResultCode(nomination);
+      if (!code) {
+        unclassifiedCount += 1;
+        continue;
+      }
+      reasonCounts[code] += 1;
+    }
+    const businessOutcomeCount =
+      reasonCounts.in_org + reasonCounts.not_in_org + reasonCounts.not_found;
+    const technicalOutcomeCount = technicalResultCodes.reduce(
+      (total, code) => total + reasonCounts[code],
+      0
+    );
     const neverCheckedCount = nominations.filter((nomination) => !nomination.lastOrgCheckAt).length;
     const lastRefreshedAt = getLastRefreshedAtUtc(nominations.map((nomination) => nomination.lastOrgCheckAt));
 
@@ -70,9 +119,16 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
       {
         table: `\`\`\`\n${table}\n\`\`\``,
         totalCount: String(nominations.length),
-        inOrgCount: String(inOrgCount),
-        notInOrgCount: String(notInOrgCount),
-        unknownCount: String(unknownCount),
+        businessOutcomeCount: String(businessOutcomeCount),
+        technicalOutcomeCount: String(technicalOutcomeCount),
+        inOrgCount: String(reasonCounts.in_org),
+        notInOrgCount: String(reasonCounts.not_in_org),
+        notFoundCount: String(reasonCounts.not_found),
+        timeoutCount: String(reasonCounts.http_timeout),
+        rateLimitedCount: String(reasonCounts.rate_limited),
+        parseFailedCount: String(reasonCounts.parse_failed),
+        httpErrorCount: String(reasonCounts.http_error),
+        unclassifiedCount: String(unclassifiedCount),
         neverCheckedCount: String(neverCheckedCount),
         lastRefreshedAt,
       }
@@ -91,9 +147,16 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
         { phrase: 'commands.reviewNominations.responses.summaryAttachment', locale },
         {
           totalCount: String(nominations.length),
-          inOrgCount: String(inOrgCount),
-          notInOrgCount: String(notInOrgCount),
-          unknownCount: String(unknownCount),
+          businessOutcomeCount: String(businessOutcomeCount),
+          technicalOutcomeCount: String(technicalOutcomeCount),
+          inOrgCount: String(reasonCounts.in_org),
+          notInOrgCount: String(reasonCounts.not_in_org),
+          notFoundCount: String(reasonCounts.not_found),
+          timeoutCount: String(reasonCounts.http_timeout),
+          rateLimitedCount: String(reasonCounts.rate_limited),
+          parseFailedCount: String(reasonCounts.parse_failed),
+          httpErrorCount: String(reasonCounts.http_error),
+          unclassifiedCount: String(unclassifiedCount),
           neverCheckedCount: String(neverCheckedCount),
           lastRefreshedAt,
         }
