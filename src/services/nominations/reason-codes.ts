@@ -1,14 +1,14 @@
-import type { OrgCheckResultCode } from './types.ts';
+import type { OrgCheckResultCode, OrgCheckStatus } from './types.ts';
 
 export const reasonCodeMetadata = {
-  in_org: { technical: false },
-  not_in_org: { technical: false },
-  not_found: { technical: false },
-  http_timeout: { technical: true },
-  rate_limited: { technical: true },
-  parse_failed: { technical: true },
-  http_error: { technical: true },
-} satisfies Record<OrgCheckResultCode, { technical: boolean }>;
+  in_org: { technical: false, expectedStatus: 'in_org' },
+  not_in_org: { technical: false, expectedStatus: 'not_in_org' },
+  not_found: { technical: false, expectedStatus: 'unknown' },
+  http_timeout: { technical: true, expectedStatus: 'unknown' },
+  rate_limited: { technical: true, expectedStatus: 'unknown' },
+  parse_failed: { technical: true, expectedStatus: 'unknown' },
+  http_error: { technical: true, expectedStatus: 'unknown' },
+} satisfies Record<OrgCheckResultCode, { technical: boolean; expectedStatus: OrgCheckStatus }>;
 
 export const technicalResultCodes: OrgCheckResultCode[] = (
   Object.keys(reasonCodeMetadata) as OrgCheckResultCode[]

@@ -1,5 +1,6 @@
 import type { NominationEvent, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.ts';
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
+import { reasonCodeMetadata } from './reason-codes.ts';
 
 function normalizeHandle(handle: string): string {
   return handle.trim().toLowerCase();
@@ -12,17 +13,8 @@ function assertDatabaseConfigured(): void {
 }
 
 function assertOrgCheckResultConsistency(result: OrgCheckResult): void {
-  const isBusinessCode = result.code === 'in_org' || result.code === 'not_in_org';
-  if (isBusinessCode && result.status !== result.code) {
-    throw new Error(`Invalid org-check result consistency: code=${result.code}, status=${result.status}`);
-  }
-  const isTechnicalOrNotFoundCode =
-    result.code === 'not_found' ||
-    result.code === 'http_timeout' ||
-    result.code === 'rate_limited' ||
-    result.code === 'parse_failed' ||
-    result.code === 'http_error';
-  if (isTechnicalOrNotFoundCode && result.status !== 'unknown') {
+  const expectedStatus = reasonCodeMetadata[result.code].expectedStatus;
+  if (result.status !== expectedStatus) {
     throw new Error(`Invalid org-check result consistency: code=${result.code}, status=${result.status}`);
   }
 }
