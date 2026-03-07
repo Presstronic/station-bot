@@ -3,11 +3,7 @@ import { updateOrgCheckResult } from './nominations.repository.ts';
 import type { NominationRecord, OrgCheckResult, OrgCheckResultCode } from './types.ts';
 import { getLogger } from '../../utils/logger.ts';
 import { sanitizeForInlineText } from '../../utils/sanitize.ts';
-import {
-  businessResultCodes,
-  createEmptyReasonCounts,
-  technicalResultCodes,
-} from './reason-codes.ts';
+import { businessResultCodes, createEmptyReasonCounts, reasonCodeMetadata, technicalResultCodes } from './reason-codes.ts';
 
 const logger = getLogger();
 const defaultRefreshConcurrency = 5;
@@ -71,9 +67,11 @@ export async function refreshOrgStatusesForNominations(
       : defaultRefreshConcurrency;
 
   const results = await mapWithConcurrency(nominations, safeConcurrency, async (nomination): Promise<RefreshResult> => {
+    const fallbackCode: OrgCheckResultCode = nomination.lastOrgCheckResultCode ?? 'http_error';
+    const fallbackStatus = nomination.lastOrgCheckStatus ?? reasonCodeMetadata[fallbackCode].expectedStatus;
     let checkResult: OrgCheckResult = {
-      code: nomination.lastOrgCheckResultCode ?? 'http_error',
-      status: nomination.lastOrgCheckStatus ?? 'unknown',
+      code: fallbackCode,
+      status: fallbackStatus,
       message: nomination.lastOrgCheckResultMessage ?? 'No previous org-check result found',
       checkedAt: nomination.lastOrgCheckResultAt ?? nomination.lastOrgCheckAt ?? new Date().toISOString(),
     };
