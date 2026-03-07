@@ -18,6 +18,10 @@ import {
   REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME,
 } from '../commands/refresh-nomination-org-status.command.ts';
 import {
+  handleNominationCheckStatusCommand,
+  NOMINATION_CHECK_STATUS_COMMAND_NAME,
+} from '../commands/nomination-check-status.command.ts';
+import {
   handleProcessNominationCommand,
   PROCESS_NOMINATION_COMMAND_NAME,
 } from '../commands/process-nomination.command.ts';
@@ -68,6 +72,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleReviewNominationsCommand(interaction);
         } else if (interaction.commandName === REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME) {
           await handleRefreshNominationOrgStatusCommand(interaction);
+        } else if (interaction.commandName === NOMINATION_CHECK_STATUS_COMMAND_NAME) {
+          await handleNominationCheckStatusCommand(interaction);
         } else if (interaction.commandName === PROCESS_NOMINATION_COMMAND_NAME) {
           await handleProcessNominationCommand(interaction);
         } else if (interaction.commandName === NOMINATION_ACCESS_COMMAND_NAME) {

@@ -100,7 +100,9 @@ export async function ensureNominationsSchema(): Promise<void> {
       SELECT
         to_regclass('public.nominations') AS nominations_table,
         to_regclass('public.nomination_events') AS nomination_events_table,
-        to_regclass('public.nomination_access_roles') AS nomination_access_roles_table
+        to_regclass('public.nomination_access_roles') AS nomination_access_roles_table,
+        to_regclass('public.nomination_check_jobs') AS nomination_check_jobs_table,
+        to_regclass('public.nomination_check_job_items') AS nomination_check_job_items_table
     `);
     const nominationsColumnsResult = await client.query(
       `
@@ -113,11 +115,13 @@ export async function ensureNominationsSchema(): Promise<void> {
     return { schemaResult, nominationsColumnsResult };
   });
 
-  const row = schemaResult.rows[0];
+  const [row] = schemaResult.rows;
   const missing = [
     row?.nominations_table ? null : 'nominations',
     row?.nomination_events_table ? null : 'nomination_events',
     row?.nomination_access_roles_table ? null : 'nomination_access_roles',
+    row?.nomination_check_jobs_table ? null : 'nomination_check_jobs',
+    row?.nomination_check_job_items_table ? null : 'nomination_check_job_items',
   ].filter((value): value is string => Boolean(value));
 
   if (missing.length > 0) {
