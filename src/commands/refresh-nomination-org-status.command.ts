@@ -4,19 +4,18 @@ import {
   getUnprocessedNominationByHandle,
   getUnprocessedNominations,
 } from '../services/nominations/nominations.repository.ts';
+import { enqueueNominationCheckJob } from '../services/nominations/job-queue.repository.ts';
 import {
   ensureCanManageReviewProcessing,
   getCommandLocale,
   isNominationConfigurationError,
 } from './nomination.helpers.ts';
-import { refreshOrgStatusesForNominations } from '../services/nominations/org-refresh.service.ts';
 import { getLogger } from '../utils/logger.ts';
 import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 const rsiHandleKey = 'commands.refreshNominationOrgStatus.options.rsiHandle.name';
-const maxDiscordMessageLength = 1800;
 
 export const REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME = 'refresh-nomination-org-status';
 
@@ -85,52 +84,24 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
       return;
     }
 
-    const summary = await refreshOrgStatusesForNominations(targets);
-    const baseSummaryFields = {
-      targetCount: String(summary.targetCount),
-      refreshedCount: String(summary.refreshedCount),
-      errorCount: String(summary.errorCount),
-      businessOutcomeCount: String(summary.businessOutcomeCount),
-      technicalOutcomeCount: String(summary.technicalOutcomeCount),
-      inOrgCount: String(summary.reasonCounts.in_org),
-      notInOrgCount: String(summary.reasonCounts.not_in_org),
-      notFoundCount: String(summary.reasonCounts.not_found),
-      timeoutCount: String(summary.reasonCounts.http_timeout),
-      rateLimitedCount: String(summary.reasonCounts.rate_limited),
-      parseFailedCount: String(summary.reasonCounts.parse_failed),
-      httpErrorCount: String(summary.reasonCounts.http_error),
-    };
-    const buildSummaryContent = (errorHandles: string) =>
-      i18n.__mf(
-        { phrase: 'commands.refreshNominationOrgStatus.responses.summary', locale },
-        {
-          ...baseSummaryFields,
-          errorHandles,
-        }
-      );
-    const errorHandles = (() => {
-      if (summary.errorHandles.length === 0) {
-        return 'none';
+    const requestedScope = requestedHandle ? 'single' : 'all';
+    const queueResult = await enqueueNominationCheckJob(
+      interaction.user.id,
+      requestedScope,
+      targets.map((target) => target.normalizedHandle),
+      requestedHandle ? requestedHandle.toLowerCase() : null
+    );
+
+    const summaryContent = i18n.__mf(
+      { phrase: 'commands.refreshNominationOrgStatus.responses.queued', locale },
+      {
+        jobId: String(queueResult.job.id),
+        targetCount: String(queueResult.job.totalCount),
+        reused: queueResult.reused ? 'yes' : 'no',
       }
-
-      for (let shownCount = summary.errorHandles.length; shownCount >= 1; shownCount -= 1) {
-        const hiddenCount = summary.errorHandles.length - shownCount;
-        const shownHandles = summary.errorHandles.slice(0, shownCount).join(', ');
-        const candidate = hiddenCount > 0 ? `${shownHandles} (+${hiddenCount} more)` : shownHandles;
-        if (buildSummaryContent(candidate).length <= maxDiscordMessageLength) {
-          return candidate;
-        }
-      }
-
-      return 'too many to display';
-    })();
-
-    const summaryContent = buildSummaryContent(errorHandles);
+    );
     await interaction.editReply({
-      content:
-        summaryContent.length <= maxDiscordMessageLength
-          ? summaryContent
-          : `${summaryContent.slice(0, maxDiscordMessageLength - 3)}...`,
+      content: summaryContent,
       allowedMentions: { parse: [] },
     });
   } catch (error) {
