@@ -237,7 +237,9 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
 
   const citizenPage = await fetchPageWithReason(citizenUrl);
   if (!citizenPage.ok) {
-    logger.warn(`RSI citizen profile not found or unavailable for handle "${safeHandle}"`);
+    logger.warn(
+      `RSI citizen profile fetch failed (${citizenPage.code}) for handle "${safeHandle}": ${trimMessage(citizenPage.message, 120)}`
+    );
     return mapFetchFailureToOrgCheckResult(
       citizenPage.code,
       citizenPage.message
@@ -246,7 +248,9 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
 
   const organizationsPage = await fetchPageWithReason(organizationsUrl);
   if (!organizationsPage.ok) {
-    logger.warn(`RSI organizations page not found or unavailable for handle "${safeHandle}"`);
+    logger.warn(
+      `RSI organizations page fetch failed (${organizationsPage.code}) for handle "${safeHandle}": ${trimMessage(organizationsPage.message, 120)}`
+    );
     return mapFetchFailureToOrgCheckResult(
       organizationsPage.code,
       organizationsPage.message

@@ -406,7 +406,11 @@ describe('nominations commands', () => {
       },
     ]);
     const updateOrgCheckResult = jest.fn();
-    const checkHasAnyOrgMembership = jest.fn(async () => 'in_org');
+    const checkHasAnyOrgMembership = jest.fn(async () => ({
+      code: 'in_org',
+      status: 'in_org',
+      checkedAt: '2026-01-02T00:00:00.000Z',
+    }));
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),
@@ -749,7 +753,11 @@ describe('nominations commands', () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     const getUnprocessedNominationByHandle = jest.fn(async () => null);
     const updateOrgCheckResult = jest.fn(async () => undefined);
-    const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
+    const checkHasAnyOrgMembership = jest.fn(async () => ({
+      code: 'not_in_org',
+      status: 'not_in_org',
+      checkedAt: '2026-01-02T00:00:00.000Z',
+    }));
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),
@@ -793,7 +801,11 @@ describe('nominations commands', () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     const getUnprocessedNominationByHandle = jest.fn(async () => null);
     const updateOrgCheckResult = jest.fn(async () => undefined);
-    const checkHasAnyOrgMembership = jest.fn(async () => 'not_in_org');
+    const checkHasAnyOrgMembership = jest.fn(async () => ({
+      code: 'not_in_org',
+      status: 'not_in_org',
+      checkedAt: '2026-01-02T00:00:00.000Z',
+    }));
 
     jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
       recordNomination: jest.fn(),

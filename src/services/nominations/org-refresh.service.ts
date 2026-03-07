@@ -3,6 +3,10 @@ import { updateOrgCheckResult } from './nominations.repository.ts';
 import type { NominationRecord, OrgCheckResult, OrgCheckResultCode } from './types.ts';
 import { getLogger } from '../../utils/logger.ts';
 import { sanitizeForInlineText } from '../../utils/sanitize.ts';
+import {
+  createEmptyReasonCounts,
+  technicalResultCodes,
+} from './reason-codes.ts';
 
 const logger = getLogger();
 const defaultRefreshConcurrency = 5;
@@ -13,28 +17,14 @@ interface RefreshResult {
   checkErrored: boolean;
 }
 
-type OrgCheckReasonCounts = Record<OrgCheckResultCode, number>;
-
 export interface OrgRefreshSummary {
   targetCount: number;
   refreshedCount: number;
   errorCount: number;
   businessOutcomeCount: number;
   technicalOutcomeCount: number;
-  reasonCounts: OrgCheckReasonCounts;
+  reasonCounts: Record<OrgCheckResultCode, number>;
   errorHandles: string[];
-}
-
-function createEmptyReasonCounts(): OrgCheckReasonCounts {
-  return {
-    in_org: 0,
-    not_in_org: 0,
-    not_found: 0,
-    http_timeout: 0,
-    rate_limited: 0,
-    parse_failed: 0,
-    http_error: 0,
-  } satisfies Record<OrgCheckResultCode, number>;
 }
 
 async function mapWithConcurrency<T, R>(
@@ -123,11 +113,7 @@ export async function refreshOrgStatusesForNominations(
     errorCount: errorHandles.length,
     businessOutcomeCount:
       reasonCounts.in_org + reasonCounts.not_in_org + reasonCounts.not_found,
-    technicalOutcomeCount:
-      reasonCounts.http_timeout +
-      reasonCounts.rate_limited +
-      reasonCounts.parse_failed +
-      reasonCounts.http_error,
+    technicalOutcomeCount: technicalResultCodes.reduce((total, code) => total + reasonCounts[code], 0),
     reasonCounts,
     errorHandles,
   };

@@ -13,30 +13,14 @@ import {
   resolveNominationOrgResultCode,
 } from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
-import type { OrgCheckResultCode } from '../services/nominations/types.ts';
+import {
+  createEmptyReasonCounts,
+  technicalResultCodes,
+} from '../services/nominations/reason-codes.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 const maxDiscordMessageLength = 1800;
-
-const technicalResultCodes: OrgCheckResultCode[] = [
-  'http_timeout',
-  'rate_limited',
-  'parse_failed',
-  'http_error',
-];
-
-function createEmptyReasonCounts(): Record<OrgCheckResultCode, number> {
-  return {
-    in_org: 0,
-    not_in_org: 0,
-    not_found: 0,
-    http_timeout: 0,
-    rate_limited: 0,
-    parse_failed: 0,
-    http_error: 0,
-  };
-}
 
 export const REVIEW_NOMINATIONS_COMMAND_NAME = 'review-nominations';
 

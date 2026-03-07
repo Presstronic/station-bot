@@ -4,7 +4,11 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
-import type { NominationRecord, OrgCheckResultCode } from '../services/nominations/types.ts';
+import type {
+  NominationRecord,
+  OrgCheckResultCode,
+  OrgCheckStatus,
+} from '../services/nominations/types.ts';
 import { getReviewProcessRoleIds } from '../services/nominations/access-control.repository.ts';
 import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
@@ -161,7 +165,7 @@ export function getOrganizationMemberRoleName(): string {
 
 export function resolveNominationOrgResultCode(nomination: {
   lastOrgCheckResultCode: OrgCheckResultCode | null;
-  lastOrgCheckStatus: string | null;
+  lastOrgCheckStatus: OrgCheckStatus | null;
 }): OrgCheckResultCode | null {
   if (nomination.lastOrgCheckResultCode) {
     return nomination.lastOrgCheckResultCode;
