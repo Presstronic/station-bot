@@ -68,7 +68,9 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     for (const nomination of nominations) {
       const code = resolveNominationOrgResultCode(nomination);
       if (!code) {
-        unclassifiedCount += 1;
+        if (nomination.lastOrgCheckAt) {
+          unclassifiedCount += 1;
+        }
         continue;
       }
       reasonCounts[code] += 1;

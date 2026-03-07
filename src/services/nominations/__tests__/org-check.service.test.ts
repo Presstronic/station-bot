@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 const originalEnv = { ...process.env };
 
@@ -10,6 +10,10 @@ beforeEach(() => {
     RSI_HTTP_RETRY_BASE_MS: '0',
     RSI_HTTP_MIN_INTERVAL_MS: '0',
   };
+});
+
+afterEach(() => {
+  process.env = originalEnv;
 });
 
 describe('checkHasAnyOrgMembership', () => {

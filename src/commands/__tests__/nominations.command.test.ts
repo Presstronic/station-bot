@@ -502,7 +502,11 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
-      checkHasAnyOrgMembership: jest.fn(async () => 'in_org'),
+      checkHasAnyOrgMembership: jest.fn(async () => ({
+        code: 'in_org',
+        status: 'in_org',
+        checkedAt: '2026-01-02T00:00:00.000Z',
+      })),
     }));
 
     const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
@@ -523,7 +527,7 @@ describe('nominations commands', () => {
       | undefined;
     const content = editPayload?.content ?? '';
     expect(content).toContain('HTTP error: 0');
-    expect(content).toContain('Unclassified legacy: 2');
+    expect(content).toContain('Unclassified legacy: 1');
     expect(content).toContain('Never checked: 1');
   });
 
