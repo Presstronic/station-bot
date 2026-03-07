@@ -1,15 +1,16 @@
 import { checkHasAnyOrgMembership } from './org-check.service.ts';
-import { updateOrgCheckStatus } from './nominations.repository.ts';
-import type { NominationRecord, OrgCheckStatus } from './types.ts';
+import { updateOrgCheckResult } from './nominations.repository.ts';
+import type { NominationRecord, OrgCheckResult, OrgCheckResultCode } from './types.ts';
 import { getLogger } from '../../utils/logger.ts';
 import { sanitizeForInlineText } from '../../utils/sanitize.ts';
+import { businessResultCodes, createEmptyReasonCounts, reasonCodeMetadata, technicalResultCodes } from './reason-codes.ts';
 
 const logger = getLogger();
 const defaultRefreshConcurrency = 5;
 
 interface RefreshResult {
   handle: string;
-  status: OrgCheckStatus;
+  checkResult: OrgCheckResult;
   checkErrored: boolean;
 }
 
@@ -17,9 +18,9 @@ export interface OrgRefreshSummary {
   targetCount: number;
   refreshedCount: number;
   errorCount: number;
-  inOrgCount: number;
-  notInOrgCount: number;
-  unknownCount: number;
+  businessOutcomeCount: number;
+  technicalOutcomeCount: number;
+  reasonCounts: Record<OrgCheckResultCode, number>;
   errorHandles: string[];
 }
 
@@ -53,9 +54,9 @@ export async function refreshOrgStatusesForNominations(
       targetCount: 0,
       refreshedCount: 0,
       errorCount: 0,
-      inOrgCount: 0,
-      notInOrgCount: 0,
-      unknownCount: 0,
+      businessOutcomeCount: 0,
+      technicalOutcomeCount: 0,
+      reasonCounts: createEmptyReasonCounts(),
       errorHandles: [],
     };
   }
@@ -66,15 +67,24 @@ export async function refreshOrgStatusesForNominations(
       : defaultRefreshConcurrency;
 
   const results = await mapWithConcurrency(nominations, safeConcurrency, async (nomination): Promise<RefreshResult> => {
-    const previousStatus: OrgCheckStatus = nomination.lastOrgCheckStatus ?? 'unknown';
-    let status: OrgCheckStatus = previousStatus;
+    const fallbackCode: OrgCheckResultCode = nomination.lastOrgCheckResultCode ?? 'http_error';
+    const fallbackStatus = nomination.lastOrgCheckStatus ?? reasonCodeMetadata[fallbackCode].expectedStatus;
+    let checkResult: OrgCheckResult = {
+      code: fallbackCode,
+      status: fallbackStatus,
+      message: nomination.lastOrgCheckResultMessage ?? 'No previous org-check result found',
+      checkedAt: nomination.lastOrgCheckResultAt ?? nomination.lastOrgCheckAt ?? new Date().toISOString(),
+    };
     let checkErrored = false;
 
     try {
-      status = await checkHasAnyOrgMembership(nomination.displayHandle);
-      await updateOrgCheckStatus(nomination.normalizedHandle, status);
-      nomination.lastOrgCheckStatus = status;
-      nomination.lastOrgCheckAt = new Date().toISOString();
+      checkResult = await checkHasAnyOrgMembership(nomination.displayHandle);
+      await updateOrgCheckResult(nomination.normalizedHandle, checkResult);
+      nomination.lastOrgCheckStatus = checkResult.status;
+      nomination.lastOrgCheckResultCode = checkResult.code;
+      nomination.lastOrgCheckResultMessage = checkResult.message ?? null;
+      nomination.lastOrgCheckResultAt = checkResult.checkedAt;
+      nomination.lastOrgCheckAt = checkResult.checkedAt;
     } catch (error) {
       checkErrored = true;
       logger.error(
@@ -84,21 +94,25 @@ export async function refreshOrgStatusesForNominations(
 
     return {
       handle: sanitizeForInlineText(nomination.displayHandle),
-      status,
+      checkResult,
       checkErrored,
     };
   });
 
   const completedResults = results.filter((result) => !result.checkErrored);
   const errorHandles = results.filter((result) => result.checkErrored).map((result) => result.handle);
+  const reasonCounts = createEmptyReasonCounts();
+  for (const result of completedResults) {
+    reasonCounts[result.checkResult.code] += 1;
+  }
 
   return {
     targetCount: results.length,
     refreshedCount: completedResults.length,
     errorCount: errorHandles.length,
-    inOrgCount: completedResults.filter((result) => result.status === 'in_org').length,
-    notInOrgCount: completedResults.filter((result) => result.status === 'not_in_org').length,
-    unknownCount: completedResults.filter((result) => result.status === 'unknown').length,
+    businessOutcomeCount: businessResultCodes.reduce((total, code) => total + reasonCounts[code], 0),
+    technicalOutcomeCount: technicalResultCodes.reduce((total, code) => total + reasonCounts[code], 0),
+    reasonCounts,
     errorHandles,
   };
 }

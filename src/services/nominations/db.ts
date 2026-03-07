@@ -95,16 +95,25 @@ export async function ensureNominationsSchema(): Promise<void> {
     return;
   }
 
-  const result = await withClient((client) =>
-    client.query(`
+  const { schemaResult, nominationsColumnsResult } = await withClient(async (client) => {
+    const schemaResult = await client.query(`
       SELECT
         to_regclass('public.nominations') AS nominations_table,
         to_regclass('public.nomination_events') AS nomination_events_table,
         to_regclass('public.nomination_access_roles') AS nomination_access_roles_table
-    `)
-  );
+    `);
+    const nominationsColumnsResult = await client.query(
+      `
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'nominations'
+      `
+    );
+    return { schemaResult, nominationsColumnsResult };
+  });
 
-  const row = result.rows[0];
+  const row = schemaResult.rows[0];
   const missing = [
     row?.nominations_table ? null : 'nominations',
     row?.nomination_events_table ? null : 'nomination_events',
@@ -114,6 +123,25 @@ export async function ensureNominationsSchema(): Promise<void> {
   if (missing.length > 0) {
     throw new Error(
       `Missing nomination schema objects (${missing.join(', ')}). Run database migrations before starting the bot.`
+    );
+  }
+
+  const nominationColumns = new Set<string>(
+    nominationsColumnsResult.rows.map((row) => String(row.column_name))
+  );
+  const requiredNominationColumns = [
+    'last_org_check_status',
+    'last_org_check_result_code',
+    'last_org_check_result_message',
+    'last_org_check_result_at',
+    'last_org_check_at',
+  ];
+  const missingNominationColumns = requiredNominationColumns.filter(
+    (columnName) => !nominationColumns.has(columnName)
+  );
+  if (missingNominationColumns.length > 0) {
+    throw new Error(
+      `Missing nominations columns (${missingNominationColumns.join(', ')}). Run database migrations before starting the bot.`
     );
   }
 

@@ -90,9 +90,15 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
       targetCount: String(summary.targetCount),
       refreshedCount: String(summary.refreshedCount),
       errorCount: String(summary.errorCount),
-      inOrgCount: String(summary.inOrgCount),
-      notInOrgCount: String(summary.notInOrgCount),
-      unknownCount: String(summary.unknownCount),
+      businessOutcomeCount: String(summary.businessOutcomeCount),
+      technicalOutcomeCount: String(summary.technicalOutcomeCount),
+      inOrgCount: String(summary.reasonCounts.in_org),
+      notInOrgCount: String(summary.reasonCounts.not_in_org),
+      notFoundCount: String(summary.reasonCounts.not_found),
+      timeoutCount: String(summary.reasonCounts.http_timeout),
+      rateLimitedCount: String(summary.reasonCounts.rate_limited),
+      parseFailedCount: String(summary.reasonCounts.parse_failed),
+      httpErrorCount: String(summary.reasonCounts.http_error),
     };
     const buildSummaryContent = (errorHandles: string) =>
       i18n.__mf(

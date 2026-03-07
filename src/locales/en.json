@@ -77,8 +77,8 @@
       "description": "Review all unprocessed player nominations.",
       "responses": {
         "none": "There are no unprocessed nominations.",
-        "summary": "Unprocessed nominations (persisted status):\n{table}\nTotal nominations: {totalCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now.",
-        "summaryAttachment": "Unprocessed nominations are attached as a file.\nTotal nominations: {totalCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now."
+        "summary": "Unprocessed nominations (persisted status):\n{table}\nTotal nominations: {totalCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now.",
+        "summaryAttachment": "Unprocessed nominations are attached as a file.\nTotal nominations: {totalCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now."
       }
     },
     "refreshNominationOrgStatus": {
@@ -94,7 +94,7 @@
         "invalidHandle": "Please provide a valid RSI handle.",
         "none": "There are no unprocessed nominations to refresh.",
         "singleNotFound": "Could not find an unprocessed nomination for {rsiHandle}.",
-        "summary": "Refresh complete.\nTargets: {targetCount}\nUpdated: {refreshedCount}\nErrors: {errorCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nUnknown status: {unknownCount}\nError handles: {errorHandles}"
+        "summary": "Refresh complete.\nTargets: {targetCount}\nUpdated: {refreshedCount}\nErrors: {errorCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nError handles: {errorHandles}"
       }
     },
     "processNomination": {
