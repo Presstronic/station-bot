@@ -248,10 +248,32 @@ export async function updateOrgCheckStatus(
   normalizedHandle: string,
   status: OrgCheckStatus
 ): Promise<void> {
+  if (status === 'unknown') {
+    assertDatabaseConfigured();
+    await ensureNominationsSchema();
+
+    await withClient((client) =>
+      client.query(
+        `
+        UPDATE nominations
+        SET last_org_check_status = $2,
+            last_org_check_result_code = NULL,
+            last_org_check_result_message = 'Legacy status-only update path',
+            last_org_check_result_at = NULL,
+            last_org_check_at = NOW(),
+            updated_at = NOW()
+        WHERE normalized_handle = $1
+        `,
+        [normalizedHandle, status]
+      )
+    );
+    return;
+  }
+
   await updateOrgCheckResult(normalizedHandle, {
     status,
     checkedAt: new Date().toISOString(),
-    code: status === 'in_org' ? 'in_org' : status === 'not_in_org' ? 'not_in_org' : 'http_error',
+    code: status === 'in_org' ? 'in_org' : 'not_in_org',
     message: 'Legacy status-only update path',
   });
 }
