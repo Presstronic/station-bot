@@ -104,10 +104,11 @@ type FetchResult =
   | { ok: false; code: FetchCode; message: string };
 
 function trimMessage(message: string, maxLength = 180): string {
-  if (message.length <= maxLength) {
-    return message;
+  const sanitized = sanitizeForInlineText(message);
+  if (sanitized.length <= maxLength) {
+    return sanitized;
   }
-  return `${message.slice(0, maxLength - 3)}...`;
+  return `${sanitized.slice(0, maxLength - 3)}...`;
 }
 
 function createTechnicalResult(code: TechnicalResultCode, message: string): OrgCheckResult {
