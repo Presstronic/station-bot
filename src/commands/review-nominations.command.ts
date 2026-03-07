@@ -14,6 +14,7 @@ import {
 } from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
 import {
+  businessResultCodes,
   createEmptyReasonCounts,
   technicalResultCodes,
 } from '../services/nominations/reason-codes.ts';
@@ -75,8 +76,10 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
       }
       reasonCounts[code] += 1;
     }
-    const businessOutcomeCount =
-      reasonCounts.in_org + reasonCounts.not_in_org + reasonCounts.not_found;
+    const businessOutcomeCount = businessResultCodes.reduce(
+      (total, code) => total + reasonCounts[code],
+      0
+    );
     const technicalOutcomeCount = technicalResultCodes.reduce(
       (total, code) => total + reasonCounts[code],
       0

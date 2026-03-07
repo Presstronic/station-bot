@@ -14,6 +14,10 @@ export const technicalResultCodes: OrgCheckResultCode[] = (
   Object.keys(reasonCodeMetadata) as OrgCheckResultCode[]
 ).filter((code) => reasonCodeMetadata[code].technical);
 
+export const businessResultCodes: OrgCheckResultCode[] = (
+  Object.keys(reasonCodeMetadata) as OrgCheckResultCode[]
+).filter((code) => !reasonCodeMetadata[code].technical);
+
 export function createEmptyReasonCounts(): Record<OrgCheckResultCode, number> {
   const counts = {} as Record<OrgCheckResultCode, number>;
   (Object.keys(reasonCodeMetadata) as OrgCheckResultCode[]).forEach((code) => {

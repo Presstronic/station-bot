@@ -4,6 +4,7 @@ import type { NominationRecord, OrgCheckResult, OrgCheckResultCode } from './typ
 import { getLogger } from '../../utils/logger.ts';
 import { sanitizeForInlineText } from '../../utils/sanitize.ts';
 import {
+  businessResultCodes,
   createEmptyReasonCounts,
   technicalResultCodes,
 } from './reason-codes.ts';
@@ -111,8 +112,7 @@ export async function refreshOrgStatusesForNominations(
     targetCount: results.length,
     refreshedCount: completedResults.length,
     errorCount: errorHandles.length,
-    businessOutcomeCount:
-      reasonCounts.in_org + reasonCounts.not_in_org + reasonCounts.not_found,
+    businessOutcomeCount: businessResultCodes.reduce((total, code) => total + reasonCounts[code], 0),
     technicalOutcomeCount: technicalResultCodes.reduce((total, code) => total + reasonCounts[code], 0),
     reasonCounts,
     errorHandles,
