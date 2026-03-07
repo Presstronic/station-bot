@@ -172,9 +172,6 @@ export function resolveNominationOrgResultCode(nomination: {
   if (nomination.lastOrgCheckStatus === 'not_in_org') {
     return 'not_in_org';
   }
-  if (nomination.lastOrgCheckStatus === 'unknown') {
-    return 'http_error';
-  }
   return null;
 }
 

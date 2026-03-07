@@ -518,8 +518,8 @@ describe('nominations commands', () => {
       | { content?: string }
       | undefined;
     const content = editPayload?.content ?? '';
-    expect(content).toContain('HTTP error: 1');
-    expect(content).toContain('Unclassified legacy: 1');
+    expect(content).toContain('HTTP error: 0');
+    expect(content).toContain('Unclassified legacy: 2');
     expect(content).toContain('Never checked: 1');
   });
 
