@@ -15,7 +15,9 @@ function assertDatabaseConfigured(): void {
 function assertOrgCheckResultConsistency(result: OrgCheckResult): void {
   const expectedStatus = reasonCodeMetadata[result.code].expectedStatus;
   if (result.status !== expectedStatus) {
-    throw new Error(`Invalid org-check result consistency: code=${result.code}, status=${result.status}`);
+    throw new Error(
+      `Invalid org-check result consistency: code=${result.code}, status=${result.status}, expectedStatus=${expectedStatus}`
+    );
   }
 }
 
