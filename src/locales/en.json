@@ -83,18 +83,33 @@
     },
     "refreshNominationOrgStatus": {
       "name": "refresh-nomination-org-status",
-      "description": "Refresh org membership status for unprocessed nominations.",
+      "description": "Queue org membership status refresh for unprocessed nominations.",
       "options": {
         "rsiHandle": {
           "name": "rsi-handle",
-          "description": "Optional RSI handle to refresh. Leave empty to refresh all unprocessed nominations."
+          "description": "Optional RSI handle to queue. Leave empty to queue all unprocessed nominations."
         }
       },
       "responses": {
         "invalidHandle": "Please provide a valid RSI handle.",
-        "none": "There are no unprocessed nominations to refresh.",
+        "none": "There are no unprocessed nominations to queue.",
         "singleNotFound": "Could not find an unprocessed nomination for {rsiHandle}.",
-        "summary": "Refresh complete.\nTargets: {targetCount}\nUpdated: {refreshedCount}\nErrors: {errorCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nError handles: {errorHandles}"
+        "queued": "Refresh job queued.\nJob ID: {jobId}\nTargets: {targetCount}\nReused existing active job: {reused}\nUse /nomination-check-status to monitor progress."
+      }
+    },
+    "nominationCheckStatus": {
+      "name": "nomination-check-status",
+      "description": "Check status of nomination org-check background jobs.",
+      "options": {
+        "jobId": {
+          "name": "job-id",
+          "description": "Optional job ID. Leave empty to show the latest job."
+        }
+      },
+      "responses": {
+        "invalidJobId": "Please provide a valid numeric job ID.",
+        "none": "No nomination check jobs found.",
+        "summary": "Nomination check job status:\nJob ID: {jobId}\nStatus: {status}\nScope: {scope}\nRequested handle: {requestedHandle}\nTotal: {totalCount}\nPending: {pendingCount}\nRunning: {runningCount}\nCompleted: {completedCount}\nFailed: {failedCount}\nCreated (UTC): {createdAt}\nStarted (UTC): {startedAt}\nFinished (UTC): {finishedAt}\nError summary: {errorSummary}"
       }
     },
     "processNomination": {

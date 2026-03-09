@@ -8,6 +8,7 @@ import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
 import { isReadOnlyMode } from './config/runtime-flags.ts';
 import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.ts';
+import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.ts';
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
@@ -73,6 +74,10 @@ client.once('ready', async () => {
     scheduleTemporaryMemberCleanup(client);
     schedulePotentialApplicantCleanup(client);
     logger.info('Scheduled member cleanup jobs.');
+    if (isDatabaseConfigured()) {
+      startNominationCheckWorkerLoop();
+      logger.info('Started nomination check worker loop.');
+    }
   } else {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
   }

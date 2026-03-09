@@ -21,6 +21,7 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
   const addMissingDefaultRoles = jest.fn(async () => undefined);
   const scheduleTemporaryMemberCleanup = jest.fn();
   const schedulePotentialApplicantCleanup = jest.fn();
+  const startNominationCheckWorkerLoop = jest.fn();
   const logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -47,6 +48,9 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
   }));
   await jest.unstable_mockModule('../services/role.services.ts', () => ({
     addMissingDefaultRoles,
+  }));
+  await jest.unstable_mockModule('../services/nominations/job-worker.service.ts', () => ({
+    startNominationCheckWorkerLoop,
   }));
   await jest.unstable_mockModule('../utils/logger.ts', () => ({
     getLogger: () => logger,
@@ -93,6 +97,7 @@ async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
     addMissingDefaultRoles,
     scheduleTemporaryMemberCleanup,
     schedulePotentialApplicantCleanup,
+    startNominationCheckWorkerLoop,
   };
 }
 
@@ -103,6 +108,7 @@ describe('startup wiring with read-only mode', () => {
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
+      startNominationCheckWorkerLoop,
     } = await loadIndexAndRunReady('true');
 
     expect(registerAllCommands).toHaveBeenCalledTimes(1);
@@ -110,6 +116,7 @@ describe('startup wiring with read-only mode', () => {
     expect(addMissingDefaultRoles).not.toHaveBeenCalled();
     expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
     expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
+    expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
   });
 
   it('runs startup side effects when BOT_READ_ONLY_MODE=false', async () => {
@@ -118,6 +125,7 @@ describe('startup wiring with read-only mode', () => {
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
+      startNominationCheckWorkerLoop,
     } = await loadIndexAndRunReady('false');
 
     expect(registerAllCommands).toHaveBeenCalledTimes(1);
@@ -125,6 +133,7 @@ describe('startup wiring with read-only mode', () => {
     expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
     expect(scheduleTemporaryMemberCleanup).toHaveBeenCalledTimes(1);
     expect(schedulePotentialApplicantCleanup).toHaveBeenCalledTimes(1);
+    expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
   });
 
   it('fails fast when DATABASE_URL is configured but schema check fails', async () => {
@@ -139,6 +148,7 @@ describe('startup wiring with read-only mode', () => {
     const addMissingDefaultRoles = jest.fn(async () => undefined);
     const scheduleTemporaryMemberCleanup = jest.fn();
     const schedulePotentialApplicantCleanup = jest.fn();
+    const startNominationCheckWorkerLoop = jest.fn();
     const logger = {
       debug: jest.fn(),
       info: jest.fn(),
@@ -169,6 +179,9 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../services/role.services.ts', () => ({
       addMissingDefaultRoles,
+    }));
+    await jest.unstable_mockModule('../services/nominations/job-worker.service.ts', () => ({
+      startNominationCheckWorkerLoop,
     }));
     await jest.unstable_mockModule('../utils/logger.ts', () => ({
       getLogger: () => logger,
@@ -201,6 +214,7 @@ describe('startup wiring with read-only mode', () => {
     expect(ensureNominationsSchema).toHaveBeenCalledTimes(1);
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(registerAllCommands).not.toHaveBeenCalled();
+    expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
     exitSpy.mockRestore();
   });
 });
