@@ -1,4 +1,5 @@
 import { getLogger } from '../../utils/logger.ts';
+import { sanitizeForInlineText } from '../../utils/sanitize.ts';
 import { checkHasAnyOrgMembership } from './org-check.service.ts';
 import { updateOrgCheckResult } from './nominations.repository.ts';
 import {
@@ -81,7 +82,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(
-          `Nomination worker item failed (jobId=${job.id}, itemId=${item.id}, handle=${item.normalizedHandle}, attempt=${item.attemptCount}): ${errorMessage}`
+          `Nomination worker item failed (jobId=${job.id}, itemId=${item.id}, handle=${sanitizeForInlineText(item.normalizedHandle)}, attempt=${item.attemptCount}): ${sanitizeForInlineText(errorMessage)}`
         );
         if (item.attemptCount >= maxAttempts) {
           await failNominationCheckJobItem(item.id, errorMessage);
@@ -95,9 +96,17 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   }
 
   const finishedJob = await refreshNominationCheckJobProgress(job.id);
-  logger.info(
-    `Nomination worker finished job ${job.id} (status=${finishedJob?.status ?? 'unknown'}, completed=${finishedJob?.completedCount ?? 0}, failed=${finishedJob?.failedCount ?? 0})`
-  );
+  const jobStatus = finishedJob?.status ?? 'unknown';
+  const isTerminal = jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled';
+  if (isTerminal) {
+    logger.info(
+      `Nomination worker completed job ${job.id} (status=${jobStatus}, completed=${finishedJob?.completedCount ?? 0}, failed=${finishedJob?.failedCount ?? 0})`
+    );
+  } else {
+    logger.info(
+      `Nomination worker exhausted claimable items for job ${job.id} (status=${jobStatus}, completed=${finishedJob?.completedCount ?? 0}, failed=${finishedJob?.failedCount ?? 0}) — will retry on next poll`
+    );
+  }
 
   return true;
 }
