@@ -101,12 +101,25 @@ export async function enqueueNominationCheckJob(
       );
 
       if (existingResult.rows.length > 0) {
+        const existingJobId = Number(existingResult.rows[0].id);
+        const existingJobResult = await client.query(
+          `
+          SELECT
+            j.*,
+            COALESCE(SUM(CASE WHEN i.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count,
+            COALESCE(SUM(CASE WHEN i.status = 'running' THEN 1 ELSE 0 END), 0) AS running_count
+          FROM nomination_check_jobs j
+          LEFT JOIN nomination_check_job_items i ON i.job_id = j.id
+          WHERE j.id = $1
+          GROUP BY j.id
+          `,
+          [existingJobId]
+        );
         await client.query('COMMIT');
-        const job = await getJobWithItemCounts(Number(existingResult.rows[0].id));
-        if (!job) {
+        if (existingJobResult.rows.length === 0) {
           throw new Error('Failed to load existing nomination check job');
         }
-        return { job, reused: true };
+        return { job: mapJobRow(existingJobResult.rows[0]), reused: true };
       }
 
       const insertJobResult = await client.query(
@@ -249,7 +262,7 @@ export async function claimNominationCheckJobItems(
           AND status IN ('pending', 'running')
           AND (
             locked_at IS NULL
-            OR locked_at < (NOW() - (($3::text || ' milliseconds')::interval))
+            OR locked_at < (NOW() - ($3::numeric * interval '1 millisecond'))
           )
         ORDER BY updated_at ASC
         FOR UPDATE SKIP LOCKED
@@ -331,72 +344,76 @@ export async function refreshNominationCheckJobProgress(jobId: number): Promise<
   assertDatabaseConfigured();
   await ensureNominationsSchema();
 
-  const countsResult = await withClient((client) =>
-    client.query(
-      `
-      SELECT
-        SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
-        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed_count,
-        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
-        SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running_count
-      FROM nomination_check_job_items
-      WHERE job_id = $1
-      `,
-      [jobId]
-    )
-  );
-  const countsRow = countsResult.rows[0];
-  const completedCount = Number(countsRow?.completed_count ?? 0);
-  const failedCount = Number(countsRow?.failed_count ?? 0);
-  const pendingCount = Number(countsRow?.pending_count ?? 0);
-  const runningCount = Number(countsRow?.running_count ?? 0);
+  await withClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      const countsResult = await client.query(
+        `
+        SELECT
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+          SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed_count,
+          SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+          SUM(CASE WHEN status = 'running' THEN 1 ELSE 0 END) AS running_count
+        FROM nomination_check_job_items
+        WHERE job_id = $1
+        `,
+        [jobId]
+      );
+      const countsRow = countsResult.rows[0];
+      const completedCount = Number(countsRow?.completed_count ?? 0);
+      const failedCount = Number(countsRow?.failed_count ?? 0);
+      const pendingCount = Number(countsRow?.pending_count ?? 0);
+      const runningCount = Number(countsRow?.running_count ?? 0);
 
-  const status: NominationCheckJobStatus =
-    pendingCount === 0 && runningCount === 0
-      ? failedCount > 0
-        ? 'failed'
-        : 'completed'
-      : 'running';
+      const status: NominationCheckJobStatus =
+        pendingCount === 0 && runningCount === 0
+          ? failedCount > 0
+            ? 'failed'
+            : 'completed'
+          : 'running';
 
-  const errorSummaryResult = await withClient((client) =>
-    client.query(
-      `
-      SELECT normalized_handle, last_error
-      FROM nomination_check_job_items
-      WHERE job_id = $1
-        AND status = 'failed'
-      ORDER BY updated_at ASC
-      LIMIT 5
-      `,
-      [jobId]
-    )
-  );
-  const errorSummary =
-    errorSummaryResult.rows.length === 0
-      ? null
-      : errorSummaryResult.rows
-          .map((row) => `${sanitizeForInlineText(row.normalized_handle)}: ${sanitizeForInlineText(String(row.last_error ?? 'unknown error'))}`)
-          .join('; ')
-          .slice(0, 900);
+      const errorSummaryResult = await client.query(
+        `
+        SELECT normalized_handle, last_error
+        FROM nomination_check_job_items
+        WHERE job_id = $1
+          AND status = 'failed'
+        ORDER BY updated_at ASC
+        LIMIT 5
+        `,
+        [jobId]
+      );
+      const errorSummary =
+        errorSummaryResult.rows.length === 0
+          ? null
+          : errorSummaryResult.rows
+              .map((row) => `${sanitizeForInlineText(row.normalized_handle)}: ${sanitizeForInlineText(String(row.last_error ?? 'unknown error'))}`)
+              .join('; ')
+              .slice(0, 900);
 
-  await withClient((client) =>
-    client.query(
-      `
-      UPDATE nomination_check_jobs
-      SET status = $2,
-          completed_count = $3,
-          failed_count = $4,
-          error_summary = $5,
-          finished_at = CASE
-            WHEN $2 IN ('completed', 'failed', 'cancelled') THEN COALESCE(finished_at, NOW())
-            ELSE NULL
-          END,
-          updated_at = NOW()
-      WHERE id = $1
-      `,
-      [jobId, status, completedCount, failedCount, errorSummary]
-    )
-  );
+      await client.query(
+        `
+        UPDATE nomination_check_jobs
+        SET status = $2,
+            completed_count = $3,
+            failed_count = $4,
+            error_summary = $5,
+            finished_at = CASE
+              WHEN $2 IN ('completed', 'failed', 'cancelled') THEN COALESCE(finished_at, NOW())
+              ELSE NULL
+            END,
+            updated_at = NOW()
+        WHERE id = $1
+        `,
+        [jobId, status, completedCount, failedCount, errorSummary]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  });
 
   return getJobWithItemCounts(jobId);
 }

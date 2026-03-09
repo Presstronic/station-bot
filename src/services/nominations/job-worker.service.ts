@@ -103,7 +103,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 }
 
 export function startNominationCheckWorkerLoop(): NodeJS.Timeout | null {
-  if (!envFlag('NOMINATION_WORKER_ENABLED', true)) {
+  if (!envFlag('NOMINATION_WORKER_ENABLED', false)) {
     logger.info('Nomination worker disabled (NOMINATION_WORKER_ENABLED=false).');
     return null;
   }
