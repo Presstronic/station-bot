@@ -180,7 +180,7 @@ export function resolveNominationOrgResultCode(nomination: {
 }
 
 export function formatNominationsAsTable(records: NominationRecord[]): string {
-  const headers = ['Handle', 'Count', 'Org', 'Last Nomination', 'Nominators'];
+  const headers = ['Handle', 'Count', 'State', 'Org', 'Last Nomination', 'Nominators'];
   const rows = records.map((record) => {
     const latestEvent = record.events[record.events.length - 1];
     const nominators = sanitizeForInlineText(
@@ -191,6 +191,7 @@ export function formatNominationsAsTable(records: NominationRecord[]): string {
     return [
       sanitizeForInlineText(record.displayHandle),
       String(record.nominationCount),
+      record.lifecycleState,
       orgLabel,
       latestEvent?.createdAt ?? '-',
       nominators || '-',

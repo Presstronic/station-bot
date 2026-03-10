@@ -23,11 +23,18 @@ export type NominationEvent = {
   createdAt: string;
 };
 
+export type NominationLifecycleState =
+  | 'new'
+  | 'checked'
+  | 'qualified'
+  | 'disqualified_in_org'
+  | 'processed';
+
 export type NominationRecord = {
   normalizedHandle: string;
   displayHandle: string;
   nominationCount: number;
-  isProcessed: boolean;
+  lifecycleState: NominationLifecycleState;
   processedByUserId: string | null;
   processedAt: string | null;
   createdAt: string;
