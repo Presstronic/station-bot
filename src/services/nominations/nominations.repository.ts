@@ -100,21 +100,14 @@ export async function recordNomination(
       const existingState = existingRow.rows[0]?.lifecycle_state as NominationLifecycleState | undefined;
 
       if (existingState === 'processed') {
-        // Terminal state: increment count and update display handle, but do not reset lifecycle
+        // Terminal state: row exists, just increment count and update display handle
         await client.query(
           `
-          INSERT INTO nominations (
-            normalized_handle, display_handle, nomination_count, lifecycle_state,
-            processed_by_user_id, processed_at, created_at, updated_at,
-            last_org_check_status, last_org_check_result_code, last_org_check_result_message,
-            last_org_check_result_at, last_org_check_at
-          )
-          VALUES ($1, $2, 1, 'new', NULL, NULL, NOW(), NOW(), NULL, NULL, NULL, NULL, NULL)
-          ON CONFLICT (normalized_handle)
-          DO UPDATE SET
-            display_handle = EXCLUDED.display_handle,
-            nomination_count = nominations.nomination_count + 1,
-            updated_at = NOW()
+          UPDATE nominations
+          SET display_handle = $2,
+              nomination_count = nomination_count + 1,
+              updated_at = NOW()
+          WHERE normalized_handle = $1
           `,
           [normalizedHandle, rsiHandle.trim()]
         );

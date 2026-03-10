@@ -134,6 +134,7 @@ export async function ensureNominationsSchema(): Promise<void> {
     nominationsColumnsResult.rows.map((row) => String(row.column_name))
   );
   const requiredNominationColumns = [
+    'lifecycle_state',
     'last_org_check_status',
     'last_org_check_result_code',
     'last_org_check_result_message',
