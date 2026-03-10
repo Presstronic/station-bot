@@ -86,6 +86,10 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     );
     const neverCheckedCount = nominations.filter((nomination) => !nomination.lastOrgCheckAt).length;
     const lastRefreshedAt = getLastRefreshedAtUtc(nominations.map((nomination) => nomination.lastOrgCheckAt));
+    const newCount = nominations.filter((n) => n.lifecycleState === 'new').length;
+    const checkedCount = nominations.filter((n) => n.lifecycleState === 'checked').length;
+    const qualifiedCount = nominations.filter((n) => n.lifecycleState === 'qualified').length;
+    const disqualifiedCount = nominations.filter((n) => n.lifecycleState === 'disqualified_in_org').length;
 
     const table = formatNominationsAsTable(nominations);
     const summary = i18n.__mf(
@@ -105,6 +109,10 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
         unclassifiedCount: String(unclassifiedCount),
         neverCheckedCount: String(neverCheckedCount),
         lastRefreshedAt,
+        newCount: String(newCount),
+        checkedCount: String(checkedCount),
+        qualifiedCount: String(qualifiedCount),
+        disqualifiedCount: String(disqualifiedCount),
       }
     );
 
@@ -133,6 +141,10 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
           unclassifiedCount: String(unclassifiedCount),
           neverCheckedCount: String(neverCheckedCount),
           lastRefreshedAt,
+          newCount: String(newCount),
+          checkedCount: String(checkedCount),
+          qualifiedCount: String(qualifiedCount),
+          disqualifiedCount: String(disqualifiedCount),
         }
       ),
       allowedMentions: { parse: [] },

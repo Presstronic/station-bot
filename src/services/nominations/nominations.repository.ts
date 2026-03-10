@@ -1,6 +1,7 @@
-import type { NominationEvent, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.ts';
+import type { NominationEvent, NominationLifecycleState, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.ts';
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
 import { reasonCodeMetadata } from './reason-codes.ts';
+import { assertValidTransition, deriveLifecycleStateFromOrgCheck } from './lifecycle.service.ts';
 
 function normalizeHandle(handle: string): string {
   return handle.trim().toLowerCase();
@@ -26,7 +27,7 @@ function mapDbRowToNomination(row: any, events: NominationEvent[]): NominationRe
     normalizedHandle: row.normalized_handle,
     displayHandle: row.display_handle,
     nominationCount: Number(row.nomination_count),
-    isProcessed: Boolean(row.is_processed),
+    lifecycleState: row.lifecycle_state as NominationLifecycleState,
     processedByUserId: row.processed_by_user_id,
     processedAt: row.processed_at ? new Date(row.processed_at).toISOString() : null,
     createdAt: new Date(row.created_at).toISOString(),
@@ -92,26 +93,53 @@ export async function recordNomination(
   return withClient(async (client) => {
     await client.query('BEGIN');
     try {
-      await client.query(
-        `
-        INSERT INTO nominations (
-          normalized_handle, display_handle, nomination_count, is_processed,
-          processed_by_user_id, processed_at, created_at, updated_at,
-          last_org_check_status, last_org_check_result_code, last_org_check_result_message,
-          last_org_check_result_at, last_org_check_at
-        )
-        VALUES ($1, $2, 1, FALSE, NULL, NULL, NOW(), NOW(), NULL, NULL, NULL, NULL, NULL)
-        ON CONFLICT (normalized_handle)
-        DO UPDATE SET
-          display_handle = EXCLUDED.display_handle,
-          nomination_count = nominations.nomination_count + 1,
-          is_processed = FALSE,
-          processed_by_user_id = NULL,
-          processed_at = NULL,
-          updated_at = NOW()
-        `,
-        [normalizedHandle, rsiHandle.trim()]
+      const existingRow = await client.query(
+        `SELECT lifecycle_state FROM nominations WHERE normalized_handle = $1 FOR UPDATE`,
+        [normalizedHandle]
       );
+      const existingState = existingRow.rows[0]?.lifecycle_state as NominationLifecycleState | undefined;
+
+      if (existingState === 'processed') {
+        // Terminal state: increment count and update display handle, but do not reset lifecycle
+        await client.query(
+          `
+          INSERT INTO nominations (
+            normalized_handle, display_handle, nomination_count, lifecycle_state,
+            processed_by_user_id, processed_at, created_at, updated_at,
+            last_org_check_status, last_org_check_result_code, last_org_check_result_message,
+            last_org_check_result_at, last_org_check_at
+          )
+          VALUES ($1, $2, 1, 'new', NULL, NULL, NOW(), NOW(), NULL, NULL, NULL, NULL, NULL)
+          ON CONFLICT (normalized_handle)
+          DO UPDATE SET
+            display_handle = EXCLUDED.display_handle,
+            nomination_count = nominations.nomination_count + 1,
+            updated_at = NOW()
+          `,
+          [normalizedHandle, rsiHandle.trim()]
+        );
+      } else {
+        await client.query(
+          `
+          INSERT INTO nominations (
+            normalized_handle, display_handle, nomination_count, lifecycle_state,
+            processed_by_user_id, processed_at, created_at, updated_at,
+            last_org_check_status, last_org_check_result_code, last_org_check_result_message,
+            last_org_check_result_at, last_org_check_at
+          )
+          VALUES ($1, $2, 1, 'new', NULL, NULL, NOW(), NOW(), NULL, NULL, NULL, NULL, NULL)
+          ON CONFLICT (normalized_handle)
+          DO UPDATE SET
+            display_handle = EXCLUDED.display_handle,
+            nomination_count = nominations.nomination_count + 1,
+            lifecycle_state = 'new',
+            processed_by_user_id = NULL,
+            processed_at = NULL,
+            updated_at = NOW()
+          `,
+          [normalizedHandle, rsiHandle.trim()]
+        );
+      }
 
       await client.query(
         `
@@ -161,7 +189,7 @@ export async function getUnprocessedNominations(): Promise<NominationRecord[]> {
       `
       SELECT *
       FROM nominations
-      WHERE is_processed = FALSE
+      WHERE lifecycle_state != 'processed'
       ORDER BY updated_at DESC
       `
     )
@@ -189,7 +217,7 @@ export async function getUnprocessedNominationByHandle(rsiHandle: string): Promi
       SELECT *
       FROM nominations
       WHERE normalized_handle = $1
-        AND is_processed = FALSE
+        AND lifecycle_state != 'processed'
       LIMIT 1
       `,
       [normalizedHandle]
@@ -215,27 +243,44 @@ export async function updateOrgCheckResult(
   assertOrgCheckResultConsistency(result);
   await ensureNominationsSchema();
 
-  await withClient((client) =>
-    client.query(
-      `
-      UPDATE nominations
-      SET last_org_check_status = $2,
-          last_org_check_result_code = $3,
-          last_org_check_result_message = $4,
-          last_org_check_result_at = $5::timestamptz,
-          last_org_check_at = $5::timestamptz,
-          updated_at = NOW()
-      WHERE normalized_handle = $1
-      `,
-      [
-        normalizedHandle,
-        result.status,
-        result.code,
-        result.message ?? null,
-        result.checkedAt,
-      ]
-    )
-  );
+  await withClient(async (client) => {
+    await client.query('BEGIN');
+    try {
+      const currentRow = await client.query(
+        `SELECT lifecycle_state FROM nominations WHERE normalized_handle = $1 FOR UPDATE`,
+        [normalizedHandle]
+      );
+      const currentState = currentRow.rows[0]?.lifecycle_state as NominationLifecycleState | undefined;
+
+      if (!currentState || currentState === 'processed') {
+        await client.query('ROLLBACK');
+        return;
+      }
+
+      const newState = deriveLifecycleStateFromOrgCheck(result.code);
+      assertValidTransition(currentState, newState);
+
+      await client.query(
+        `
+        UPDATE nominations
+        SET last_org_check_status = $2,
+            last_org_check_result_code = $3,
+            last_org_check_result_message = $4,
+            last_org_check_result_at = $5::timestamptz,
+            last_org_check_at = $5::timestamptz,
+            lifecycle_state = $6,
+            updated_at = NOW()
+        WHERE normalized_handle = $1
+        `,
+        [normalizedHandle, result.status, result.code, result.message ?? null, result.checkedAt, newState]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    }
+  });
 }
 
 export async function updateOrgCheckStatus(
@@ -246,21 +291,45 @@ export async function updateOrgCheckStatus(
     assertDatabaseConfigured();
     await ensureNominationsSchema();
 
-    await withClient((client) =>
-      client.query(
-        `
-        UPDATE nominations
-        SET last_org_check_status = $2,
-            last_org_check_result_code = NULL,
-            last_org_check_result_message = 'Legacy status-only update path',
-            last_org_check_result_at = NULL,
-            last_org_check_at = NOW(),
-            updated_at = NOW()
-        WHERE normalized_handle = $1
-        `,
-        [normalizedHandle, status]
-      )
-    );
+    await withClient(async (client) => {
+      await client.query('BEGIN');
+      try {
+        const currentRow = await client.query(
+          `SELECT lifecycle_state FROM nominations WHERE normalized_handle = $1 FOR UPDATE`,
+          [normalizedHandle]
+        );
+        const currentState = currentRow.rows[0]?.lifecycle_state as NominationLifecycleState | undefined;
+
+        if (!currentState || currentState === 'processed') {
+          await client.query('ROLLBACK');
+          return;
+        }
+
+        // 'unknown' status means a check ran but produced no definitive result
+        const newState: NominationLifecycleState = 'checked';
+        assertValidTransition(currentState, newState);
+
+        await client.query(
+          `
+          UPDATE nominations
+          SET last_org_check_status = $2,
+              last_org_check_result_code = NULL,
+              last_org_check_result_message = 'Legacy status-only update path',
+              last_org_check_result_at = NULL,
+              last_org_check_at = NOW(),
+              lifecycle_state = $3,
+              updated_at = NOW()
+          WHERE normalized_handle = $1
+          `,
+          [normalizedHandle, status, newState]
+        );
+
+        await client.query('COMMIT');
+      } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+      }
+    });
     return;
   }
 
@@ -284,12 +353,12 @@ export async function markNominationProcessedByHandle(
     client.query(
       `
       UPDATE nominations
-      SET is_processed = TRUE,
+      SET lifecycle_state = 'processed',
           processed_by_user_id = $2,
           processed_at = NOW(),
           updated_at = NOW()
       WHERE normalized_handle = $1
-        AND is_processed = FALSE
+        AND lifecycle_state != 'processed'
       `,
       [normalizedHandle, processedByUserId]
     )
@@ -306,11 +375,11 @@ export async function markAllNominationsProcessed(processedByUserId: string): Pr
     client.query(
       `
       UPDATE nominations
-      SET is_processed = TRUE,
+      SET lifecycle_state = 'processed',
           processed_by_user_id = $1,
           processed_at = NOW(),
           updated_at = NOW()
-      WHERE is_processed = FALSE
+      WHERE lifecycle_state != 'processed'
       `,
       [processedByUserId]
     )
