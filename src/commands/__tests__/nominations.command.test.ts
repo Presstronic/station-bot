@@ -928,6 +928,45 @@ describe('nominations commands', () => {
     expect(getUnprocessedNominations).toHaveBeenCalledWith({ status: undefined, sort: 'newest', limit: 26 });
   });
 
+  it('review-nominations empty result includes filterContext so the active filter is visible', async () => {
+    const getUnprocessedNominations = jest.fn(async () => []);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } =
+      await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: {
+        getString: (name: string) => {
+          if (name === statusOptionName) return 'qualified';
+          if (name === sortOptionName) return 'oldest';
+          return null;
+        },
+        getInteger: (name: string) => (name === limitOptionName ? 10 : null),
+      },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('Filter: status=qualified | sort=oldest | limit=10');
+    expect(content).toContain('No nominations match the current filter.');
+    expect(content).not.toContain('There are no unprocessed nominations.');
+  });
+
   it('review-nominations shows truncation hint when DB returns more than the limit', async () => {
     // Simulate DB returning limitValue + 1 items (the N+1 probe result)
     const nominations = Array.from({ length: 6 }, (_, i) => ({

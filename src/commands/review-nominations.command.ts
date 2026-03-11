@@ -105,13 +105,6 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     const isTruncated = nominations.length > limitValue;
     const displayNominations = isTruncated ? nominations.slice(0, limitValue) : nominations;
 
-    if (displayNominations.length === 0) {
-      await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.reviewNominations.responses.none', locale }),
-      });
-      return;
-    }
-
     const truncationSuffix = isTruncated
       ? i18n.__({ phrase: 'commands.reviewNominations.responses.truncatedHint', locale })
       : '';
@@ -119,6 +112,16 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
       { phrase: 'commands.reviewNominations.responses.filterContext', locale },
       { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
     ) + truncationSuffix;
+
+    if (displayNominations.length === 0) {
+      await interaction.editReply({
+        content: i18n.__mf(
+          { phrase: 'commands.reviewNominations.responses.noneFiltered', locale },
+          { filterContext }
+        ),
+      });
+      return;
+    }
 
     const reasonCounts = createEmptyReasonCounts();
     let unclassifiedCount = 0;

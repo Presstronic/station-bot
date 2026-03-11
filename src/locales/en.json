@@ -91,6 +91,7 @@
       },
       "responses": {
         "none": "There are no unprocessed nominations.",
+        "noneFiltered": "{filterContext}\nNo nominations match the current filter.",
         "filterContext": "Filter: status={status} | sort={sort} | limit={limit}",
         "truncatedHint": " — results may be truncated; increase the limit (up to 100) or narrow the filter to see more",
         "summary": "{filterContext}\nUnprocessed nominations (persisted status):\n{table}\nNominations shown: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now.",
