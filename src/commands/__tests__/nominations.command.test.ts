@@ -208,7 +208,7 @@ describe('nominations commands', () => {
       locale: 'en-US',
       user: { id: 'admin-1' },
       memberPermissions: { has: () => true },
-      options: { getString: () => null },
+      options: { getString: () => null, getBoolean: () => true },
       reply: processReply,
     } as any;
 
@@ -246,7 +246,7 @@ describe('nominations commands', () => {
     const processInteraction = createNominationInteraction({
       user: { id: 'role-user' },
       memberPermissions: { has: () => false },
-      options: { getString: () => null },
+      options: { getString: () => null, getBoolean: () => true },
       reply: processReply,
     });
 
@@ -282,7 +282,7 @@ describe('nominations commands', () => {
       locale: 'en-US',
       user: { id: 'admin-1' },
       memberPermissions: { has: () => true },
-      options: { getString: () => null },
+      options: { getString: () => null, getBoolean: () => true },
       reply: processReply,
     } as any;
 
@@ -319,7 +319,7 @@ describe('nominations commands', () => {
     const processInteraction = createNominationInteraction({
       user: { id: 'role-user' },
       memberPermissions: { has: () => false },
-      options: { getString: () => null },
+      options: { getString: () => null, getBoolean: () => true },
       reply: processReply,
     });
 
@@ -434,6 +434,7 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply,
       editReply,
+      options: { getString: () => null, getInteger: () => null },
     } as any;
 
     await handleReviewNominationsCommand(interaction);
@@ -518,6 +519,7 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply: jest.fn(async () => undefined),
       editReply,
+      options: { getString: () => null, getInteger: () => null },
     } as any;
 
     await handleReviewNominationsCommand(interaction);
@@ -854,5 +856,384 @@ describe('nominations commands', () => {
         content: expect.stringContaining('Job ID: 77'),
       })
     );
+  });
+
+  it('review-nominations passes status/sort/limit options to getUnprocessedNominations', async () => {
+    const getUnprocessedNominations = jest.fn(async () => []);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.ts');
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply: jest.fn(async () => undefined),
+      options: {
+        getString: (name: string) => {
+          if (name === statusOptionName) return 'new';
+          if (name === sortOptionName) return 'oldest';
+          return null;
+        },
+        getInteger: (name: string) => {
+          if (name === limitOptionName) return 10;
+          return null;
+        },
+      },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    // limit is sent as limitValue + 1 to enable truncation detection without a COUNT query
+    expect(getUnprocessedNominations).toHaveBeenCalledWith({ status: 'new', sort: 'oldest', limit: 11 });
+  });
+
+  it('review-nominations defaults to all/newest/25 when no options provided', async () => {
+    const getUnprocessedNominations = jest.fn(async () => []);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply: jest.fn(async () => undefined),
+      options: {
+        getString: () => null,
+        getInteger: () => null,
+      },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    // No status filter when none is specified — preserves pre-existing behavior
+    // limit is sent as limitValue + 1 to enable truncation detection without a COUNT query
+    expect(getUnprocessedNominations).toHaveBeenCalledWith({ status: undefined, sort: 'newest', limit: 26 });
+  });
+
+  it('review-nominations shows truncation hint when DB returns more than the limit', async () => {
+    // Simulate DB returning limitValue + 1 items (the N+1 probe result)
+    const nominations = Array.from({ length: 6 }, (_, i) => ({
+      normalizedHandle: `pilot${i}`,
+      displayHandle: `Pilot${i}`,
+      nominationCount: 1,
+      lifecycleState: 'qualified',
+      processedByUserId: null,
+      processedAt: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      lastOrgCheckStatus: null,
+      lastOrgCheckAt: null,
+      events: [],
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(async () => nominations),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: {
+        getString: () => null,
+        getInteger: () => 5,
+      },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('results may be truncated');
+  });
+
+  it('review-nominations omits truncation hint when DB returns at or below the limit', async () => {
+    // DB returns fewer items than limitValue + 1 — no truncation
+    const nominations = Array.from({ length: 4 }, (_, i) => ({
+      normalizedHandle: `pilot${i}`,
+      displayHandle: `Pilot${i}`,
+      nominationCount: 1,
+      lifecycleState: 'qualified',
+      processedByUserId: null,
+      processedAt: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      lastOrgCheckStatus: null,
+      lastOrgCheckAt: null,
+      events: [],
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(async () => nominations),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: {
+        getString: () => null,
+        getInteger: () => 5,
+      },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).not.toContain('results may be truncated');
+  });
+
+  it('process-nomination rejects process-all when confirm-all is absent', async () => {
+    const markAllNominationsProcessed = jest.fn(async () => 1);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(async () => false),
+      markAllNominationsProcessed,
+    }));
+
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => null, getBoolean: () => null },
+      reply,
+    } as any;
+
+    await handleProcessNominationCommand(interaction);
+
+    expect(markAllNominationsProcessed).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('confirm-all'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('process-nomination rejects process-all when confirm-all is false', async () => {
+    const markAllNominationsProcessed = jest.fn(async () => 1);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(async () => false),
+      markAllNominationsProcessed,
+    }));
+
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => null, getBoolean: () => false },
+      reply,
+    } as any;
+
+    await handleProcessNominationCommand(interaction);
+
+    expect(markAllNominationsProcessed).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('confirm-all'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('process-nomination single-handle path works without confirm-all', async () => {
+    const markNominationProcessedByHandle = jest.fn(async () => true);
+    const markAllNominationsProcessed = jest.fn(async () => 0);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed,
+    }));
+
+    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.ts');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null), getBoolean: () => null },
+      reply,
+    } as any;
+
+    await handleProcessNominationCommand(interaction);
+
+    expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
+    expect(markAllNominationsProcessed).not.toHaveBeenCalled();
+  });
+
+  it('process-nomination single-handle path is unaffected when confirm-all is also true', async () => {
+    const markNominationProcessedByHandle = jest.fn(async () => true);
+    const markAllNominationsProcessed = jest.fn(async () => 0);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed,
+    }));
+
+    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.ts');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null), getBoolean: () => true },
+      reply,
+    } as any;
+
+    await handleProcessNominationCommand(interaction);
+
+    // confirm-all is silently ignored when a handle is present; only the single handle is processed
+    expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
+    expect(markAllNominationsProcessed).not.toHaveBeenCalled();
+  });
+
+  it('review-nominations response includes filter context reflecting the active filter values', async () => {
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(async () => [
+        {
+          normalizedHandle: 'pilotnominee',
+          displayHandle: 'PilotNominee',
+          nominationCount: 1,
+          lifecycleState: 'qualified',
+          processedByUserId: null,
+          processedAt: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          lastOrgCheckStatus: null,
+          lastOrgCheckAt: null,
+          events: [],
+        },
+      ]),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: {
+        getString: (name: string) => {
+          if (name === statusOptionName) return 'qualified';
+          if (name === sortOptionName) return 'oldest';
+          return null;
+        },
+        getInteger: (name: string) => (name === limitOptionName ? 10 : null),
+      },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('status=qualified');
+    expect(content).toContain('sort=oldest');
+    expect(content).toContain('limit=10');
+  });
+
+  it('review-nominations totalCount reflects the sliced display set, not the N+1 probe array', async () => {
+    // DB returns limitValue + 1 = 6 items; totalCount in the reply should be 5, not 6
+    const nominations = Array.from({ length: 6 }, (_, i) => ({
+      normalizedHandle: `pilot${i}`,
+      displayHandle: `Pilot${i}`,
+      nominationCount: 1,
+      lifecycleState: 'qualified',
+      processedByUserId: null,
+      processedAt: null,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      lastOrgCheckStatus: null,
+      lastOrgCheckAt: null,
+      events: [],
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(async () => nominations),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => null, getInteger: () => 5 },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('Total nominations: 5');
+    expect(content).not.toContain('Total nominations: 6');
   });
 });

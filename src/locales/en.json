@@ -75,10 +75,26 @@
     "reviewNominations": {
       "name": "review-nominations",
       "description": "Review all unprocessed player nominations.",
+      "options": {
+        "status": {
+          "name": "status",
+          "description": "Filter by lifecycle state. Defaults to all non-processed."
+        },
+        "sort": {
+          "name": "sort",
+          "description": "Sort order. Defaults to newest first."
+        },
+        "limit": {
+          "name": "limit",
+          "description": "Maximum nominations to return (1–100). Defaults to 25."
+        }
+      },
       "responses": {
         "none": "There are no unprocessed nominations.",
-        "summary": "Unprocessed nominations (persisted status):\n{table}\nTotal nominations: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now.",
-        "summaryAttachment": "Unprocessed nominations are attached as a file.\nTotal nominations: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now."
+        "filterContext": "Filter: status={status} | sort={sort} | limit={limit}",
+        "truncatedHint": " — results may be truncated; increase the limit to see more",
+        "summary": "{filterContext}\nUnprocessed nominations (persisted status):\n{table}\nTotal nominations: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now.",
+        "summaryAttachment": "{filterContext}\nUnprocessed nominations are attached as a file.\nTotal nominations: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now."
       }
     },
     "refreshNominationOrgStatus": {
@@ -119,12 +135,17 @@
         "rsiHandle": {
           "name": "rsi-handle",
           "description": "Optional RSI handle to process. Leave empty to process all."
+        },
+        "confirmAll": {
+          "name": "confirm-all",
+          "description": "Set to true to confirm processing all nominations at once. Only applies when no handle is provided."
         }
       },
       "responses": {
         "singleProcessed": "Marked {rsiHandle} as processed.",
         "singleNotFound": "Could not find an unprocessed nomination for {rsiHandle}.",
-        "allProcessed": "Marked {processedCount} nomination(s) as processed."
+        "allProcessed": "Marked {processedCount} nomination(s) as processed.",
+        "confirmAllRequired": "Set confirm-all to true to process all nominations at once."
       }
     },
     "nominationAccess": {

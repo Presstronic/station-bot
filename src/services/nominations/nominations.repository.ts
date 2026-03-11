@@ -3,6 +3,22 @@ import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.
 import { reasonCodeMetadata } from './reason-codes.ts';
 import { assertValidTransition, deriveLifecycleStateFromOrgCheck } from './lifecycle.service.ts';
 
+export type { NominationLifecycleState };
+
+export type NominationSortOption = 'newest' | 'oldest' | 'nomination_count_desc';
+
+export interface GetUnprocessedNominationsOptions {
+  status?: NominationLifecycleState;
+  sort?: NominationSortOption;
+  limit?: number;
+}
+
+const SORT_CLAUSE_MAP: Record<NominationSortOption, string> = {
+  newest:                'updated_at DESC',
+  oldest:                'updated_at ASC',
+  nomination_count_desc: 'nomination_count DESC, updated_at DESC',
+};
+
 function normalizeHandle(handle: string): string {
   return handle.trim().toLowerCase();
 }
@@ -173,20 +189,28 @@ export async function recordNomination(
   });
 }
 
-export async function getUnprocessedNominations(): Promise<NominationRecord[]> {
+export async function getUnprocessedNominations(
+  options: GetUnprocessedNominationsOptions = {}
+): Promise<NominationRecord[]> {
   assertDatabaseConfigured();
   await ensureNominationsSchema();
 
-  const nominationsResult = await withClient((client) =>
-    client.query(
-      `
-      SELECT *
-      FROM nominations
-      WHERE lifecycle_state != 'processed'
-      ORDER BY updated_at DESC
-      `
-    )
-  );
+  const { status, sort = 'newest', limit } = options;
+  const conditions: string[] = ["lifecycle_state != 'processed'"];
+  const values: unknown[] = [];
+
+  if (status !== undefined) {
+    values.push(status);
+    conditions.push(`lifecycle_state = $${values.length}`);
+  }
+
+  let sql = `SELECT * FROM nominations WHERE ${conditions.join(' AND ')} ORDER BY ${SORT_CLAUSE_MAP[sort]}`;
+  if (limit !== undefined) {
+    values.push(limit);
+    sql += ` LIMIT $${values.length}`;
+  }
+
+  const nominationsResult = await withClient((client) => client.query(sql, values));
 
   const normalizedHandles = nominationsResult.rows.map((row) => row.normalized_handle as string);
   const eventsByHandle = await getEventsByHandles(normalizedHandles);
