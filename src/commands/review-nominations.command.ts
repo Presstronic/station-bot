@@ -6,7 +6,7 @@ import {
 import i18n from '../utils/i18n-config.ts';
 import {
   getUnprocessedNominations,
-  type NominationLifecycleState,
+  type NominationStatusFilter,
   type NominationSortOption,
 } from '../services/nominations/nominations.repository.ts';
 import {
@@ -92,7 +92,7 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
 
     await interaction.deferReply({ ephemeral: true });
 
-    const statusFilter = interaction.options.getString(statusOptionName) as NominationLifecycleState | null;
+    const statusFilter = interaction.options.getString(statusOptionName) as NominationStatusFilter | null;
     const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
     const limitValue   =  interaction.options.getInteger(limitOptionName) ?? 25;
 

@@ -5,10 +5,12 @@ import { assertValidTransition, deriveLifecycleStateFromOrgCheck } from './lifec
 
 export type { NominationLifecycleState };
 
+export type NominationStatusFilter = Exclude<NominationLifecycleState, 'processed'>;
+
 export type NominationSortOption = 'newest' | 'oldest' | 'nomination_count_desc';
 
 export interface GetUnprocessedNominationsOptions {
-  status?: NominationLifecycleState;
+  status?: NominationStatusFilter;
   sort?: NominationSortOption;
   limit?: number;
 }
@@ -204,8 +206,15 @@ export async function getUnprocessedNominations(
     conditions.push(`lifecycle_state = $${values.length}`);
   }
 
+  if (!Object.prototype.hasOwnProperty.call(SORT_CLAUSE_MAP, sort)) {
+    throw new Error(`Invalid sort option: ${sort}`);
+  }
+
   let sql = `SELECT * FROM nominations WHERE ${conditions.join(' AND ')} ORDER BY ${SORT_CLAUSE_MAP[sort]}`;
   if (limit !== undefined) {
+    if (!Number.isSafeInteger(limit) || limit < 1) {
+      throw new Error(`Invalid limit: ${limit}`);
+    }
     values.push(limit);
     sql += ` LIMIT $${values.length}`;
   }

@@ -74,7 +74,7 @@
     },
     "reviewNominations": {
       "name": "review-nominations",
-      "description": "Review all unprocessed player nominations.",
+      "description": "Review unprocessed player nominations (up to 25; filter, sort, or adjust via options).",
       "options": {
         "status": {
           "name": "status",
