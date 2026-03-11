@@ -1233,7 +1233,7 @@ describe('nominations commands', () => {
     await handleReviewNominationsCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
-    expect(content).toContain('Total nominations: 5');
-    expect(content).not.toContain('Total nominations: 6');
+    expect(content).toContain('Nominations shown: 5');
+    expect(content).not.toContain('Nominations shown: 6');
   });
 });
