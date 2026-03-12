@@ -8,6 +8,8 @@ import {
   isNominationConfigurationError,
 } from './nomination.helpers.ts';
 import { getLogger } from '../utils/logger.ts';
+import { getNominationRatePolicy } from '../services/nominations/anti-abuse.policy.ts';
+import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.service.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
@@ -83,6 +85,32 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     }
     const reason =
       interaction.options.getString(i18n.__({ phrase: reasonNameKey, locale: defaultLocale }))?.trim() || null;
+
+    const policy = getNominationRatePolicy();
+    const violation = await checkNominationAntiAbuse(
+      interaction.user.id,
+      rsiHandle.toLowerCase(),
+      rsiHandle,
+      policy
+    );
+    if (violation !== null) {
+      let content: string;
+      if (violation.kind === 'cooldown') {
+        content = i18n.__mf(
+          { phrase: 'commands.nominatePlayer.responses.cooldownActive', locale },
+          { secondsRemaining: String(violation.secondsRemaining) }
+        );
+      } else if (violation.kind === 'targetDailyLimit') {
+        content = i18n.__mf(
+          { phrase: 'commands.nominatePlayer.responses.targetDailyLimitReached', locale },
+          { rsiHandle: violation.displayHandle }
+        );
+      } else {
+        content = i18n.__({ phrase: 'commands.nominatePlayer.responses.userDailyLimitReached', locale });
+      }
+      await interaction.reply({ content, ephemeral: true });
+      return;
+    }
 
     const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
     await interaction.reply({

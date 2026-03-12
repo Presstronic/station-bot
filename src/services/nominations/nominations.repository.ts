@@ -412,3 +412,68 @@ export async function markAllNominationsProcessed(processedByUserId: string): Pr
   );
   return result.rowCount ?? 0;
 }
+
+export async function getSecondsSinceLastNominationByUser(userId: string): Promise<number | null> {
+  if (!isDatabaseConfigured()) return null;
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT EXTRACT(EPOCH FROM (NOW() - created_at))::int AS seconds_ago
+      FROM nomination_events
+      WHERE nominator_user_id = $1
+      ORDER BY created_at DESC
+      LIMIT 1
+      `,
+      [userId]
+    )
+  );
+
+  if (result.rows.length === 0) return null;
+  return Number(result.rows[0].seconds_ago);
+}
+
+export async function countNominationsForTargetInWindow(
+  normalizedHandle: string,
+  windowSeconds: number
+): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT COUNT(*)::int AS event_count
+      FROM nomination_events
+      WHERE normalized_handle = $1
+        AND created_at >= NOW() - ($2 * INTERVAL '1 second')
+      `,
+      [normalizedHandle, windowSeconds]
+    )
+  );
+
+  return Number(result.rows[0].event_count);
+}
+
+export async function countNominationsByUserInWindow(
+  userId: string,
+  windowSeconds: number
+): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT COUNT(*)::int AS event_count
+      FROM nomination_events
+      WHERE nominator_user_id = $1
+        AND created_at >= NOW() - ($2 * INTERVAL '1 second')
+      `,
+      [userId, windowSeconds]
+    )
+  );
+
+  return Number(result.rows[0].event_count);
+}
