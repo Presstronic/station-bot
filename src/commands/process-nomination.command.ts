@@ -15,7 +15,8 @@ import {
 import { getLogger } from '../utils/logger.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
-const processHandleKey = 'commands.processNomination.options.rsiHandle.name';
+export const rsiHandleOptionName   = i18n.__({ phrase: 'commands.processNomination.options.rsiHandle.name',   locale: defaultLocale });
+export const confirmAllOptionName  = i18n.__({ phrase: 'commands.processNomination.options.confirmAll.name',  locale: defaultLocale });
 const logger = getLogger();
 
 export const PROCESS_NOMINATION_COMMAND_NAME = 'process-nomination';
@@ -26,7 +27,7 @@ export const processNominationCommandBuilder = new SlashCommandBuilder()
   .setDMPermission(false)
   .addStringOption((option) =>
     option
-      .setName(i18n.__({ phrase: processHandleKey, locale: defaultLocale }))
+      .setName(rsiHandleOptionName)
       .setDescription(
         i18n.__({
           phrase: 'commands.processNomination.options.rsiHandle.description',
@@ -34,6 +35,11 @@ export const processNominationCommandBuilder = new SlashCommandBuilder()
         })
       )
       .setRequired(false)
+  )
+  .addBooleanOption((o) =>
+    o.setName(confirmAllOptionName)
+     .setDescription(i18n.__({ phrase: 'commands.processNomination.options.confirmAll.description', locale: defaultLocale }))
+     .setRequired(false)
   );
 
 export async function handleProcessNominationCommand(interaction: ChatInputCommandInteraction) {
@@ -43,8 +49,7 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
       return;
     }
 
-    const handle =
-      interaction.options.getString(i18n.__({ phrase: processHandleKey, locale: defaultLocale }))?.trim() || null;
+    const handle = interaction.options.getString(rsiHandleOptionName)?.trim() || null;
 
     if (handle) {
       const updated = await markNominationProcessedByHandle(handle, interaction.user.id);
@@ -58,6 +63,16 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
               { phrase: 'commands.processNomination.responses.singleNotFound', locale },
               { rsiHandle: handle }
             ),
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+
+    const confirmAll = interaction.options.getBoolean(confirmAllOptionName);
+    if (!confirmAll) {
+      await interaction.reply({
+        content: i18n.__({ phrase: 'commands.processNomination.responses.confirmAllRequired', locale }),
         ephemeral: true,
         allowedMentions: { parse: [] },
       });
