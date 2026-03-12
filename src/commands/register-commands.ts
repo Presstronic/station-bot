@@ -6,6 +6,7 @@ import { reviewNominationsCommandBuilder } from './review-nominations.command.ts
 import { refreshNominationOrgStatusCommandBuilder } from './refresh-nomination-org-status.command.ts';
 import { processNominationCommandBuilder } from './process-nomination.command.ts';
 import { nominationAccessCommandBuilder } from './nomination-access.command.ts';
+import { nominationAuditCommandBuilder } from './nomination-audit.command.ts';
 import { nominationCheckStatusCommandBuilder } from './nomination-check-status.command.ts';
 import { verifyCommandBuilder, healthcheckCommandBuilder } from './verify.ts';
 import { setRegisteredCommandNames } from './registration-state.ts';
@@ -21,6 +22,7 @@ const allCommands = [
   nominationCheckStatusCommandBuilder,
   processNominationCommandBuilder,
   nominationAccessCommandBuilder,
+  nominationAuditCommandBuilder,
 ];
 
 export async function registerAllCommands() {

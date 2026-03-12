@@ -20,10 +20,11 @@ describe('nomination-access command', () => {
     const interaction = {
       inGuild: () => true,
       locale: 'en-US',
+      user: { id: 'u1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: {
         getString: () => 'add',
-        getRole: () => ({ id: 'role-1' }),
+        getRole: () => ({ id: 'role-1', name: 'TestRole' }),
       },
       reply,
       replied: false,

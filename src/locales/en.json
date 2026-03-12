@@ -153,6 +153,32 @@
         "confirmAllRequired": "Set confirm-all to true to process all nominations at once."
       }
     },
+    "nominationAudit": {
+      "name": "nomination-audit",
+      "description": "View recent privileged nomination action audit events.",
+      "options": {
+        "eventType": {
+          "name": "event-type",
+          "description": "Filter by event type."
+        },
+        "since": {
+          "name": "since",
+          "description": "Show events after this time (ISO timestamp or shorthand like 1h, 24h, 7d)."
+        },
+        "limit": {
+          "name": "limit",
+          "description": "Max events to return (1–100). Defaults to 25."
+        }
+      },
+      "responses": {
+        "none": "No audit events found.",
+        "invalidSince": "Invalid 'since' value. Use an ISO timestamp or shorthand like 1h, 24h, 7d.",
+        "filterContext": "Filter: type={eventType} | since={since} | limit={limit}",
+        "truncatedHint": " — results may be truncated; narrow the filter or increase the limit",
+        "summary": "{filterContext}\nAudit events:\n{table}\nShown: {totalCount}",
+        "summaryAttachment": "{filterContext}\nAudit events are attached.\nShown: {totalCount}"
+      }
+    },
     "nominationAccess": {
       "name": "nomination-access",
       "description": "Configure non-admin roles allowed to review/process nominations.",
