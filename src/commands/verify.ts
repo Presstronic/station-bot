@@ -9,7 +9,7 @@ import {
 import { generateDrdntVerificationCode } from '../services/verification-code.services.ts';
 import { getLogger } from '../utils/logger.ts';
 import i18n from '../utils/i18n-config.ts';
-import { isReadOnlyMode } from '../config/runtime-flags.ts';
+import { isReadOnlyMode, isVerificationEnabled } from '../config/runtime-flags.ts';
 import { getRegisteredCommandNamesState } from './registration-state.ts';
 
 const logger = getLogger();
@@ -56,6 +56,14 @@ export async function registerCommands() {
 
 export async function handleVerifyCommand(interaction: ChatInputCommandInteraction) {
   const locale = interaction.guild?.preferredLocale?.substring(0, 2) || defaultLocale;
+
+  if (!isVerificationEnabled()) {
+    await interaction.reply({
+      content: 'Verification is not available on this server.',
+      ephemeral: true,
+    });
+    return;
+  }
 
   const optionName = i18n.__({ phrase: inGameNameKey, locale: defaultLocale });
   const rsiProfileName = interaction.options.getString(optionName, true);
