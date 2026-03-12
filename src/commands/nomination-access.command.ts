@@ -15,6 +15,7 @@ import {
   getCommandLocale,
   isNominationConfigurationError,
 } from './nomination.helpers.ts';
+import { recordAuditEvent } from '../services/nominations/audit.repository.ts';
 import { getLogger } from '../utils/logger.ts';
 
 const logger = getLogger();
@@ -89,14 +90,35 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
     }
 
     if (action === 'add') {
-      const result = await addReviewProcessRoleId(role!.id);
+      let addResult: Awaited<ReturnType<typeof addReviewProcessRoleId>>;
+      try {
+        addResult = await addReviewProcessRoleId(role!.id);
+        recordAuditEvent({
+          eventType: 'nomination_access_role_added',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          targetRoleId: role!.id,
+          payloadJson: { changed: addResult.added },
+          result: 'success',
+        }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
+      } catch (err) {
+        recordAuditEvent({
+          eventType: 'nomination_access_role_added',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          targetRoleId: role!.id,
+          result: 'failure',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
+        throw err;
+      }
       await interaction.reply({
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.added', locale },
           {
             roleMention: `@${role!.name}`,
-            changed: result.added ? 'yes' : 'no',
-            roles: formatRoleIds(result.roleIds),
+            changed: addResult.added ? 'yes' : 'no',
+            roles: formatRoleIds(addResult.roleIds),
           }
         ),
         ephemeral: true,
@@ -106,14 +128,35 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
     }
 
     if (action === 'remove') {
-      const result = await removeReviewProcessRoleId(role!.id);
+      let removeResult: Awaited<ReturnType<typeof removeReviewProcessRoleId>>;
+      try {
+        removeResult = await removeReviewProcessRoleId(role!.id);
+        recordAuditEvent({
+          eventType: 'nomination_access_role_removed',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          targetRoleId: role!.id,
+          payloadJson: { changed: removeResult.removed },
+          result: 'success',
+        }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
+      } catch (err) {
+        recordAuditEvent({
+          eventType: 'nomination_access_role_removed',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          targetRoleId: role!.id,
+          result: 'failure',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
+        throw err;
+      }
       await interaction.reply({
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.removed', locale },
           {
             roleMention: `@${role!.name}`,
-            changed: result.removed ? 'yes' : 'no',
-            roles: formatRoleIds(result.roleIds),
+            changed: removeResult.removed ? 'yes' : 'no',
+            roles: formatRoleIds(removeResult.roleIds),
           }
         ),
         ephemeral: true,
@@ -123,7 +166,24 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
     }
 
     if (action === 'reset') {
-      await resetReviewProcessRoleIds();
+      try {
+        await resetReviewProcessRoleIds();
+        recordAuditEvent({
+          eventType: 'nomination_access_roles_reset',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          result: 'success',
+        }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
+      } catch (err) {
+        recordAuditEvent({
+          eventType: 'nomination_access_roles_reset',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          result: 'failure',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
+        throw err;
+      }
       await interaction.reply({
         content: i18n.__({ phrase: 'commands.nominationAccess.responses.reset', locale }),
         ephemeral: true,

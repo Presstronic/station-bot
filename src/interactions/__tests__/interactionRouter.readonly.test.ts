@@ -49,6 +49,10 @@ describe('handleInteraction in read-only mode', () => {
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -122,6 +126,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
@@ -198,6 +206,10 @@ describe('handleInteraction in read-only mode', () => {
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -270,6 +282,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.ts', () => ({
       getLogger: () => ({

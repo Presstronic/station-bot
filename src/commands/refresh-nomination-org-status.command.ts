@@ -10,6 +10,7 @@ import {
   getCommandLocale,
   isNominationConfigurationError,
 } from './nomination.helpers.ts';
+import { recordAuditEvent } from '../services/nominations/audit.repository.ts';
 import { getLogger } from '../utils/logger.ts';
 import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
@@ -85,12 +86,36 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     }
 
     const requestedScope = requestedHandle ? 'single' : 'all';
-    const queueResult = await enqueueNominationCheckJob(
-      interaction.user.id,
-      requestedScope,
-      targets.map((target) => target.normalizedHandle),
-      requestedHandle ? requestedHandle.toLowerCase() : null
-    );
+    let queueResult: Awaited<ReturnType<typeof enqueueNominationCheckJob>>;
+    try {
+      queueResult = await enqueueNominationCheckJob(
+        interaction.user.id,
+        requestedScope,
+        targets.map((target) => target.normalizedHandle),
+        requestedHandle ? requestedHandle.toLowerCase() : null
+      );
+      recordAuditEvent({
+        eventType: 'nomination_check_refresh_triggered',
+        actorUserId: interaction.user.id,
+        actorUserTag: interaction.user.tag,
+        payloadJson: {
+          jobId: queueResult.job.id,
+          targetCount: queueResult.job.totalCount,
+          scope: requestedScope,
+        },
+        result: 'success',
+      }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
+    } catch (err) {
+      recordAuditEvent({
+        eventType: 'nomination_check_refresh_triggered',
+        actorUserId: interaction.user.id,
+        actorUserTag: interaction.user.tag,
+        payloadJson: { scope: requestedScope },
+        result: 'failure',
+        errorMessage: err instanceof Error ? err.message : String(err),
+      }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
+      throw err;
+    }
 
     const summaryContent = i18n.__mf(
       { phrase: 'commands.refreshNominationOrgStatus.responses.queued', locale },

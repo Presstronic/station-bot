@@ -12,6 +12,7 @@ import {
   getCommandLocale,
   isNominationConfigurationError,
 } from './nomination.helpers.ts';
+import { recordAuditEvent } from '../services/nominations/audit.repository.ts';
 import { getLogger } from '../utils/logger.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -52,7 +53,28 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
     const handle = interaction.options.getString(rsiHandleOptionName)?.trim() || null;
 
     if (handle) {
-      const updated = await markNominationProcessedByHandle(handle, interaction.user.id);
+      let updated = false;
+      try {
+        updated = await markNominationProcessedByHandle(handle, interaction.user.id);
+        recordAuditEvent({
+          eventType: 'nomination_processed_single',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          targetHandle: handle,
+          payloadJson: { found: updated },
+          result: 'success',
+        }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
+      } catch (err) {
+        recordAuditEvent({
+          eventType: 'nomination_processed_single',
+          actorUserId: interaction.user.id,
+          actorUserTag: interaction.user.tag,
+          targetHandle: handle,
+          result: 'failure',
+          errorMessage: err instanceof Error ? err.message : String(err),
+        }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
+        throw err;
+      }
       await interaction.reply({
         content: updated
           ? i18n.__mf(
@@ -79,7 +101,26 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
       return;
     }
 
-    const count = await markAllNominationsProcessed(interaction.user.id);
+    let count = 0;
+    try {
+      count = await markAllNominationsProcessed(interaction.user.id);
+      recordAuditEvent({
+        eventType: 'nomination_processed_bulk',
+        actorUserId: interaction.user.id,
+        actorUserTag: interaction.user.tag,
+        payloadJson: { processedCount: count },
+        result: 'success',
+      }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
+    } catch (err) {
+      recordAuditEvent({
+        eventType: 'nomination_processed_bulk',
+        actorUserId: interaction.user.id,
+        actorUserTag: interaction.user.tag,
+        result: 'failure',
+        errorMessage: err instanceof Error ? err.message : String(err),
+      }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
+      throw err;
+    }
     await interaction.reply({
       content: i18n.__mf(
         { phrase: 'commands.processNomination.responses.allProcessed', locale },
