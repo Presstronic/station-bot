@@ -9,6 +9,7 @@ exports.up = (pgm) => {
     payload_json:   { type: 'jsonb' },
     result:         { type: 'text', notNull: true },
     error_message:  { type: 'text' },
+    correlation_id: { type: 'text' },
     created_at:     { type: 'timestamptz', notNull: true, default: pgm.func('current_timestamp') },
   });
   pgm.createIndex('nomination_audit_events', ['created_at'], {

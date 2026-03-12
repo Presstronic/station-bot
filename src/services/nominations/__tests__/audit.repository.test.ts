@@ -16,6 +16,13 @@ function makeDbMock(queryResult: { rows: unknown[] }) {
   };
 }
 
+function mockRequestContext(correlationId: string | undefined) {
+  jest.unstable_mockModule('../../../utils/request-context.ts', () => ({
+    getCorrelationId: jest.fn(() => correlationId),
+    runWithCorrelationId: jest.fn(),
+  }));
+}
+
 describe('recordAuditEvent', () => {
   it('inserts an audit row with all fields', async () => {
     const db = makeDbMock({ rows: [] });
@@ -24,6 +31,7 @@ describe('recordAuditEvent', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { recordAuditEvent } = await import('../audit.repository.ts');
 
@@ -47,7 +55,53 @@ describe('recordAuditEvent', () => {
       JSON.stringify({ found: true }),
       'success',
       null,
+      null,
     ]);
+  });
+
+  it('captures correlation_id from request context when available', async () => {
+    const db = makeDbMock({ rows: [] });
+    jest.unstable_mockModule('../db.ts', () => ({
+      withClient: db.withClient,
+      isDatabaseConfigured: db.isDatabaseConfigured,
+      ensureNominationsSchema: db.ensureNominationsSchema,
+    }));
+    mockRequestContext('corr-abc-123');
+
+    const { recordAuditEvent } = await import('../audit.repository.ts');
+
+    await recordAuditEvent({
+      eventType: 'nomination_processed_bulk',
+      actorUserId: 'u1',
+      actorUserTag: 'user#0001',
+      result: 'success',
+      payloadJson: { processedCount: 5 },
+    });
+
+    const queryArgs = db.query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(queryArgs[1][8]).toBe('corr-abc-123');
+  });
+
+  it('stores null for correlation_id when no context is active', async () => {
+    const db = makeDbMock({ rows: [] });
+    jest.unstable_mockModule('../db.ts', () => ({
+      withClient: db.withClient,
+      isDatabaseConfigured: db.isDatabaseConfigured,
+      ensureNominationsSchema: db.ensureNominationsSchema,
+    }));
+    mockRequestContext(undefined);
+
+    const { recordAuditEvent } = await import('../audit.repository.ts');
+
+    await recordAuditEvent({
+      eventType: 'nomination_access_roles_reset',
+      actorUserId: 'u1',
+      actorUserTag: 'user#0001',
+      result: 'success',
+    });
+
+    const queryArgs = db.query.mock.calls[0] as unknown as [string, unknown[]];
+    expect(queryArgs[1][8]).toBeNull();
   });
 
   it('inserts a failure audit row with error message', async () => {
@@ -57,6 +111,7 @@ describe('recordAuditEvent', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { recordAuditEvent } = await import('../audit.repository.ts');
 
@@ -79,6 +134,7 @@ describe('recordAuditEvent', () => {
       null,
       'failure',
       'DB connection lost',
+      null,
     ]);
   });
 
@@ -88,6 +144,7 @@ describe('recordAuditEvent', () => {
       isDatabaseConfigured: jest.fn(() => false),
       ensureNominationsSchema: jest.fn(async () => undefined),
     }));
+    mockRequestContext(undefined);
 
     const { recordAuditEvent } = await import('../audit.repository.ts');
 
@@ -110,6 +167,7 @@ describe('getAuditEvents', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { getAuditEvents } = await import('../audit.repository.ts');
 
@@ -117,7 +175,7 @@ describe('getAuditEvents', () => {
     expect(result).toEqual([]);
   });
 
-  it('maps db rows to AuditEvent objects', async () => {
+  it('maps db rows to AuditEvent objects including correlationId', async () => {
     const now = new Date('2026-03-12T10:00:00Z');
     const db = makeDbMock({
       rows: [
@@ -131,6 +189,7 @@ describe('getAuditEvents', () => {
           payload_json: { found: true },
           result: 'success',
           error_message: null,
+          correlation_id: 'corr-xyz',
           created_at: now,
         },
       ],
@@ -140,6 +199,7 @@ describe('getAuditEvents', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { getAuditEvents } = await import('../audit.repository.ts');
 
@@ -153,10 +213,43 @@ describe('getAuditEvents', () => {
       targetHandle: 'PilotA',
       payloadJson: { found: true },
       result: 'success',
+      correlationId: 'corr-xyz',
       createdAt: now.toISOString(),
     });
     expect(result[0].targetRoleId).toBeUndefined();
     expect(result[0].errorMessage).toBeUndefined();
+  });
+
+  it('maps null correlation_id to undefined', async () => {
+    const now = new Date('2026-03-12T10:00:00Z');
+    const db = makeDbMock({
+      rows: [
+        {
+          id: 2,
+          event_type: 'nomination_processed_bulk',
+          actor_user_id: 'u1',
+          actor_user_tag: 'user#0001',
+          target_handle: null,
+          target_role_id: null,
+          payload_json: null,
+          result: 'success',
+          error_message: null,
+          correlation_id: null,
+          created_at: now,
+        },
+      ],
+    });
+    jest.unstable_mockModule('../db.ts', () => ({
+      withClient: db.withClient,
+      isDatabaseConfigured: db.isDatabaseConfigured,
+      ensureNominationsSchema: db.ensureNominationsSchema,
+    }));
+    mockRequestContext(undefined);
+
+    const { getAuditEvents } = await import('../audit.repository.ts');
+
+    const result = await getAuditEvents();
+    expect(result[0].correlationId).toBeUndefined();
   });
 
   it('applies eventType filter in SQL', async () => {
@@ -166,6 +259,7 @@ describe('getAuditEvents', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { getAuditEvents } = await import('../audit.repository.ts');
 
@@ -183,6 +277,7 @@ describe('getAuditEvents', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { getAuditEvents } = await import('../audit.repository.ts');
 
@@ -201,6 +296,7 @@ describe('getAuditEvents', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { getAuditEvents } = await import('../audit.repository.ts');
 
@@ -218,6 +314,7 @@ describe('getAuditEvents', () => {
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
+    mockRequestContext(undefined);
 
     const { getAuditEvents } = await import('../audit.repository.ts');
 
@@ -230,6 +327,7 @@ describe('getAuditEvents', () => {
       isDatabaseConfigured: jest.fn(() => false),
       ensureNominationsSchema: jest.fn(async () => undefined),
     }));
+    mockRequestContext(undefined);
 
     const { getAuditEvents } = await import('../audit.repository.ts');
 

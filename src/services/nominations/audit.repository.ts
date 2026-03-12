@@ -1,4 +1,5 @@
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
+import { getCorrelationId } from '../../utils/request-context.ts';
 
 export type AuditEventType =
   | 'nomination_access_role_added'
@@ -21,6 +22,7 @@ export interface NominationAuditEventInput {
 
 export interface AuditEvent extends NominationAuditEventInput {
   id: number;
+  correlationId?: string;
   createdAt: string;
 }
 
@@ -40,15 +42,17 @@ export async function recordAuditEvent(input: NominationAuditEventInput): Promis
   assertDatabaseConfigured();
   await ensureNominationsSchema();
 
+  const correlationId = getCorrelationId() ?? null;
+
   await withClient((client) =>
     client.query(
       `
       INSERT INTO nomination_audit_events (
         event_type, actor_user_id, actor_user_tag,
         target_handle, target_role_id, payload_json,
-        result, error_message, created_at
+        result, error_message, correlation_id, created_at
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
       `,
       [
         input.eventType,
@@ -59,6 +63,7 @@ export async function recordAuditEvent(input: NominationAuditEventInput): Promis
         input.payloadJson !== undefined ? JSON.stringify(input.payloadJson) : null,
         input.result,
         input.errorMessage ?? null,
+        correlationId,
       ]
     )
   );
@@ -105,6 +110,7 @@ export async function getAuditEvents(options: GetAuditEventsOptions = {}): Promi
     payloadJson: row.payload_json ?? undefined,
     result: row.result as 'success' | 'failure',
     errorMessage: row.error_message ?? undefined,
+    correlationId: row.correlation_id ?? undefined,
     createdAt: new Date(row.created_at).toISOString(),
   }));
 }
