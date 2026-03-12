@@ -71,8 +71,8 @@
         "invalidHandle": "Please provide a valid RSI handle.",
         "created": "Nomination recorded for {rsiHandle}. Total nominations: {nominationCount}.",
         "cooldownActive": "You must wait {secondsRemaining}s before nominating again.",
-        "targetDailyLimitReached": "{rsiHandle} has already reached the maximum number of nominations for today.",
-        "userDailyLimitReached": "You have reached your daily nomination limit."
+        "targetDailyLimitReached": "{rsiHandle} has already reached the maximum number of nominations in the last 24 hours.",
+        "userDailyLimitReached": "You have reached your nomination limit in the last 24 hours."
       }
     },
     "reviewNominations": {

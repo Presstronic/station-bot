@@ -523,7 +523,7 @@ describe('nominations commands', () => {
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('daily nomination limit'),
+        content: expect.stringContaining('nomination limit in the last 24 hours'),
         ephemeral: true,
       })
     );

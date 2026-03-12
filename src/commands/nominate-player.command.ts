@@ -108,7 +108,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       } else {
         content = i18n.__({ phrase: 'commands.nominatePlayer.responses.userDailyLimitReached', locale });
       }
-      await interaction.reply({ content, ephemeral: true });
+      await interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
       return;
     }
 
