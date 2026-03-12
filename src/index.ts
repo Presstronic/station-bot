@@ -6,12 +6,13 @@ import { handleInteraction } from './interactions/interactionRouter.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
-import { isReadOnlyMode } from './config/runtime-flags.ts';
+import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.ts';
 import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.ts';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.ts';
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
+const verificationEnabled = isVerificationEnabled();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
 process.on('uncaughtException', (error) => {
@@ -62,18 +63,22 @@ client.once('ready', async () => {
   }
 
   if (!readOnlyMode) {
-    await Promise.all(
-      [...client.guilds.cache.values()].map(async (guild) => {
-        try {
-          await addMissingDefaultRoles(guild, client);
-        } catch (error) {
-          logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
-        }
-      })
-    );
-    scheduleTemporaryMemberCleanup(client);
-    schedulePotentialApplicantCleanup(client);
-    logger.info('Scheduled member cleanup jobs.');
+    if (verificationEnabled) {
+      await Promise.all(
+        [...client.guilds.cache.values()].map(async (guild) => {
+          try {
+            await addMissingDefaultRoles(guild, client);
+          } catch (error) {
+            logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
+          }
+        })
+      );
+      scheduleTemporaryMemberCleanup(client);
+      schedulePotentialApplicantCleanup(client);
+      logger.info('Scheduled member cleanup jobs.');
+    } else {
+      logger.info('VERIFICATION_ENABLED=false — skipping role setup and member cleanup scheduling.');
+    }
     if (isDatabaseConfigured()) {
       startNominationCheckWorkerLoop();
       logger.info('Started nomination check worker loop.');
@@ -90,6 +95,11 @@ client.on('guildCreate', async (guild) => {
 
   if (readOnlyMode) {
     logger.warn(`[${guild.name}] Read-only mode enabled; skipping role setup on guild join.`);
+    return;
+  }
+
+  if (!verificationEnabled) {
+    logger.info(`[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`);
     return;
   }
 

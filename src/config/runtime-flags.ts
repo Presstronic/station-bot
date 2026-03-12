@@ -23,3 +23,7 @@ function envFlag(name: string, defaultValue = false): boolean {
 export function isReadOnlyMode(): boolean {
   return envFlag('BOT_READ_ONLY_MODE', true);
 }
+
+export function isVerificationEnabled(): boolean {
+  return envFlag('VERIFICATION_ENABLED', true);
+}
