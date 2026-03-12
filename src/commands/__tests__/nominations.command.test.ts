@@ -71,6 +71,9 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
@@ -99,6 +102,9 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
@@ -135,6 +141,9 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
@@ -157,6 +166,9 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
@@ -348,6 +360,9 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
@@ -380,6 +395,177 @@ describe('nominations commands', () => {
     await handleNominatePlayerCommand(interaction);
 
     expect(rolesFetch).not.toHaveBeenCalled();
+  });
+
+  it('nominate-player allows submission when anti-abuse check passes', async () => {
+    const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+      checkNominationAntiAbuse: jest.fn(async () => null),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction();
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(recordNomination).toHaveBeenCalledTimes(1);
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('Nomination recorded'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('nominate-player blocks submission and does not write when cooldown is active', async () => {
+    const recordNomination = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(),
+      countNominationsForTargetInWindow: jest.fn(),
+      countNominationsByUserInWindow: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+      checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'cooldown', secondsRemaining: 42 })),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction();
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(recordNomination).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('42s'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('nominate-player blocks submission and does not write when target daily limit is reached', async () => {
+    const recordNomination = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(),
+      countNominationsForTargetInWindow: jest.fn(),
+      countNominationsByUserInWindow: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+      checkNominationAntiAbuse: jest.fn(async () => ({
+        kind: 'targetDailyLimit',
+        displayHandle: 'PilotNominee',
+      })),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction();
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(recordNomination).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('PilotNominee'),
+        ephemeral: true,
+      })
+    );
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('maximum number of nominations'),
+      })
+    );
+  });
+
+  it('nominate-player blocks submission and does not write when user daily limit is reached', async () => {
+    const recordNomination = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(),
+      countNominationsForTargetInWindow: jest.fn(),
+      countNominationsByUserInWindow: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+      checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'userDailyLimit' })),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction();
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(recordNomination).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('nomination limit in the last 24 hours'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('nominate-player rejects a concurrent submission from the same user', async () => {
+    const recordNomination = jest.fn(async () => new Promise(() => {})); // never resolves
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+      checkNominationAntiAbuse: jest.fn(async () => null),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const firstInteraction = createNominationInteraction();
+    const secondReply = jest.fn(async () => undefined);
+    const secondInteraction = createNominationInteraction({ reply: secondReply });
+
+    // Start first request but don't await — it blocks on recordNomination
+    const firstRequest = handleNominatePlayerCommand(firstInteraction);
+
+    // Second request from the same user arrives while first is in-flight
+    await handleNominatePlayerCommand(secondInteraction);
+
+    expect(secondReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('still being processed'),
+        ephemeral: true,
+      })
+    );
+
+    // Clean up the hanging first request
+    firstRequest.catch(() => {});
   });
 
   it('reviews nominations using persisted status without outbound org checks', async () => {

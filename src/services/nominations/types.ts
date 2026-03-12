@@ -50,3 +50,14 @@ export type NominationRecord = {
 export type NominationsStore = {
   nominations: NominationRecord[];
 };
+
+export interface NominationRatePolicy {
+  userCooldownSeconds: number;
+  targetMaxPerDay: number;
+  userMaxPerDay: number;
+}
+
+export type AntiAbuseViolation =
+  | { kind: 'cooldown'; secondsRemaining: number }
+  | { kind: 'targetDailyLimit'; displayHandle: string }
+  | { kind: 'userDailyLimit' };
