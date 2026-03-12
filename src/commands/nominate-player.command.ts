@@ -14,6 +14,11 @@ import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.ser
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 
+// Per-user in-flight mutex: prevents concurrent requests from the same user
+// both passing anti-abuse checks before either write completes (TOCTOU).
+// Effective for single-instance deployments; for multi-instance, use a DB advisory lock.
+const nominationsInProgress = new Set<string>();
+
 export const NOMINATE_PLAYER_COMMAND_NAME = 'nominate-player';
 
 const rsiHandleNameKey = 'commands.nominatePlayer.options.rsiHandle.name';
@@ -86,44 +91,57 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     const reason =
       interaction.options.getString(i18n.__({ phrase: reasonNameKey, locale: defaultLocale }))?.trim() || null;
 
-    const policy = getNominationRatePolicy();
-    const violation = await checkNominationAntiAbuse(
-      interaction.user.id,
-      rsiHandle.toLowerCase(),
-      rsiHandle,
-      policy
-    );
-    if (violation !== null) {
-      let content: string;
-      if (violation.kind === 'cooldown') {
-        content = i18n.__mf(
-          { phrase: 'commands.nominatePlayer.responses.cooldownActive', locale },
-          { secondsRemaining: String(violation.secondsRemaining) }
-        );
-      } else if (violation.kind === 'targetDailyLimit') {
-        content = i18n.__mf(
-          { phrase: 'commands.nominatePlayer.responses.targetDailyLimitReached', locale },
-          { rsiHandle: violation.displayHandle }
-        );
-      } else {
-        content = i18n.__({ phrase: 'commands.nominatePlayer.responses.userDailyLimitReached', locale });
-      }
-      await interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
+    if (nominationsInProgress.has(interaction.user.id)) {
+      await interaction.reply({
+        content: i18n.__({ phrase: 'commands.nominatePlayer.responses.submissionInProgress', locale }),
+        ephemeral: true,
+      });
       return;
     }
 
-    const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
-    await interaction.reply({
-      content: i18n.__mf(
-        { phrase: 'commands.nominatePlayer.responses.created', locale },
-        {
-          rsiHandle: updated.displayHandle,
-          nominationCount: String(updated.nominationCount),
+    nominationsInProgress.add(interaction.user.id);
+    try {
+      const policy = getNominationRatePolicy();
+      const violation = await checkNominationAntiAbuse(
+        interaction.user.id,
+        rsiHandle.toLowerCase(),
+        rsiHandle,
+        policy
+      );
+      if (violation !== null) {
+        let content: string;
+        if (violation.kind === 'cooldown') {
+          content = i18n.__mf(
+            { phrase: 'commands.nominatePlayer.responses.cooldownActive', locale },
+            { secondsRemaining: String(violation.secondsRemaining) }
+          );
+        } else if (violation.kind === 'targetDailyLimit') {
+          content = i18n.__mf(
+            { phrase: 'commands.nominatePlayer.responses.targetDailyLimitReached', locale },
+            { rsiHandle: violation.displayHandle }
+          );
+        } else {
+          content = i18n.__({ phrase: 'commands.nominatePlayer.responses.userDailyLimitReached', locale });
         }
-      ),
-      ephemeral: true,
-      allowedMentions: { parse: [] },
-    });
+        await interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
+        return;
+      }
+
+      const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
+      await interaction.reply({
+        content: i18n.__mf(
+          { phrase: 'commands.nominatePlayer.responses.created', locale },
+          {
+            rsiHandle: updated.displayHandle,
+            nominationCount: String(updated.nominationCount),
+          }
+        ),
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+      });
+    } finally {
+      nominationsInProgress.delete(interaction.user.id);
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`nominate-player command failed: ${errorMessage}`);

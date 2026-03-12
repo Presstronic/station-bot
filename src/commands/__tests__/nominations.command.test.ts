@@ -529,6 +529,45 @@ describe('nominations commands', () => {
     );
   });
 
+  it('nominate-player rejects a concurrent submission from the same user', async () => {
+    const recordNomination = jest.fn(async () => new Promise(() => {})); // never resolves
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+      checkNominationAntiAbuse: jest.fn(async () => null),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const firstInteraction = createNominationInteraction();
+    const secondReply = jest.fn(async () => undefined);
+    const secondInteraction = createNominationInteraction({ reply: secondReply });
+
+    // Start first request but don't await — it blocks on recordNomination
+    const firstRequest = handleNominatePlayerCommand(firstInteraction);
+
+    // Second request from the same user arrives while first is in-flight
+    await handleNominatePlayerCommand(secondInteraction);
+
+    expect(secondReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('still being processed'),
+        ephemeral: true,
+      })
+    );
+
+    // Clean up the hanging first request
+    firstRequest.catch(() => {});
+  });
+
   it('reviews nominations using persisted status without outbound org checks', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {
