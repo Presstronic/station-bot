@@ -33,6 +33,9 @@ COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
 COPY migrations ./migrations
 
+# tsx requires /tmp for its IPC socket; alpine does not include it by default
+RUN mkdir -p /tmp
+
 # Set environment variables
 ENV NODE_ENV=production
 
