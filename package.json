@@ -1,6 +1,6 @@
 {
   "name": "station-bot",
-  "version": "0.0.27",
+  "version": "0.0.28",
   "description": "A Discord bot for verifying users against their roberts space industries profiles.",
   "main": "./dist/index.js",
   "scripts": {
