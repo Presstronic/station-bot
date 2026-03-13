@@ -13,6 +13,7 @@ RUN npm ci
 # Copy source files
 COPY tsconfig.json ./
 COPY src ./src
+COPY migrations ./migrations
 
 # Enforced type-checking step during build
 RUN npm run typecheck
@@ -31,6 +32,7 @@ RUN npm ci --omit=dev
 # Copy runtime files
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
+COPY --from=builder /app/migrations ./migrations
 
 # Set environment variables
 ENV NODE_ENV=production
