@@ -31,6 +31,7 @@ RUN npm ci --omit=dev
 # Copy runtime files
 COPY --from=builder /app/src ./src
 COPY --from=builder /app/tsconfig.json ./
+COPY migrations ./migrations
 
 # Set environment variables
 ENV NODE_ENV=production
