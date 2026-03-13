@@ -133,18 +133,20 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       }
 
       const citizenCheck = await checkCitizenExists(rsiHandle);
-      if (citizenCheck === 'not_found') {
+      if (citizenCheck.status === 'not_found') {
         await interaction.editReply({
           content: i18n.__({ phrase: 'commands.nominatePlayer.responses.citizenNotFound', locale }),
           allowedMentions: { parse: [] },
         });
         return;
       }
-      if (citizenCheck === 'unavailable') {
+      if (citizenCheck.status === 'unavailable') {
         logger.warn(`RSI citizen check unavailable for handle "${sanitizeForInlineText(rsiHandle)}" — proceeding with nomination`);
       }
 
-      const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
+      // Use RSI's canonical handle casing when available; fall back to user-submitted handle.
+      const displayHandle = citizenCheck.status === 'found' ? citizenCheck.canonicalHandle : rsiHandle;
+      const updated = await recordNomination(displayHandle, interaction.user.id, interaction.user.tag, reason);
       await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominatePlayer.responses.created', locale },

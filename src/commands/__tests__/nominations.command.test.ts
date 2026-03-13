@@ -88,7 +88,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
-      checkCitizenExists: jest.fn(async () => 'found'),
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
@@ -162,7 +162,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
-      checkCitizenExists: jest.fn(async () => 'found'),
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
@@ -386,7 +386,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
-      checkCitizenExists: jest.fn(async () => 'found'),
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
@@ -439,7 +439,7 @@ describe('nominations commands', () => {
       checkNominationAntiAbuse: jest.fn(async () => null),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
-      checkCitizenExists: jest.fn(async () => 'found'),
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
@@ -574,6 +574,10 @@ describe('nominations commands', () => {
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
       checkNominationAntiAbuse: jest.fn(async () => null),
     }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
     const firstInteraction = createNominationInteraction();
@@ -611,7 +615,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
-      checkCitizenExists: jest.fn(async () => 'not_found'),
+      checkCitizenExists: jest.fn(async () => ({ status: 'not_found' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
@@ -644,7 +648,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
-      checkCitizenExists: jest.fn(async () => 'unavailable'),
+      checkCitizenExists: jest.fn(async () => ({ status: 'unavailable' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
