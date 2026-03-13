@@ -239,7 +239,7 @@ export type CitizenExistsResult = 'found' | 'not_found' | 'unavailable';
  * can fail open and not block nominations due to RSI availability issues.
  */
 export async function checkCitizenExists(rsiHandle: string): Promise<CitizenExistsResult> {
-  const citizenUrl = buildCitizenUrl(rsiHandle.trim());
+  const citizenUrl = buildCitizenUrl(rsiHandle);
   const result = await fetchPageWithReason(citizenUrl);
   if (!result.ok) {
     if (result.code === 'not_found') return 'not_found';

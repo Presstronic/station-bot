@@ -597,6 +597,72 @@ describe('nominations commands', () => {
     firstRequest.catch(() => {});
   });
 
+  it('nominate-player rejects nomination when RSI citizen is not found', async () => {
+    const recordNomination = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkCitizenExists: jest.fn(async () => 'not_found'),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction();
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(recordNomination).not.toHaveBeenCalled();
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("doesn't appear to belong to a valid Citizen"),
+        allowedMentions: { parse: [] },
+      })
+    );
+  });
+
+  it('nominate-player proceeds with nomination when RSI citizen check is unavailable', async () => {
+    const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination,
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkCitizenExists: jest.fn(async () => 'unavailable'),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const interaction = createNominationInteraction();
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(recordNomination).toHaveBeenCalledTimes(1);
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('Nomination recorded'),
+        allowedMentions: { parse: [] },
+      })
+    );
+  });
+
   it('reviews nominations using persisted status without outbound org checks', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {

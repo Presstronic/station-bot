@@ -11,6 +11,7 @@ import { getLogger } from '../utils/logger.ts';
 import { getNominationRatePolicy } from '../services/nominations/anti-abuse.policy.ts';
 import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.service.ts';
 import { checkCitizenExists } from '../services/nominations/org-check.service.ts';
+import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
@@ -140,7 +141,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
         return;
       }
       if (citizenCheck === 'unavailable') {
-        logger.warn(`RSI citizen check unavailable for handle "${rsiHandle}" — proceeding with nomination`);
+        logger.warn(`RSI citizen check unavailable for handle "${sanitizeForInlineText(rsiHandle)}" — proceeding with nomination`);
       }
 
       const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
