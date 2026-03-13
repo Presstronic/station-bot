@@ -11,7 +11,7 @@
     "test:watch": "jest --watch",
     "typecheck": "tsc --noEmit",
     "quality": "npm run lint && npm run typecheck && npm test -- --runInBand",
-    "migrate:create": "node-pg-migrate create -m ./migrations",
+    "migrate:create": "node-pg-migrate create -m ./migrations --migration-file-language cjs",
     "migrate:up": "node-pg-migrate up -m ./migrations --database-url \"$DATABASE_URL\"",
     "migrate:down": "node-pg-migrate down -m ./migrations --database-url \"$DATABASE_URL\""
   },
