@@ -66,14 +66,17 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       return;
     }
 
+    // Defer immediately — async work (role lookup, DB queries) can exceed Discord's 3-second window.
+    await interaction.deferReply({ ephemeral: true });
+
     const allowed = await hasOrganizationMemberOrHigher(interaction);
     if (!allowed) {
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominatePlayer.responses.roleRequired', locale },
           { roleName: getOrganizationMemberRoleName() }
         ),
-        ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -82,9 +85,9 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       interaction.options.getString(i18n.__({ phrase: rsiHandleNameKey, locale: defaultLocale }), true)
     );
     if (!rsiHandle) {
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominatePlayer.responses.invalidHandle', locale }),
-        ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -92,9 +95,9 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       interaction.options.getString(i18n.__({ phrase: reasonNameKey, locale: defaultLocale }))?.trim() || null;
 
     if (nominationsInProgress.has(interaction.user.id)) {
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominatePlayer.responses.submissionInProgress', locale }),
-        ephemeral: true,
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -123,12 +126,12 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
         } else {
           content = i18n.__({ phrase: 'commands.nominatePlayer.responses.userDailyLimitReached', locale });
         }
-        await interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
+        await interaction.editReply({ content, allowedMentions: { parse: [] } });
         return;
       }
 
       const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominatePlayer.responses.created', locale },
           {
@@ -136,7 +139,6 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
             nominationCount: String(updated.nominationCount),
           }
         ),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
     } finally {
@@ -154,14 +156,15 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       : 'commands.nominationCommon.responses.unexpectedError';
 
     if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
+      await interaction.editReply({
         content: i18n.__({ phrase: responsePhrase, locale }),
-        ephemeral: true,
+        allowedMentions: { parse: [] },
       });
     } else {
       await interaction.reply({
         content: i18n.__({ phrase: responsePhrase, locale }),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
     }
   }

@@ -15,12 +15,13 @@ afterEach(() => {
 });
 
 function createNominationInteraction(overrides: Record<string, unknown> = {}) {
-  const reply = jest.fn(async () => undefined);
-  return {
+  const interaction: Record<string, unknown> = {
     inGuild: () => true,
     locale: 'en-US',
     user: { id: 'u1', tag: 'tester#0001' },
     memberPermissions: { has: () => false },
+    replied: false,
+    deferred: false,
     guild: {
       roles: {
         fetch: async () => undefined,
@@ -53,9 +54,20 @@ function createNominationInteraction(overrides: Record<string, unknown> = {}) {
         return null;
       },
     },
-    reply,
+    // reply sets replied=true so the editReply guard routes correctly for error-path tests.
+    reply: jest.fn(async () => { interaction.replied = true; }),
+    // deferReply sets deferred=true; defined before ...overrides so callers can override it.
+    deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    // editReply throws unless the interaction has been deferred or replied, catching accidental
+    // usage without a prior deferReply/reply in the implementation under test.
+    editReply: jest.fn(async function(this: void) {
+      if (!interaction.deferred && !interaction.replied) {
+        throw new Error('editReply called before deferReply/reply');
+      }
+    }),
     ...overrides,
-  } as any;
+  };
+  return interaction as any;
 }
 
 describe('nominations commands', () => {
@@ -80,11 +92,11 @@ describe('nominations commands', () => {
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Nomination recorded'),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       })
     );
@@ -121,11 +133,11 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Please provide a valid RSI handle.'),
-        ephemeral: true,
       })
     );
   });
@@ -150,10 +162,10 @@ describe('nominations commands', () => {
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('not configured correctly'),
-        ephemeral: true,
       })
     );
   });
@@ -195,7 +207,8 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('must have the role'),
       })
@@ -419,11 +432,11 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Nomination recorded'),
-        ephemeral: true,
       })
     );
   });
@@ -450,11 +463,11 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('42s'),
-        ephemeral: true,
       })
     );
   });
@@ -484,14 +497,14 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('PilotNominee'),
-        ephemeral: true,
       })
     );
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('maximum number of nominations'),
       })
@@ -520,11 +533,11 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('nomination limit in the last 24 hours'),
-        ephemeral: true,
       })
     );
   });
@@ -548,8 +561,8 @@ describe('nominations commands', () => {
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
     const firstInteraction = createNominationInteraction();
-    const secondReply = jest.fn(async () => undefined);
-    const secondInteraction = createNominationInteraction({ reply: secondReply });
+    const secondEditReply = jest.fn(async () => undefined);
+    const secondInteraction = createNominationInteraction({ editReply: secondEditReply });
 
     // Start first request but don't await — it blocks on recordNomination
     const firstRequest = handleNominatePlayerCommand(firstInteraction);
@@ -557,10 +570,10 @@ describe('nominations commands', () => {
     // Second request from the same user arrives while first is in-flight
     await handleNominatePlayerCommand(secondInteraction);
 
-    expect(secondReply).toHaveBeenCalledWith(
+    expect(secondInteraction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(secondEditReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('still being processed'),
-        ephemeral: true,
       })
     );
 
