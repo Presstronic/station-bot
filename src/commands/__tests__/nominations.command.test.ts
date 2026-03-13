@@ -16,7 +16,6 @@ afterEach(() => {
 
 function createNominationInteraction(overrides: Record<string, unknown> = {}) {
   const reply = jest.fn(async () => undefined);
-  const editReply = jest.fn(async () => undefined);
   const interaction: Record<string, unknown> = {
     inGuild: () => true,
     locale: 'en-US',
@@ -57,7 +56,13 @@ function createNominationInteraction(overrides: Record<string, unknown> = {}) {
       },
     },
     reply,
-    editReply,
+    // editReply throws unless the interaction has been deferred/replied, catching accidental
+    // usage without a prior deferReply in the implementation under test.
+    editReply: jest.fn(async function(this: void) {
+      if (!interaction.deferred && !interaction.replied) {
+        throw new Error('editReply called before deferReply/reply');
+      }
+    }),
     ...overrides,
   };
   // deferReply sets deferred=true so the error catch branch routes to editReply correctly
@@ -87,6 +92,7 @@ describe('nominations commands', () => {
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -127,6 +133,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -155,6 +162,7 @@ describe('nominations commands', () => {
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('not configured correctly'),
@@ -199,6 +207,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('must have the role'),
@@ -423,6 +432,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -453,6 +463,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -486,6 +497,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -521,6 +533,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -557,6 +570,7 @@ describe('nominations commands', () => {
     // Second request from the same user arrives while first is in-flight
     await handleNominatePlayerCommand(secondInteraction);
 
+    expect(secondInteraction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(secondEditReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('still being processed'),

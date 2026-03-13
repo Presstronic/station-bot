@@ -76,6 +76,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
           { phrase: 'commands.nominatePlayer.responses.roleRequired', locale },
           { roleName: getOrganizationMemberRoleName() }
         ),
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -86,6 +87,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     if (!rsiHandle) {
       await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominatePlayer.responses.invalidHandle', locale }),
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -95,6 +97,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     if (nominationsInProgress.has(interaction.user.id)) {
       await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominatePlayer.responses.submissionInProgress', locale }),
+        allowedMentions: { parse: [] },
       });
       return;
     }
@@ -155,11 +158,13 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     if (interaction.replied || interaction.deferred) {
       await interaction.editReply({
         content: i18n.__({ phrase: responsePhrase, locale }),
+        allowedMentions: { parse: [] },
       });
     } else {
       await interaction.reply({
         content: i18n.__({ phrase: responsePhrase, locale }),
         ephemeral: true,
+        allowedMentions: { parse: [] },
       });
     }
   }
