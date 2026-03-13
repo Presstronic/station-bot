@@ -15,7 +15,6 @@ afterEach(() => {
 });
 
 function createNominationInteraction(overrides: Record<string, unknown> = {}) {
-  const reply = jest.fn(async () => undefined);
   const interaction: Record<string, unknown> = {
     inGuild: () => true,
     locale: 'en-US',
@@ -55,9 +54,12 @@ function createNominationInteraction(overrides: Record<string, unknown> = {}) {
         return null;
       },
     },
-    reply,
-    // editReply throws unless the interaction has been deferred/replied, catching accidental
-    // usage without a prior deferReply in the implementation under test.
+    // reply sets replied=true so the editReply guard routes correctly for error-path tests.
+    reply: jest.fn(async () => { interaction.replied = true; }),
+    // deferReply sets deferred=true; defined before ...overrides so callers can override it.
+    deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    // editReply throws unless the interaction has been deferred or replied, catching accidental
+    // usage without a prior deferReply/reply in the implementation under test.
     editReply: jest.fn(async function(this: void) {
       if (!interaction.deferred && !interaction.replied) {
         throw new Error('editReply called before deferReply/reply');
@@ -65,8 +67,6 @@ function createNominationInteraction(overrides: Record<string, unknown> = {}) {
     }),
     ...overrides,
   };
-  // deferReply sets deferred=true so the error catch branch routes to editReply correctly
-  interaction.deferReply = jest.fn(async () => { interaction.deferred = true; });
   return interaction as any;
 }
 
