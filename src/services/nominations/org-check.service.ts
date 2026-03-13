@@ -230,6 +230,27 @@ function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
   return 'unknown';
 }
 
+export type CitizenExistsResult = 'found' | 'not_found' | 'unavailable';
+
+/**
+ * Checks whether an RSI citizen profile exists.
+ * Returns 'found' if the profile page is reachable, 'not_found' if it returns 404,
+ * and 'unavailable' for any transient error (timeout, server error, etc.) so callers
+ * can fail open and not block nominations due to RSI availability issues.
+ */
+export async function checkCitizenExists(rsiHandle: string): Promise<CitizenExistsResult> {
+  const citizenUrl = buildCitizenUrl(rsiHandle.trim());
+  const result = await fetchPageWithReason(citizenUrl);
+  if (!result.ok) {
+    if (result.code === 'not_found') return 'not_found';
+    logger.warn(
+      `RSI citizen existence check failed (${result.code}) for handle "${sanitizeForInlineText(rsiHandle)}": ${trimMessage(result.message, 120)}`
+    );
+    return 'unavailable';
+  }
+  return 'found';
+}
+
 export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckResult> {
   const normalizedHandle = rsiHandle.trim();
   const safeHandle = sanitizeForInlineText(normalizedHandle);

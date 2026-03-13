@@ -10,6 +10,7 @@ import {
 import { getLogger } from '../utils/logger.ts';
 import { getNominationRatePolicy } from '../services/nominations/anti-abuse.policy.ts';
 import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.service.ts';
+import { checkCitizenExists } from '../services/nominations/org-check.service.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
@@ -128,6 +129,18 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
         }
         await interaction.editReply({ content, allowedMentions: { parse: [] } });
         return;
+      }
+
+      const citizenCheck = await checkCitizenExists(rsiHandle);
+      if (citizenCheck === 'not_found') {
+        await interaction.editReply({
+          content: i18n.__({ phrase: 'commands.nominatePlayer.responses.citizenNotFound', locale }),
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+      if (citizenCheck === 'unavailable') {
+        logger.warn(`RSI citizen check unavailable for handle "${rsiHandle}" — proceeding with nomination`);
       }
 
       const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);

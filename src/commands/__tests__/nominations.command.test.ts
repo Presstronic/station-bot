@@ -87,6 +87,10 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkCitizenExists: jest.fn(async () => 'found'),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
     const interaction = createNominationInteraction();
@@ -156,6 +160,10 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkCitizenExists: jest.fn(async () => 'found'),
+      checkHasAnyOrgMembership: jest.fn(),
     }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
@@ -377,6 +385,10 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkCitizenExists: jest.fn(async () => 'found'),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
     const interaction = createNominationInteraction({
@@ -425,6 +437,10 @@ describe('nominations commands', () => {
     }));
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
       checkNominationAntiAbuse: jest.fn(async () => null),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkCitizenExists: jest.fn(async () => 'found'),
+      checkHasAnyOrgMembership: jest.fn(),
     }));
 
     const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
