@@ -132,3 +132,77 @@ describe('checkHasAnyOrgMembership', () => {
     expect(result.status).toBe('unknown');
   });
 });
+
+describe('checkCitizenExists', () => {
+  it('returns found with canonical handle parsed from page', async () => {
+    const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({
+      status: 200,
+      data: '<html><body><span class="nick">PilotNominee</span></body></html>',
+      headers: {},
+    });
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+    }));
+
+    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const result = await checkCitizenExists('pilotnominee');
+
+    expect(result.status).toBe('found');
+    if (result.status === 'found') {
+      expect(result.canonicalHandle).toBe('PilotNominee');
+    }
+  });
+
+  it('returns found with submitted handle as fallback when nick element is absent', async () => {
+    const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({
+      status: 200,
+      data: '<html><body>Citizen page</body></html>',
+      headers: {},
+    });
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+    }));
+
+    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const result = await checkCitizenExists('PilotNominee');
+
+    expect(result.status).toBe('found');
+    if (result.status === 'found') {
+      expect(result.canonicalHandle).toBe('PilotNominee');
+    }
+  });
+
+  it('returns not_found when citizen profile is missing', async () => {
+    const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({ status: 404, data: '', headers: {} });
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+    }));
+
+    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const result = await checkCitizenExists('GhostPilot');
+
+    expect(result.status).toBe('not_found');
+  });
+
+  it('returns unavailable on transient RSI error', async () => {
+    const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({ status: 500, data: '', headers: {} });
+    const warn = jest.fn();
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn() }),
+    }));
+
+    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const result = await checkCitizenExists('SlowPilot');
+
+    expect(result.status).toBe('unavailable');
+    expect(warn).toHaveBeenCalled();
+  });
+});

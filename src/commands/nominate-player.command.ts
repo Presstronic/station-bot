@@ -10,6 +10,8 @@ import {
 import { getLogger } from '../utils/logger.ts';
 import { getNominationRatePolicy } from '../services/nominations/anti-abuse.policy.ts';
 import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.service.ts';
+import { checkCitizenExists } from '../services/nominations/org-check.service.ts';
+import { sanitizeForInlineText } from '../utils/sanitize.ts';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
@@ -130,7 +132,21 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
         return;
       }
 
-      const updated = await recordNomination(rsiHandle, interaction.user.id, interaction.user.tag, reason);
+      const citizenCheck = await checkCitizenExists(rsiHandle);
+      if (citizenCheck.status === 'not_found') {
+        await interaction.editReply({
+          content: i18n.__({ phrase: 'commands.nominatePlayer.responses.citizenNotFound', locale }),
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+      if (citizenCheck.status === 'unavailable') {
+        logger.warn(`RSI citizen check unavailable for handle "${sanitizeForInlineText(rsiHandle)}" — proceeding with nomination`);
+      }
+
+      // Use RSI's canonical handle casing when available; fall back to user-submitted handle.
+      const displayHandle = citizenCheck.status === 'found' ? citizenCheck.canonicalHandle : rsiHandle;
+      const updated = await recordNomination(displayHandle, interaction.user.id, interaction.user.tag, reason);
       await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominatePlayer.responses.created', locale },

@@ -230,6 +230,36 @@ function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
   return 'unknown';
 }
 
+export type CitizenExistsResult =
+  | { status: 'found'; canonicalHandle: string }
+  | { status: 'not_found' }
+  | { status: 'unavailable' };
+
+function parseCanonicalHandle(html: string, fallback: string): string {
+  const $ = cheerio.load(html);
+  const nick = $('span.nick').first().text().trim();
+  return nick.length > 0 ? nick : fallback;
+}
+
+/**
+ * Checks whether an RSI citizen profile exists.
+ * Returns 'found' with the canonical handle (RSI's casing) when the profile is reachable,
+ * 'not_found' if it returns 404, and 'unavailable' for any transient error (timeout,
+ * server error, etc.) so callers can fail open and not block nominations.
+ */
+export async function checkCitizenExists(rsiHandle: string): Promise<CitizenExistsResult> {
+  const citizenUrl = buildCitizenUrl(rsiHandle);
+  const result = await fetchPageWithReason(citizenUrl);
+  if (!result.ok) {
+    if (result.code === 'not_found') return { status: 'not_found' };
+    logger.warn(
+      `RSI citizen existence check failed (${result.code}) for handle "${sanitizeForInlineText(rsiHandle)}": ${trimMessage(result.message, 120)}`
+    );
+    return { status: 'unavailable' };
+  }
+  return { status: 'found', canonicalHandle: parseCanonicalHandle(result.html, rsiHandle) };
+}
+
 export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckResult> {
   const normalizedHandle = rsiHandle.trim();
   const safeHandle = sanitizeForInlineText(normalizedHandle);
