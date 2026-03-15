@@ -19,14 +19,14 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
 
   async function respond(content: string): Promise<void> {
     if (interaction.deferred && !interaction.replied) {
-      await interaction.editReply({ content });
+      await interaction.editReply({ content, allowedMentions: { parse: [] } });
       return;
     }
     if (interaction.replied) {
-      await interaction.followUp({ content, ephemeral: true });
+      await interaction.followUp({ content, ephemeral: true, allowedMentions: { parse: [] } });
       return;
     }
-    await interaction.reply({ content, ephemeral: true });
+    await interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
   }
 
   const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
