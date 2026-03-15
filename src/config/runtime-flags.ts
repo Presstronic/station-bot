@@ -27,3 +27,7 @@ export function isReadOnlyMode(): boolean {
 export function isVerificationEnabled(): boolean {
   return envFlag('VERIFICATION_ENABLED', true);
 }
+
+export function isPurgeJobsEnabled(): boolean {
+  return envFlag('PURGE_JOBS_ENABLED', false);
+}

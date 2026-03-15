@@ -12,8 +12,16 @@ afterEach(() => {
   process.env = { ...originalEnv };
 });
 
-async function loadIndexAndRunReady(readOnlyMode: 'true' | 'false') {
+async function loadIndexAndRunReady(
+  readOnlyMode: 'true' | 'false',
+  options: { purgeJobsEnabled?: 'true' | 'false' } = {}
+) {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
+  if (options.purgeJobsEnabled !== undefined) {
+    process.env.PURGE_JOBS_ENABLED = options.purgeJobsEnabled;
+  } else {
+    delete process.env.PURGE_JOBS_ENABLED;
+  }
 
   const registerAllCommands = jest.fn(async () => ({ passed: [], failed: [] }));
   const ensureNominationsSchema = jest.fn(async () => undefined);
@@ -126,7 +134,7 @@ describe('startup wiring with read-only mode', () => {
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
       startNominationCheckWorkerLoop,
-    } = await loadIndexAndRunReady('false');
+    } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'true' });
 
     expect(registerAllCommands).toHaveBeenCalledTimes(1);
     expect(registerAllCommands).toHaveBeenCalledWith();
@@ -134,6 +142,18 @@ describe('startup wiring with read-only mode', () => {
     expect(scheduleTemporaryMemberCleanup).toHaveBeenCalledTimes(1);
     expect(schedulePotentialApplicantCleanup).toHaveBeenCalledTimes(1);
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
+  });
+
+  it('skips purge jobs when PURGE_JOBS_ENABLED=false even if not in read-only mode', async () => {
+    const {
+      addMissingDefaultRoles,
+      scheduleTemporaryMemberCleanup,
+      schedulePotentialApplicantCleanup,
+    } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'false' });
+
+    expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
+    expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
+    expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
   });
 
   it('fails fast when DATABASE_URL is configured but schema check fails', async () => {

@@ -1,13 +1,19 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { isReadOnlyMode } from '../runtime-flags.ts';
+import { isReadOnlyMode, isPurgeJobsEnabled } from '../runtime-flags.ts';
 
 const originalReadOnlyMode = process.env.BOT_READ_ONLY_MODE;
+const originalPurgeJobsEnabled = process.env.PURGE_JOBS_ENABLED;
 
 afterEach(() => {
   if (originalReadOnlyMode === undefined) {
     delete process.env.BOT_READ_ONLY_MODE;
   } else {
     process.env.BOT_READ_ONLY_MODE = originalReadOnlyMode;
+  }
+  if (originalPurgeJobsEnabled === undefined) {
+    delete process.env.PURGE_JOBS_ENABLED;
+  } else {
+    process.env.PURGE_JOBS_ENABLED = originalPurgeJobsEnabled;
   }
 });
 
@@ -39,5 +45,22 @@ describe('isReadOnlyMode', () => {
   it('falls back to default for unrecognized values', () => {
     process.env.BOT_READ_ONLY_MODE = 'enabled';
     expect(isReadOnlyMode()).toBe(true);
+  });
+});
+
+describe('isPurgeJobsEnabled', () => {
+  it('defaults to false when env var is not set', () => {
+    delete process.env.PURGE_JOBS_ENABLED;
+    expect(isPurgeJobsEnabled()).toBe(false);
+  });
+
+  it('returns true when PURGE_JOBS_ENABLED is true', () => {
+    process.env.PURGE_JOBS_ENABLED = 'true';
+    expect(isPurgeJobsEnabled()).toBe(true);
+  });
+
+  it('returns false when PURGE_JOBS_ENABLED is false', () => {
+    process.env.PURGE_JOBS_ENABLED = 'false';
+    expect(isPurgeJobsEnabled()).toBe(false);
   });
 });
