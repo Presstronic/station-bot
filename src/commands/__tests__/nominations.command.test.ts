@@ -739,6 +739,8 @@ describe('nominations commands', () => {
     expect(content).not.toContain('2026-01-02T');
     expect(content).toContain('2026-01-01');
     expect(content).not.toContain('2026-01-01T');
+    // null reason renders as em-dash
+    expect(content).toContain('—');
   });
 
   it('reports unknown and never-checked counts without double-counting unset status', async () => {
@@ -1619,5 +1621,104 @@ describe('nominations commands', () => {
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('never');
     expect(content).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('review-nominations shows reason text in table when reason is provided', async () => {
+    const getUnprocessedNominations = jest.fn(async () => [
+      {
+        normalizedHandle: 'pilotnominee',
+        displayHandle: 'PilotNominee',
+        nominationCount: 1,
+        lifecycleState: 'new',
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null,
+        lastOrgCheckAt: null,
+        events: [
+          { nominatorUserId: 'u1', nominatorUserTag: 'tester#0001', reason: 'Great pilot, helped us in ops', createdAt: '2026-01-01T00:00:00.000Z' },
+        ],
+      },
+    ]);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => null, getInteger: () => null },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('Great pilot, helped us in ops');
+  });
+
+  it('review-nominations truncates reason to 120 characters in table', async () => {
+    const longReason = 'A'.repeat(130);
+    const getUnprocessedNominations = jest.fn(async () => [
+      {
+        normalizedHandle: 'pilotnominee',
+        displayHandle: 'PilotNominee',
+        nominationCount: 1,
+        lifecycleState: 'new',
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null,
+        lastOrgCheckAt: null,
+        events: [
+          { nominatorUserId: 'u1', nominatorUserTag: 'tester#0001', reason: longReason, createdAt: '2026-01-01T00:00:00.000Z' },
+        ],
+      },
+    ]);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => null, getInteger: () => null },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).not.toContain(longReason);
+    expect(content).toContain('...');
+    expect(content).toContain('A'.repeat(117));
   });
 });

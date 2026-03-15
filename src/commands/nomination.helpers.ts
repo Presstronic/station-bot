@@ -181,13 +181,15 @@ export function resolveNominationOrgResultCode(nomination: {
 }
 
 export function formatNominationsAsTable(records: NominationRecord[]): string {
-  const headers = ['Handle', 'Count', 'State', 'Org', 'Last Nomination', 'Nominators'];
+  const headers = ['Handle', 'Count', 'State', 'Org', 'Last Nomination', 'Nominators', 'Reason'];
   const rows = records.map((record) => {
     const latestEvent = record.events[record.events.length - 1];
     const nominators = sanitizeForInlineText(
       [...new Set(record.events.map((e) => e.nominatorUserTag))].slice(0, 3).join(', ')
     );
     const orgLabel = resolveNominationOrgResultCode(record) ?? 'unknown';
+    const rawReason = sanitizeForInlineText(latestEvent?.reason ?? '');
+    const reason = rawReason.length > 120 ? `${rawReason.slice(0, 117)}...` : rawReason || '—';
 
     return [
       sanitizeForInlineText(record.displayHandle),
@@ -196,6 +198,7 @@ export function formatNominationsAsTable(records: NominationRecord[]): string {
       orgLabel,
       latestEvent ? toDateString(latestEvent.createdAt) : '-',
       nominators || '-',
+      reason,
     ];
   });
 
