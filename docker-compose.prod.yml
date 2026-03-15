@@ -36,6 +36,8 @@ services:
     # Uncomment if your bot has a web server or exposed ports
     # ports:
     #   - "3000:3000"
+    tmpfs:
+      - /tmp # Required for tsx IPC socket; read_only: true makes the root fs unwritable
     volumes:
       - /etc/localtime:/etc/localtime:ro # Sync container time with host
       - ./logs:/app/logs # Persistent writable logs directory

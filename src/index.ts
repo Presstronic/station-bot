@@ -6,13 +6,14 @@ import { handleInteraction } from './interactions/interactionRouter.ts';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
 import { addMissingDefaultRoles } from './services/role.services.ts';
 import { getLogger } from './utils/logger.ts';
-import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.ts';
+import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.ts';
 import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.ts';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.ts';
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
+const purgeJobsEnabled = isPurgeJobsEnabled();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
 process.on('uncaughtException', (error) => {
@@ -73,11 +74,17 @@ client.once('ready', async () => {
           }
         })
       );
+      logger.info('Verification enabled — role setup complete.');
+    } else {
+      logger.info('VERIFICATION_ENABLED=false — skipping role setup.');
+    }
+
+    if (purgeJobsEnabled) {
       scheduleTemporaryMemberCleanup(client);
       schedulePotentialApplicantCleanup(client);
-      logger.info('Scheduled member cleanup jobs.');
+      logger.info('Scheduled member purge jobs.');
     } else {
-      logger.info('VERIFICATION_ENABLED=false — skipping role setup and member cleanup scheduling.');
+      logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
     if (isDatabaseConfigured()) {
       startNominationCheckWorkerLoop();
