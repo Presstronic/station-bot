@@ -16,6 +16,9 @@ async function loadHandlerWithMocks({
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
 
+  await jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
+  }));
   await jest.unstable_mockModule('../../commands/verify.ts', () => ({
     getUserVerificationData,
   }));
