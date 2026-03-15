@@ -42,20 +42,18 @@ async function loadHandlerWithMocks({
 }
 
 function makeButtonInteraction(customId = 'verify') {
-  const editReply = jest.fn(async () => undefined);
-  const reply = jest.fn(async () => undefined);
-  const followUp = jest.fn(async () => undefined);
-
-  return {
+  const interaction = {
     customId,
-    deferred: true,
+    deferred: false,
     replied: false,
     locale: 'en-US',
     user: { id: 'user-123', username: 'TestUser' },
-    editReply,
-    reply,
-    followUp,
-  } as unknown as import('discord.js').ButtonInteraction;
+    deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    editReply: jest.fn(async () => undefined),
+    reply: jest.fn(async () => undefined),
+    followUp: jest.fn(async () => undefined),
+  };
+  return interaction as unknown as import('discord.js').ButtonInteraction;
 }
 
 describe('handleVerifyButtonInteraction', () => {
@@ -66,6 +64,17 @@ describe('handleVerifyButtonInteraction', () => {
     const interaction = makeButtonInteraction('not-verify');
     await handleVerifyButtonInteraction(interaction);
     expect(verifyRSIProfile).not.toHaveBeenCalled();
+  });
+
+  it('defers the reply ephemerally before processing', async () => {
+    const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
+      userData: undefined,
+    });
+    const interaction = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(interaction.deferReply).toHaveBeenCalledTimes(1);
+    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
   });
 
   it('replies with sessionExpired message when no session data exists', async () => {
