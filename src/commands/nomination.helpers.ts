@@ -4,6 +4,7 @@ import {
   PermissionFlagsBits,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
+import { toDateString } from '../utils/date.ts';
 import type {
   NominationRecord,
   OrgCheckResultCode,
@@ -193,7 +194,7 @@ export function formatNominationsAsTable(records: NominationRecord[]): string {
       String(record.nominationCount),
       record.lifecycleState,
       orgLabel,
-      latestEvent?.createdAt ?? '-',
+      latestEvent ? toDateString(latestEvent.createdAt) : '-',
       nominators || '-',
     ];
   });

@@ -5,6 +5,7 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
+import { toDateString } from '../utils/date.ts';
 import {
   getAuditEvents,
   type AuditEventType,
@@ -74,7 +75,7 @@ export function parseSinceOption(raw: string): Date | null {
 function formatAuditTable(events: Awaited<ReturnType<typeof getAuditEvents>>): string {
   const lines = events.map((e) => {
     const parts = [
-      e.createdAt,
+      toDateString(e.createdAt),
       e.eventType,
       e.result,
       e.actorUserTag,

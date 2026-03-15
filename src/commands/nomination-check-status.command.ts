@@ -1,5 +1,6 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
+import { toDateString } from '../utils/date.ts';
 import {
   ensureCanManageReviewProcessing,
   getCommandLocale,
@@ -87,9 +88,9 @@ export async function handleNominationCheckStatusCommand(interaction: ChatInputC
           runningCount: String(job.runningCount),
           completedCount: String(job.completedCount),
           failedCount: String(job.failedCount),
-          createdAt: job.createdAt,
-          startedAt: job.startedAt ?? 'n/a',
-          finishedAt: job.finishedAt ?? 'n/a',
+          createdAt: toDateString(job.createdAt),
+          startedAt: toDateString(job.startedAt),
+          finishedAt: toDateString(job.finishedAt),
           errorSummary: job.errorSummary ?? 'none',
         }
       ),

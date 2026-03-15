@@ -4,6 +4,7 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.ts';
+import { toDateString } from '../utils/date.ts';
 import {
   getUnprocessedNominations,
   type NominationStatusFilter,
@@ -144,7 +145,8 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
       0
     );
     const neverCheckedCount = displayNominations.filter((nomination) => !nomination.lastOrgCheckAt).length;
-    const lastRefreshedAt = getLastRefreshedAtUtc(displayNominations.map((nomination) => nomination.lastOrgCheckAt));
+    const rawLastRefreshedAt = getLastRefreshedAtUtc(displayNominations.map((nomination) => nomination.lastOrgCheckAt));
+    const lastRefreshedAt = rawLastRefreshedAt === 'never' ? 'never' : toDateString(rawLastRefreshedAt);
     const newCount = displayNominations.filter((n) => n.lifecycleState === 'new').length;
     const checkedCount = displayNominations.filter((n) => n.lifecycleState === 'checked').length;
     const qualifiedCount = displayNominations.filter((n) => n.lifecycleState === 'qualified').length;
