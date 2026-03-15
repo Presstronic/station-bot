@@ -19,21 +19,29 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
 
   async function respond(content: string): Promise<void> {
     if (interaction.deferred && !interaction.replied) {
-      await interaction.editReply({ content });
+      await interaction.editReply({ content, allowedMentions: { parse: [] } });
       return;
     }
     if (interaction.replied) {
-      await interaction.followUp({ content, ephemeral: true });
+      await interaction.followUp({ content, ephemeral: true, allowedMentions: { parse: [] } });
       return;
     }
-    await interaction.reply({ content, ephemeral: true });
+    await interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
   }
 
+  const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
   const userData = getUserVerificationData(interaction.user.id);
-  const rsiInGameName = userData?.rsiProfileName?.split('/').pop() ?? 'Unknown';
+
+  if (!userData) {
+    await respond(
+      i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale })
+    );
+    return;
+  }
+
+  const rsiInGameName = userData.rsiProfileName?.split('/').pop() ?? 'Unknown';
 
   const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
-  const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
   logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
 
   if (rsiProfileVerified) {
