@@ -112,6 +112,9 @@ describe('healthcheck command', () => {
         content: expect.stringContaining('/verify'),
       })
     );
+    const content = ((reply.mock.calls[0] as unknown) as [{ content: string }])[0].content;
+    expect(content).toMatch(/\d{4}-\d{2}-\d{2}/);
+    expect(content).not.toMatch(/T\d{2}:\d{2}:\d{2}/);
   });
 
   it('rejects usage outside guilds', async () => {

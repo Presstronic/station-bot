@@ -160,6 +160,21 @@ describe('handleNominationAuditCommand', () => {
     );
   });
 
+  it('renders event createdAt as YYYY-MM-DD in audit table', async () => {
+    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+      getAuditEvents: jest.fn(async () => [makeAuditEvent({ createdAt: '2026-03-12T10:00:00.000Z' })]),
+    }));
+
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const interaction = makeInteraction();
+
+    await handleNominationAuditCommand(interaction);
+
+    const content = (interaction.editReply.mock.calls[0] as [{ content: string }])[0].content;
+    expect(content).toContain('2026-03-12');
+    expect(content).not.toContain('2026-03-12T10:00:00');
+  });
+
   it('appends truncated hint when result count equals limit', async () => {
     const events = Array.from({ length: 26 }, (_, i) => makeAuditEvent({ id: i }));
     jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({

@@ -733,6 +733,12 @@ describe('nominations commands', () => {
         content: expect.stringContaining('Tip: run /refresh-nomination-org-status'),
       })
     );
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    // lastRefreshedAt and event date both rendered as YYYY-MM-DD
+    expect(content).toContain('2026-01-02');
+    expect(content).not.toContain('2026-01-02T');
+    expect(content).toContain('2026-01-01');
+    expect(content).not.toContain('2026-01-01T');
   });
 
   it('reports unknown and never-checked counts without double-counting unset status', async () => {
@@ -1141,6 +1147,11 @@ describe('nominations commands', () => {
         content: expect.stringContaining('Job ID: 77'),
       })
     );
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    // createdAt and startedAt rendered as YYYY-MM-DD, null finishedAt shown as n/a
+    expect(content).toContain('2026-01-01');
+    expect(content).not.toContain('2026-01-01T');
+    expect(content).toContain('n/a');
   });
 
   it('review-nominations passes status/sort/limit options to getUnprocessedNominations', async () => {
@@ -1559,5 +1570,54 @@ describe('nominations commands', () => {
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('Nominations shown: 5');
     expect(content).not.toContain('Nominations shown: 6');
+  });
+
+  it('review-nominations shows "never" for lastRefreshedAt when no nominations have been org-checked', async () => {
+    const getUnprocessedNominations = jest.fn(async () => [
+      {
+        normalizedHandle: 'pilotnominee',
+        displayHandle: 'PilotNominee',
+        nominationCount: 1,
+        lifecycleState: 'new',
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null,
+        lastOrgCheckAt: null,
+        events: [
+          { nominatorUserId: 'u1', nominatorUserTag: 'tester#0001', reason: null, createdAt: '2026-01-01T00:00:00.000Z' },
+        ],
+      },
+    ]);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => null, getInteger: () => null },
+    } as any;
+
+    await handleReviewNominationsCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('never');
+    expect(content).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
   });
 });
