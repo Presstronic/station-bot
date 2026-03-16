@@ -20,6 +20,7 @@ export const VERIFY_COMMAND_NAME = 'verify';
 export const HEALTHCHECK_COMMAND_NAME = 'healthcheck';
 
 const inGameNameKey = 'commands.verify.options.inGameName.name';
+const RSI_HANDLE_PATTERN = /^[a-zA-Z0-9_-]{3,60}$/;
 
 export const verifyCommandBuilder = new SlashCommandBuilder()
   .setName(VERIFY_COMMAND_NAME)
@@ -67,7 +68,17 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   }
 
   const optionName = i18n.__({ phrase: inGameNameKey, locale: defaultLocale });
-  const rsiProfileName = interaction.options.getString(optionName, true);
+  const rsiProfileName = interaction.options.getString(optionName, true).trim();
+
+  if (!RSI_HANDLE_PATTERN.test(rsiProfileName)) {
+    await interaction.reply({
+      content: i18n.__({ phrase: 'commands.verify.responses.invalidHandle', locale }),
+      ephemeral: true,
+      allowedMentions: { parse: [] },
+    });
+    return;
+  }
+
   logger.debug(`VERIFY.TS--> handleVerifyCommand -> RSI Profile Name: ${rsiProfileName}`);
 
   const dreadnoughtValidationCode = generateDrdntVerificationCode();

@@ -29,7 +29,8 @@
         "success": "✅ {rsiName} has been verified with RSI for Discord member {username}!",
         "assignFailed": "❌ Could not assign the \"Verified\" role for Discord member {username} for RSI profile {rsiName}. Please try again.",
         "verificationFailed": "❌ Could not verify citizenship for Discord member {username} for RSI profile {rsiName}. Please try again.",
-        "sessionExpired": "❌ Your verification session has expired. Please run /verify again to start a new session."
+        "sessionExpired": "❌ Your verification session has expired. Please run /verify again to start a new session.",
+        "invalidHandle": "❌ Please enter your RSI handle only (e.g. Testhandle123), not a full URL."
       }
     },
     "healthcheck": {
