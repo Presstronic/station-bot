@@ -11,6 +11,16 @@ services:
       POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-change_me}"
     volumes:
       - postgres-data:/var/lib/postgresql/data
+      # SSL: uncomment after placing your server cert and key in ./certs/
+      # The key file must be owned by the postgres user (uid 70 on alpine) and chmod 600.
+      # - ./certs/server.crt:/var/lib/postgresql/server.crt:ro
+      # - ./certs/server.key:/var/lib/postgresql/server.key:ro
+    # SSL: uncomment to enable TLS on the Postgres listener
+    # command: >
+    #   postgres
+    #     -c ssl=on
+    #     -c ssl_cert_file=/var/lib/postgresql/server.crt
+    #     -c ssl_key_file=/var/lib/postgresql/server.key
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -41,9 +51,17 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro # Sync container time with host
       - ./logs:/app/logs # Persistent writable logs directory
+      # SSL: uncomment to mount the CA cert used to verify the Postgres server certificate.
+      # Place the CA cert at ./certs/ca.crt on the host, then set PG_SSL_CA_PATH=/app/certs/ca.crt
+      # in .env.production.
+      # - ./certs/ca.crt:/app/certs/ca.crt:ro
     environment:
       LOG_LEVEL: "${LOG_LEVEL:-info}" # Default log level to info if not set
       DATABASE_URL: "${DATABASE_URL:-postgresql://${POSTGRES_USER:-station_bot}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-station_bot}}"
+      # SSL: uncomment when PG_SSL_ENABLED=true in .env.production
+      # PG_SSL_ENABLED: "true"
+      # PG_SSL_REJECT_UNAUTHORIZED: "true"
+      # PG_SSL_CA_PATH: "/app/certs/ca.crt"
 
 networks:
   bot-network:
