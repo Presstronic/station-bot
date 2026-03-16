@@ -37,7 +37,7 @@ trap 'rm -f "$CA_CNF" "$SERVER_CSR_CNF" "$SERVER_EXT_CNF"' EXIT
 # 1. CA — explicit basicConstraints and keyUsage so the cert is a valid CA
 #    across all OpenSSL configurations. RSA 4096 + SHA-256 explicitly set.
 # ---------------------------------------------------------------------------
-CA_CNF=$(mktemp)
+CA_CNF=$(mktemp /tmp/station-bot-ca-cnf.XXXXXX)
 cat > "$CA_CNF" << 'CONF'
 [req]
 distinguished_name = dn
@@ -68,7 +68,7 @@ openssl req -new -x509 \
 #    (rejectUnauthorized=true) accept the certificate when connecting to the
 #    "postgres" hostname used in DATABASE_URL. RSA 4096 + SHA-256 explicitly set.
 # ---------------------------------------------------------------------------
-SERVER_CSR_CNF=$(mktemp)
+SERVER_CSR_CNF=$(mktemp /tmp/station-bot-server-csr.XXXXXX)
 cat > "$SERVER_CSR_CNF" << 'CONF'
 [req]
 distinguished_name = dn
@@ -78,7 +78,7 @@ prompt             = no
 CN = postgres
 CONF
 
-SERVER_EXT_CNF=$(mktemp)
+SERVER_EXT_CNF=$(mktemp /tmp/station-bot-server-ext.XXXXXX)
 cat > "$SERVER_EXT_CNF" << 'CONF'
 [v3_server]
 basicConstraints       = CA:FALSE
