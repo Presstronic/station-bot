@@ -69,7 +69,6 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
 
   const optionName = i18n.__({ phrase: inGameNameKey, locale: defaultLocale });
   const rsiProfileName = interaction.options.getString(optionName, true).trim();
-  logger.debug(`VERIFY.TS--> handleVerifyCommand -> RSI Profile Name: ${rsiProfileName}`);
 
   if (!RSI_HANDLE_PATTERN.test(rsiProfileName)) {
     await interaction.reply({
@@ -79,6 +78,8 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
     });
     return;
   }
+
+  logger.debug(`VERIFY.TS--> handleVerifyCommand -> RSI Profile Name: ${rsiProfileName}`);
 
   const dreadnoughtValidationCode = generateDrdntVerificationCode();
   verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode });
