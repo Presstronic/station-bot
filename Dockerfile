@@ -34,7 +34,8 @@ COPY --from=builder /app/tsconfig.json ./
 COPY migrations ./migrations
 
 # tsx requires /tmp for its IPC socket; alpine does not include it by default
-RUN mkdir -p /tmp
+# /app/certs is the bind-mount target for the CA cert when SSL is enabled (see docker-compose.ssl.yml)
+RUN mkdir -p /tmp /app/certs
 
 # Set environment variables
 ENV NODE_ENV=production

@@ -25,29 +25,77 @@ fi
 
 mkdir -p "$CERTS_DIR"
 
+# ---------------------------------------------------------------------------
+# 1. CA — explicit basicConstraints and keyUsage so the cert is a valid CA
+#    across all OpenSSL configurations.
+# ---------------------------------------------------------------------------
+CA_CNF=$(mktemp)
+trap 'rm -f "$CA_CNF" "$SERVER_CSR_CNF" "$SERVER_EXT_CNF"' EXIT
+
+cat > "$CA_CNF" << 'CONF'
+[req]
+distinguished_name = dn
+x509_extensions    = v3_ca
+prompt             = no
+
+[dn]
+CN = station-bot-ca
+
+[v3_ca]
+basicConstraints       = critical,CA:TRUE
+keyUsage               = critical,keyCertSign,cRLSign
+subjectKeyIdentifier   = hash
+CONF
+
 echo "Generating CA key and certificate..."
 openssl req -new -x509 \
-  -days "$DAYS" \
+  -days    "$DAYS" \
   -nodes \
-  -out  "$CERTS_DIR/ca.crt" \
-  -keyout "$CERTS_DIR/ca.key" \
-  -subj "/CN=station-bot-ca"
+  -out     "$CERTS_DIR/ca.crt" \
+  -keyout  "$CERTS_DIR/ca.key" \
+  -config  "$CA_CNF"
+
+# ---------------------------------------------------------------------------
+# 2. Server cert — includes SAN DNS:postgres so TLS clients that require SANs
+#    (rejectUnauthorized=true) accept the certificate when connecting to the
+#    "postgres" hostname used in DATABASE_URL.
+# ---------------------------------------------------------------------------
+SERVER_CSR_CNF=$(mktemp)
+cat > "$SERVER_CSR_CNF" << 'CONF'
+[req]
+distinguished_name = dn
+prompt             = no
+
+[dn]
+CN = postgres
+CONF
+
+SERVER_EXT_CNF=$(mktemp)
+cat > "$SERVER_EXT_CNF" << 'CONF'
+[v3_server]
+basicConstraints       = CA:FALSE
+keyUsage               = critical,digitalSignature,keyEncipherment
+extendedKeyUsage       = serverAuth
+subjectAltName         = DNS:postgres
+CONF
 
 echo "Generating Postgres server key and CSR..."
 openssl req -new \
   -nodes \
   -out    "$CERTS_DIR/server.csr" \
   -keyout "$CERTS_DIR/server.key" \
-  -subj "/CN=postgres"
+  -config "$SERVER_CSR_CNF"
 
 echo "Signing server certificate with CA..."
 openssl x509 -req \
-  -days "$DAYS" \
-  -in      "$CERTS_DIR/server.csr" \
-  -CA      "$CERTS_DIR/ca.crt" \
-  -CAkey   "$CERTS_DIR/ca.key" \
+  -days       "$DAYS" \
+  -in         "$CERTS_DIR/server.csr" \
+  -CA         "$CERTS_DIR/ca.crt" \
+  -CAkey      "$CERTS_DIR/ca.key" \
   -CAcreateserial \
-  -out     "$CERTS_DIR/server.crt"
+  -out        "$CERTS_DIR/server.crt" \
+  -extensions v3_server \
+  -extfile    "$SERVER_EXT_CNF"
 
 rm "$CERTS_DIR/server.csr"
 
@@ -66,5 +114,5 @@ echo ""
 echo "  sudo chown 70:70 $CERTS_DIR/server.key"
 echo "  sudo chmod 600  $CERTS_DIR/server.key"
 echo ""
-echo "Then start the stack:"
-echo "  docker compose -f docker-compose.prod.yml up -d"
+echo "Then start the stack with SSL enabled:"
+echo "  docker compose -f docker-compose.prod.yml -f docker-compose.ssl.yml up -d"
