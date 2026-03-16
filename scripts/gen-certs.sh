@@ -17,6 +17,7 @@ set -euo pipefail
 
 CERTS_DIR="$(cd "$(dirname "$0")/.." && pwd)/certs"
 DAYS=3650
+KEY_SIZE=4096
 
 if ! command -v openssl &>/dev/null; then
   echo "Error: openssl is not installed." >&2
@@ -25,13 +26,18 @@ fi
 
 mkdir -p "$CERTS_DIR"
 
-# ---------------------------------------------------------------------------
-# 1. CA — explicit basicConstraints and keyUsage so the cert is a valid CA
-#    across all OpenSSL configurations.
-# ---------------------------------------------------------------------------
-CA_CNF=$(mktemp)
+# Initialize temp file vars before the trap so the trap never references
+# an unset variable if the script exits before they are assigned (set -u).
+CA_CNF=""
+SERVER_CSR_CNF=""
+SERVER_EXT_CNF=""
 trap 'rm -f "$CA_CNF" "$SERVER_CSR_CNF" "$SERVER_EXT_CNF"' EXIT
 
+# ---------------------------------------------------------------------------
+# 1. CA — explicit basicConstraints and keyUsage so the cert is a valid CA
+#    across all OpenSSL configurations. RSA 4096 + SHA-256 explicitly set.
+# ---------------------------------------------------------------------------
+CA_CNF=$(mktemp)
 cat > "$CA_CNF" << 'CONF'
 [req]
 distinguished_name = dn
@@ -47,10 +53,12 @@ keyUsage               = critical,keyCertSign,cRLSign
 subjectKeyIdentifier   = hash
 CONF
 
-echo "Generating CA key and certificate..."
+echo "Generating CA key and certificate (RSA ${KEY_SIZE})..."
 openssl req -new -x509 \
   -days    "$DAYS" \
+  -newkey  "rsa:${KEY_SIZE}" \
   -nodes \
+  -sha256 \
   -out     "$CERTS_DIR/ca.crt" \
   -keyout  "$CERTS_DIR/ca.key" \
   -config  "$CA_CNF"
@@ -58,7 +66,7 @@ openssl req -new -x509 \
 # ---------------------------------------------------------------------------
 # 2. Server cert — includes SAN DNS:postgres so TLS clients that require SANs
 #    (rejectUnauthorized=true) accept the certificate when connecting to the
-#    "postgres" hostname used in DATABASE_URL.
+#    "postgres" hostname used in DATABASE_URL. RSA 4096 + SHA-256 explicitly set.
 # ---------------------------------------------------------------------------
 SERVER_CSR_CNF=$(mktemp)
 cat > "$SERVER_CSR_CNF" << 'CONF'
@@ -79,8 +87,9 @@ extendedKeyUsage       = serverAuth
 subjectAltName         = DNS:postgres
 CONF
 
-echo "Generating Postgres server key and CSR..."
+echo "Generating Postgres server key and CSR (RSA ${KEY_SIZE})..."
 openssl req -new \
+  -newkey  "rsa:${KEY_SIZE}" \
   -nodes \
   -out    "$CERTS_DIR/server.csr" \
   -keyout "$CERTS_DIR/server.key" \
@@ -89,9 +98,11 @@ openssl req -new \
 echo "Signing server certificate with CA..."
 openssl x509 -req \
   -days       "$DAYS" \
+  -sha256 \
   -in         "$CERTS_DIR/server.csr" \
   -CA         "$CERTS_DIR/ca.crt" \
   -CAkey      "$CERTS_DIR/ca.key" \
+  -CAserial   "$CERTS_DIR/ca.srl" \
   -CAcreateserial \
   -out        "$CERTS_DIR/server.crt" \
   -extensions v3_server \
@@ -99,7 +110,7 @@ openssl x509 -req \
 
 rm "$CERTS_DIR/server.csr"
 
-chmod 600 "$CERTS_DIR/ca.key"
+chmod 600 "$CERTS_DIR/ca.key" "$CERTS_DIR/ca.srl"
 chmod 644 "$CERTS_DIR/ca.crt" "$CERTS_DIR/server.crt"
 # server.key permissions are set here but must be re-applied after chown (see below)
 chmod 600 "$CERTS_DIR/server.key"
