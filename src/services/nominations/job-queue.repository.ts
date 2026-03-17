@@ -90,6 +90,7 @@ export async function enqueueNominationCheckJob(
 
   return withClient(async (client) => {
     await client.query('BEGIN');
+    let committed = false;
     try {
       const existingResult = await client.query(
         `
@@ -120,6 +121,7 @@ export async function enqueueNominationCheckJob(
           [existingJobId]
         );
         await client.query('COMMIT');
+        committed = true;
         if (existingJobResult.rows.length === 0) {
           throw new Error('Failed to load existing nomination check job');
         }
@@ -163,13 +165,14 @@ export async function enqueueNominationCheckJob(
       );
 
       await client.query('COMMIT');
+      committed = true;
       const job = await getJobWithItemCounts(jobId, client);
       if (!job) {
         throw new Error('Failed to load created nomination check job');
       }
       return { job, reused: false };
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!committed) await client.query('ROLLBACK');
       throw error;
     }
   });
@@ -207,6 +210,7 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
 
   return withClient(async (client) => {
     await client.query('BEGIN');
+    let committed = false;
     try {
       const claimResult = await client.query(
         `
@@ -222,6 +226,7 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
       );
       if (claimResult.rows.length === 0) {
         await client.query('COMMIT');
+        committed = true;
         return null;
       }
 
@@ -237,9 +242,10 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
         [jobId]
       );
       await client.query('COMMIT');
+      committed = true;
       return getJobWithItemCounts(jobId, client);
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!committed) await client.query('ROLLBACK');
       throw error;
     }
   });
