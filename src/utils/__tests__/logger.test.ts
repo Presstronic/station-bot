@@ -42,6 +42,7 @@ async function loadLogger() {
 
 beforeEach(() => {
   jest.resetModules();
+  jest.clearAllMocks();
   delete process.env.LOG_LEVEL;
   delete process.env.LOG_FILE_ENABLED;
   delete process.env.ELASTICSEARCH_NODE;
@@ -72,13 +73,16 @@ describe('getLogger — file transport', () => {
     expect(winston.transports.File).toHaveBeenCalledTimes(1);
   });
 
-  it('omits File transport when LOG_FILE_ENABLED=false', async () => {
-    process.env.LOG_FILE_ENABLED = 'false';
-    const winston = await import('winston');
-    const { getLogger } = await loadLogger();
-    getLogger();
-    expect(winston.transports.File).not.toHaveBeenCalled();
-  });
+  it.each(['false', '0', 'no', 'off', 'FALSE', 'Off'])(
+    'omits File transport when LOG_FILE_ENABLED=%s',
+    async (value) => {
+      process.env.LOG_FILE_ENABLED = value;
+      const winston = await import('winston');
+      const { getLogger } = await loadLogger();
+      getLogger();
+      expect(winston.transports.File).not.toHaveBeenCalled();
+    }
+  );
 });
 
 describe('getLogger — Elasticsearch transport', () => {

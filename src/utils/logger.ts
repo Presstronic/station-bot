@@ -13,7 +13,8 @@ export const getLogger = () => {
 
   const logLevel = process.env.LOG_LEVEL || 'info';
   const esNode = process.env.ELASTICSEARCH_NODE;
-  const fileLoggingEnabled = process.env.LOG_FILE_ENABLED !== 'false';
+  const falseValues = new Set(['0', 'false', 'no', 'off']);
+  const fileLoggingEnabled = !falseValues.has((process.env.LOG_FILE_ENABLED ?? '').trim().toLowerCase());
   const loggerTransports: Transport[] = [new transports.Console()];
 
   if (fileLoggingEnabled) {
@@ -26,8 +27,12 @@ export const getLogger = () => {
       clientOpts: { node: esNode },
     });
     esTransport.on('error', (err: unknown) => {
-      // eslint-disable-next-line no-console
-      console.error('[logger] Elasticsearch transport error (non-fatal):', err);
+      // Cannot route through the logger here — doing so would risk infinite recursion
+      // if the ES transport itself is the source of the error. Write directly to stderr
+      // with only the error message (never the raw error object, which may contain the
+      // ELASTICSEARCH_NODE URL including any embedded credentials).
+      const message = err instanceof Error ? err.message : String(err);
+      process.stderr.write(`[logger] Elasticsearch transport error (non-fatal): ${message}\n`);
     });
     loggerTransports.push(esTransport);
   }
