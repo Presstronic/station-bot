@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
 import type {
   EnqueueNominationCheckJobResult,
@@ -48,9 +49,12 @@ function mapItemRow(row: any): NominationCheckJobItem {
   };
 }
 
-async function getJobWithItemCounts(jobId: number): Promise<NominationCheckJob | null> {
-  const result = await withClient((client) =>
-    client.query(
+async function getJobWithItemCounts(
+  jobId: number,
+  client?: PoolClient
+): Promise<NominationCheckJob | null> {
+  const query = (c: PoolClient) =>
+    c.query(
       `
       SELECT
         j.*,
@@ -62,8 +66,8 @@ async function getJobWithItemCounts(jobId: number): Promise<NominationCheckJob |
       GROUP BY j.id
       `,
       [jobId]
-    )
-  );
+    );
+  const result = client ? await query(client) : await withClient(query);
   if (result.rows.length === 0) {
     return null;
   }
@@ -159,7 +163,7 @@ export async function enqueueNominationCheckJob(
       );
 
       await client.query('COMMIT');
-      const job = await getJobWithItemCounts(jobId);
+      const job = await getJobWithItemCounts(jobId, client);
       if (!job) {
         throw new Error('Failed to load created nomination check job');
       }
@@ -233,7 +237,7 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
         [jobId]
       );
       await client.query('COMMIT');
-      return getJobWithItemCounts(jobId);
+      return getJobWithItemCounts(jobId, client);
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
