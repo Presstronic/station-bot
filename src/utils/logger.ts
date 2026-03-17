@@ -13,18 +13,23 @@ export const getLogger = () => {
 
   const logLevel = process.env.LOG_LEVEL || 'info';
   const esNode = process.env.ELASTICSEARCH_NODE;
-  const loggerTransports: Transport[] = [
-    new transports.Console(),
-    new transports.File({ filename: './logs/app.log' }),
-  ];
+  const fileLoggingEnabled = process.env.LOG_FILE_ENABLED !== 'false';
+  const loggerTransports: Transport[] = [new transports.Console()];
+
+  if (fileLoggingEnabled) {
+    loggerTransports.push(new transports.File({ filename: './logs/app.log' }));
+  }
 
   if (esNode) {
-    loggerTransports.push(
-      new ElasticsearchTransport({
-        level: logLevel,
-        clientOpts: { node: esNode },
-      })
-    );
+    const esTransport = new ElasticsearchTransport({
+      level: logLevel,
+      clientOpts: { node: esNode },
+    });
+    esTransport.on('error', (err: unknown) => {
+      // eslint-disable-next-line no-console
+      console.error('[logger] Elasticsearch transport error (non-fatal):', err);
+    });
+    loggerTransports.push(esTransport);
   }
 
   loggerInstance = createLogger({
