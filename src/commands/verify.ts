@@ -6,12 +6,12 @@ import {
   ButtonStyle,
   PermissionFlagsBits,
 } from 'discord.js';
-import { generateDrdntVerificationCode } from '../services/verification-code.services.ts';
-import { getLogger } from '../utils/logger.ts';
-import i18n from '../utils/i18n-config.ts';
-import { isReadOnlyMode, isVerificationEnabled } from '../config/runtime-flags.ts';
-import { getRegisteredCommandNamesState } from './registration-state.ts';
-import { toDateString } from '../utils/date.ts';
+import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
+import { getLogger } from '../utils/logger.js';
+import i18n from '../utils/i18n-config.js';
+import { isReadOnlyMode, isVerificationEnabled } from '../config/runtime-flags.js';
+import { getRegisteredCommandNamesState } from './registration-state.js';
+import { toDateString } from '../utils/date.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -52,7 +52,7 @@ const verificationCodes = new Map<
 
 export async function registerCommands() {
   // Backward-compatible wrapper for older imports.
-  const { registerAllCommands } = await import('./register-commands.ts');
+  const { registerAllCommands } = await import('./register-commands.js');
   await registerAllCommands();
 }
 

@@ -26,7 +26,7 @@ describe('runNominationCheckWorkerCycle', () => {
     const updateOrgCheckResult = jest.fn(async () => undefined);
     const completeNominationCheckJobItem = jest.fn(async () => undefined);
 
-    jest.unstable_mockModule('../job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
       claimNextRunnableNominationCheckJob,
       claimNominationCheckJobItems,
       completeNominationCheckJobItem,
@@ -34,14 +34,14 @@ describe('runNominationCheckWorkerCycle', () => {
       failNominationCheckJobItem: jest.fn(),
       refreshNominationCheckJobProgress: jest.fn(async () => ({ status: 'completed', completedCount: 2, failedCount: 0 })),
     }));
-    jest.unstable_mockModule('../org-check.service.ts', () => ({
+    jest.unstable_mockModule('../org-check.service.js', () => ({
       checkHasAnyOrgMembership,
     }));
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       updateOrgCheckResult,
     }));
 
-    const { runNominationCheckWorkerCycle } = await import('../job-worker.service.ts');
+    const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
     const ran = await runNominationCheckWorkerCycle();
 
     expect(ran).toBe(true);
@@ -71,7 +71,7 @@ describe('runNominationCheckWorkerCycle', () => {
     const envBackup = process.env.NOMINATION_WORKER_MAX_ATTEMPTS;
     process.env.NOMINATION_WORKER_MAX_ATTEMPTS = '3';
 
-    jest.unstable_mockModule('../job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
       claimNextRunnableNominationCheckJob,
       claimNominationCheckJobItems,
       completeNominationCheckJobItem: jest.fn(),
@@ -79,14 +79,14 @@ describe('runNominationCheckWorkerCycle', () => {
       failNominationCheckJobItem,
       refreshNominationCheckJobProgress: jest.fn(async () => ({ status: 'failed', completedCount: 0, failedCount: 1 })),
     }));
-    jest.unstable_mockModule('../org-check.service.ts', () => ({
+    jest.unstable_mockModule('../org-check.service.js', () => ({
       checkHasAnyOrgMembership,
     }));
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       updateOrgCheckResult: jest.fn(),
     }));
 
-    const { runNominationCheckWorkerCycle } = await import('../job-worker.service.ts');
+    const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
     await runNominationCheckWorkerCycle();
 
     expect(requeueNominationCheckJobItem).toHaveBeenCalledTimes(1);

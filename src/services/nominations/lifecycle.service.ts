@@ -1,4 +1,4 @@
-import type { NominationLifecycleState, OrgCheckResultCode } from './types.ts';
+import type { NominationLifecycleState, OrgCheckResultCode } from './types.js';
 
 const VALID_TRANSITIONS: Record<NominationLifecycleState, readonly NominationLifecycleState[]> = {
   new: ['checked', 'qualified', 'disqualified_in_org', 'processed'],

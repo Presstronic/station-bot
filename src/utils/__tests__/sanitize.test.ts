@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { sanitizeForInlineText } from '../sanitize.ts';
+import { sanitizeForInlineText } from '../sanitize.js';
 
 describe('sanitizeForInlineText', () => {
   it('replaces markdown/codeblock and line-break control characters', () => {

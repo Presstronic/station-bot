@@ -4,18 +4,18 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
-import { toDateString } from '../utils/date.ts';
+import i18n from '../utils/i18n-config.js';
+import { toDateString } from '../utils/date.js';
 import {
   getAuditEvents,
   type AuditEventType,
-} from '../services/nominations/audit.repository.ts';
+} from '../services/nominations/audit.repository.js';
 import {
   ensureAdmin,
   getCommandLocale,
   isNominationConfigurationError,
-} from './nomination.helpers.ts';
-import { getLogger } from '../utils/logger.ts';
+} from './nomination.helpers.js';
+import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';

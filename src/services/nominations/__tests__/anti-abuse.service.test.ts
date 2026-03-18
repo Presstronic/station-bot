@@ -8,24 +8,24 @@ const DISABLED_POLICY = { userCooldownSeconds: 0, targetMaxPerDay: 0, userMaxPer
 
 describe('checkNominationAntiAbuse', () => {
   it('returns null when all checks are disabled', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(),
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     expect(await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', DISABLED_POLICY)).toBeNull();
   });
 
   it('returns null when user has never nominated (first nomination)', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       ...DISABLED_POLICY,
       userCooldownSeconds: 60,
@@ -34,13 +34,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('returns cooldown violation when elapsed < cooldown', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => 30),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       ...DISABLED_POLICY,
       userCooldownSeconds: 60,
@@ -49,13 +49,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('returns null when elapsed equals cooldown (boundary — not blocked)', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => 60),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       ...DISABLED_POLICY,
       userCooldownSeconds: 60,
@@ -64,13 +64,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('returns null when elapsed exceeds cooldown', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => 90),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       ...DISABLED_POLICY,
       userCooldownSeconds: 60,
@@ -79,13 +79,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('returns targetDailyLimit when target count >= cap', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 3),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'PilotNominee', {
       ...DISABLED_POLICY,
       targetMaxPerDay: 3,
@@ -94,13 +94,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('returns null when target count is below cap', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 2),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       ...DISABLED_POLICY,
       targetMaxPerDay: 3,
@@ -109,13 +109,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('returns userDailyLimit when user count >= cap', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 5),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       ...DISABLED_POLICY,
       userMaxPerDay: 5,
@@ -124,13 +124,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('returns null when user count is below cap', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 4),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       ...DISABLED_POLICY,
       userMaxPerDay: 5,
@@ -139,13 +139,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('cooldown check takes priority over target cap', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => 30),
       countNominationsForTargetInWindow: jest.fn(async () => 99),
       countNominationsByUserInWindow: jest.fn(async () => 99),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
       userCooldownSeconds: 60,
       targetMaxPerDay: 1,
@@ -155,13 +155,13 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('target cap takes priority over user cap', async () => {
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 1),
       countNominationsByUserInWindow: jest.fn(async () => 1),
     }));
 
-    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.ts');
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
     const result = await checkNominationAntiAbuse('u1', 'pilot', 'PilotNominee', {
       userCooldownSeconds: 0,
       targetMaxPerDay: 1,

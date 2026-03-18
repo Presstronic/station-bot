@@ -1,4 +1,4 @@
-import type { NominationRatePolicy } from './types.ts';
+import type { NominationRatePolicy } from './types.js';
 
 const DEFAULT_USER_COOLDOWN_SECONDS = 60;
 const DEFAULT_TARGET_MAX_PER_DAY = 0;

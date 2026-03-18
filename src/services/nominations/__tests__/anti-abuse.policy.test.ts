@@ -9,7 +9,7 @@ describe('getNominationRatePolicy', () => {
   });
 
   async function getPolicy() {
-    const { getNominationRatePolicy } = await import('../anti-abuse.policy.ts');
+    const { getNominationRatePolicy } = await import('../anti-abuse.policy.js');
     return getNominationRatePolicy();
   }
 

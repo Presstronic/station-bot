@@ -37,13 +37,13 @@ services:
     # ports:
     #   - "3000:3000"
     tmpfs:
-      - /tmp # Required for tsx IPC socket; read_only: true makes the root fs unwritable
+      - /tmp
     volumes:
       - /etc/localtime:/etc/localtime:ro # Sync container time with host
       - ./logs:/app/logs # Persistent writable logs directory
     environment:
-      LOG_LEVEL: "${LOG_LEVEL:-info}" # Default log level to info if not set
-      DATABASE_URL: "${DATABASE_URL:-postgresql://${POSTGRES_USER:-station_bot}:${POSTGRES_PASSWORD:-change_me}@postgres:5432/${POSTGRES_DB:-station_bot}}"
+      LOG_LEVEL: "${LOG_LEVEL:-info}"
+      DATABASE_URL: "${DATABASE_URL}"
 
 networks:
   bot-network:

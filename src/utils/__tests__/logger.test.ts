@@ -31,12 +31,12 @@ jest.unstable_mockModule('winston-elasticsearch', () => {
   return { ElasticsearchTransport: mockEsTransport };
 });
 
-jest.unstable_mockModule('../request-context.ts', () => ({
+jest.unstable_mockModule('../request-context.js', () => ({
   getCorrelationId: jest.fn(() => undefined),
 }));
 
 async function loadLogger() {
-  const mod = await import('../logger.ts');
+  const mod = await import('../logger.js');
   return mod;
 }
 

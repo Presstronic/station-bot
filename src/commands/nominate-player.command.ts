@@ -1,17 +1,17 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
-import { recordNomination } from '../services/nominations/nominations.repository.ts';
+import i18n from '../utils/i18n-config.js';
+import { recordNomination } from '../services/nominations/nominations.repository.js';
 import {
   getCommandLocale,
   getOrganizationMemberRoleName,
   hasOrganizationMemberOrHigher,
   isNominationConfigurationError,
-} from './nomination.helpers.ts';
-import { getLogger } from '../utils/logger.ts';
-import { getNominationRatePolicy } from '../services/nominations/anti-abuse.policy.ts';
-import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.service.ts';
-import { checkCitizenExists } from '../services/nominations/org-check.service.ts';
-import { sanitizeForInlineText } from '../utils/sanitize.ts';
+} from './nomination.helpers.js';
+import { getLogger } from '../utils/logger.js';
+import { getNominationRatePolicy } from '../services/nominations/anti-abuse.policy.js';
+import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.service.js';
+import { checkCitizenExists } from '../services/nominations/org-check.service.js';
+import { sanitizeForInlineText } from '../utils/sanitize.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();

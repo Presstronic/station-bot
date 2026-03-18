@@ -3,15 +3,15 @@ import {
   GuildMember,
   PermissionFlagsBits,
 } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
-import { toDateString } from '../utils/date.ts';
+import i18n from '../utils/i18n-config.js';
+import { toDateString } from '../utils/date.js';
 import type {
   NominationRecord,
   OrgCheckResultCode,
   OrgCheckStatus,
-} from '../services/nominations/types.ts';
-import { getReviewProcessRoleIds } from '../services/nominations/access-control.repository.ts';
-import { sanitizeForInlineText } from '../utils/sanitize.ts';
+} from '../services/nominations/types.js';
+import { getReviewProcessRoleIds } from '../services/nominations/access-control.repository.js';
+import { sanitizeForInlineText } from '../utils/sanitize.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const organizationMemberRoleName = process.env.ORGANIZATION_MEMBER_ROLE_NAME || 'Organization Member';

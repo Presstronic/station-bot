@@ -76,7 +76,7 @@ describe('nominations commands', () => {
       displayHandle: 'PilotNominee',
       nominationCount: 1,
     }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -87,12 +87,12 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
@@ -111,7 +111,7 @@ describe('nominations commands', () => {
       displayHandle: 'PilotNominee',
       nominationCount: 1,
     }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -123,7 +123,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction({
       options: {
         getString: (name: string, required?: boolean) => {
@@ -150,7 +150,7 @@ describe('nominations commands', () => {
     const recordNomination = jest.fn(async () => {
       throw new Error('DATABASE_URL is required for nomination persistence');
     });
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -161,12 +161,12 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
@@ -179,7 +179,7 @@ describe('nominations commands', () => {
   });
 
   it('rejects nomination when role check fails', async () => {
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -191,7 +191,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction({
       guild: {
         roles: {
@@ -225,7 +225,7 @@ describe('nominations commands', () => {
 
   it('processes all nominations when admin runs process command without handle', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -234,7 +234,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = {
       inGuild: () => true,
@@ -259,7 +259,7 @@ describe('nominations commands', () => {
 
   it('allows configured non-admin role to run process command', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -267,14 +267,14 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed,
     }));
-    jest.unstable_mockModule('../../services/nominations/access-control.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
       getReviewProcessRoleIds: jest.fn(async () => ['review-role-1']),
       addReviewProcessRoleId: jest.fn(),
       removeReviewProcessRoleId: jest.fn(),
       resetReviewProcessRoleIds: jest.fn(),
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = createNominationInteraction({
       user: { id: 'role-user' },
@@ -299,7 +299,7 @@ describe('nominations commands', () => {
     const markAllNominationsProcessed = jest.fn(async () => {
       throw new Error('DATABASE_URL is required for nomination persistence');
     });
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -308,7 +308,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = {
       inGuild: () => true,
@@ -330,7 +330,7 @@ describe('nominations commands', () => {
   });
 
   it('returns configuration guidance when delegated access check cannot read role config', async () => {
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -338,7 +338,7 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed: jest.fn(async () => 1),
     }));
-    jest.unstable_mockModule('../../services/nominations/access-control.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
       getReviewProcessRoleIds: jest.fn(async () => {
         throw new Error('Missing nomination schema objects');
       }),
@@ -347,7 +347,7 @@ describe('nominations commands', () => {
       resetReviewProcessRoleIds: jest.fn(),
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = createNominationInteraction({
       user: { id: 'role-user' },
@@ -374,7 +374,7 @@ describe('nominations commands', () => {
       nominationCount: 1,
     }));
 
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -385,12 +385,12 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction({
       guild: {
         roles: {
@@ -424,7 +424,7 @@ describe('nominations commands', () => {
 
   it('nominate-player allows submission when anti-abuse check passes', async () => {
     const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -435,15 +435,15 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
-    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => null),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
     await handleNominatePlayerCommand(interaction);
@@ -459,7 +459,7 @@ describe('nominations commands', () => {
 
   it('nominate-player blocks submission and does not write when cooldown is active', async () => {
     const recordNomination = jest.fn();
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -470,11 +470,11 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'cooldown', secondsRemaining: 42 })),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
     await handleNominatePlayerCommand(interaction);
@@ -490,7 +490,7 @@ describe('nominations commands', () => {
 
   it('nominate-player blocks submission and does not write when target daily limit is reached', async () => {
     const recordNomination = jest.fn();
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -501,14 +501,14 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => ({
         kind: 'targetDailyLimit',
         displayHandle: 'PilotNominee',
       })),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
     await handleNominatePlayerCommand(interaction);
@@ -529,7 +529,7 @@ describe('nominations commands', () => {
 
   it('nominate-player blocks submission and does not write when user daily limit is reached', async () => {
     const recordNomination = jest.fn();
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -540,11 +540,11 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'userDailyLimit' })),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
     await handleNominatePlayerCommand(interaction);
@@ -560,7 +560,7 @@ describe('nominations commands', () => {
 
   it('nominate-player rejects a concurrent submission from the same user', async () => {
     const recordNomination = jest.fn(async () => new Promise(() => {})); // never resolves
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -571,15 +571,15 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
-    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => null),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const firstInteraction = createNominationInteraction();
     const secondEditReply = jest.fn(async () => undefined);
     const secondInteraction = createNominationInteraction({ editReply: secondEditReply });
@@ -603,7 +603,7 @@ describe('nominations commands', () => {
 
   it('nominate-player rejects nomination when RSI citizen is not found', async () => {
     const recordNomination = jest.fn();
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -614,12 +614,12 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'not_found' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
     await handleNominatePlayerCommand(interaction);
@@ -636,7 +636,7 @@ describe('nominations commands', () => {
 
   it('nominate-player proceeds with nomination when RSI citizen check is unavailable', async () => {
     const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -647,12 +647,12 @@ describe('nominations commands', () => {
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'unavailable' })),
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.ts');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
     await handleNominatePlayerCommand(interaction);
@@ -697,7 +697,7 @@ describe('nominations commands', () => {
       checkedAt: '2026-01-02T00:00:00.000Z',
     }));
 
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -705,11 +705,11 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkHasAnyOrgMembership,
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const deferReply = jest.fn(async () => undefined);
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -787,7 +787,7 @@ describe('nominations commands', () => {
       },
     ]);
 
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -795,7 +795,7 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkHasAnyOrgMembership: jest.fn(async () => ({
         code: 'in_org',
         status: 'in_org',
@@ -803,7 +803,7 @@ describe('nominations commands', () => {
       })),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -860,7 +860,7 @@ describe('nominations commands', () => {
       job: { id: 101, totalCount: 2 },
     }));
 
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -868,11 +868,11 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob,
     }));
 
-    const { handleRefreshNominationOrgStatusCommand } = await import('../refresh-nomination-org-status.command.ts');
+    const { handleRefreshNominationOrgStatusCommand } = await import('../refresh-nomination-org-status.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -919,7 +919,7 @@ describe('nominations commands', () => {
       job: { id: 102, totalCount: 1 },
     }));
 
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle,
@@ -927,11 +927,11 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob,
     }));
 
-    const { handleRefreshNominationOrgStatusCommand } = await import('../refresh-nomination-org-status.command.ts');
+    const { handleRefreshNominationOrgStatusCommand } = await import('../refresh-nomination-org-status.command.js');
     const interaction = {
       inGuild: () => true,
       locale: 'en-US',
@@ -959,7 +959,7 @@ describe('nominations commands', () => {
     const getUnprocessedNominationByHandle = jest.fn(async () => null);
     const enqueueNominationCheckJob = jest.fn();
 
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle,
@@ -967,12 +967,12 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob,
     }));
 
     const { handleRefreshNominationOrgStatusCommand } = await import(
-      '../refresh-nomination-org-status.command.ts'
+      '../refresh-nomination-org-status.command.js'
     );
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -1002,7 +1002,7 @@ describe('nominations commands', () => {
     const getUnprocessedNominationByHandle = jest.fn(async () => null);
     const enqueueNominationCheckJob = jest.fn();
 
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle,
@@ -1010,12 +1010,12 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob,
     }));
 
     const { handleRefreshNominationOrgStatusCommand } = await import(
-      '../refresh-nomination-org-status.command.ts'
+      '../refresh-nomination-org-status.command.js'
     );
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -1060,7 +1060,7 @@ describe('nominations commands', () => {
       reused: true,
       job: { id: 150, totalCount: 1 },
     }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1068,12 +1068,12 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob,
     }));
 
     const { handleRefreshNominationOrgStatusCommand } = await import(
-      '../refresh-nomination-org-status.command.ts'
+      '../refresh-nomination-org-status.command.js'
     );
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -1114,12 +1114,12 @@ describe('nominations commands', () => {
     }));
     const getNominationCheckJobById = jest.fn();
 
-    jest.unstable_mockModule('../../services/nominations/job-queue.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob: jest.fn(),
       getLatestNominationCheckJob,
       getNominationCheckJobById,
     }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1128,7 +1128,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleNominationCheckStatusCommand } = await import('../nomination-check-status.command.ts');
+    const { handleNominationCheckStatusCommand } = await import('../nomination-check-status.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1158,7 +1158,7 @@ describe('nominations commands', () => {
 
   it('review-nominations passes status/sort/limit options to getUnprocessedNominations', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1167,7 +1167,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.js');
     const interaction = {
       inGuild: () => true,
       locale: 'en-US',
@@ -1196,7 +1196,7 @@ describe('nominations commands', () => {
 
   it('review-nominations defaults to all/newest/25 when no options provided', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1205,7 +1205,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const interaction = {
       inGuild: () => true,
       locale: 'en-US',
@@ -1228,7 +1228,7 @@ describe('nominations commands', () => {
 
   it('review-nominations empty result includes filterContext so the active filter is visible', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1238,7 +1238,7 @@ describe('nominations commands', () => {
     }));
 
     const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } =
-      await import('../review-nominations.command.ts');
+      await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1280,7 +1280,7 @@ describe('nominations commands', () => {
       lastOrgCheckAt: null,
       events: [],
     }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(async () => nominations),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1289,7 +1289,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1325,7 +1325,7 @@ describe('nominations commands', () => {
       lastOrgCheckAt: null,
       events: [],
     }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(async () => nominations),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1334,7 +1334,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1357,7 +1357,7 @@ describe('nominations commands', () => {
 
   it('process-nomination rejects process-all when confirm-all is absent', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1366,7 +1366,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1390,7 +1390,7 @@ describe('nominations commands', () => {
 
   it('process-nomination rejects process-all when confirm-all is false', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1399,7 +1399,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1424,7 +1424,7 @@ describe('nominations commands', () => {
   it('process-nomination single-handle path works without confirm-all', async () => {
     const markNominationProcessedByHandle = jest.fn(async () => true);
     const markAllNominationsProcessed = jest.fn(async () => 0);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1433,7 +1433,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1453,7 +1453,7 @@ describe('nominations commands', () => {
   it('process-nomination single-handle path is unaffected when confirm-all is also true', async () => {
     const markNominationProcessedByHandle = jest.fn(async () => true);
     const markAllNominationsProcessed = jest.fn(async () => 0);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1462,7 +1462,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.ts');
+    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1481,7 +1481,7 @@ describe('nominations commands', () => {
   });
 
   it('review-nominations response includes filter context reflecting the active filter values', async () => {
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(async () => [
         {
@@ -1504,7 +1504,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1546,7 +1546,7 @@ describe('nominations commands', () => {
       lastOrgCheckAt: null,
       events: [],
     }));
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(async () => nominations),
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1555,7 +1555,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1592,7 +1592,7 @@ describe('nominations commands', () => {
         ],
       },
     ]);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1600,11 +1600,11 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1641,7 +1641,7 @@ describe('nominations commands', () => {
         ],
       },
     ]);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1649,11 +1649,11 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1690,7 +1690,7 @@ describe('nominations commands', () => {
         ],
       },
     ]);
-    jest.unstable_mockModule('../../services/nominations/nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
@@ -1698,11 +1698,11 @@ describe('nominations commands', () => {
       markNominationProcessedByHandle: jest.fn(),
       markAllNominationsProcessed: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/nominations/org-check.service.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.ts');
+    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,

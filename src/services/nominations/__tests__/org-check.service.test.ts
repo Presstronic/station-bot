@@ -28,11 +28,11 @@ describe('checkHasAnyOrgMembership', () => {
       });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkHasAnyOrgMembership } = await import('../org-check.service.ts');
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
     const result = await checkHasAnyOrgMembership('PilotOne');
 
     expect(result.code).toBe('in_org');
@@ -50,11 +50,11 @@ describe('checkHasAnyOrgMembership', () => {
       });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkHasAnyOrgMembership } = await import('../org-check.service.ts');
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
     const result = await checkHasAnyOrgMembership('PilotTwo');
 
     expect(result.code).toBe('not_in_org');
@@ -72,11 +72,11 @@ describe('checkHasAnyOrgMembership', () => {
       });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkHasAnyOrgMembership } = await import('../org-check.service.ts');
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
     const result = await checkHasAnyOrgMembership('PilotThree');
 
     expect(result.code).toBe('parse_failed');
@@ -87,11 +87,11 @@ describe('checkHasAnyOrgMembership', () => {
     const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({ status: 404, data: '', headers: {} });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkHasAnyOrgMembership } = await import('../org-check.service.ts');
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
     const result = await checkHasAnyOrgMembership('MissingPilot');
 
     expect(result.code).toBe('not_found');
@@ -105,11 +105,11 @@ describe('checkHasAnyOrgMembership', () => {
       .mockResolvedValueOnce({ status: 429, data: '', headers: {} });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkHasAnyOrgMembership } = await import('../org-check.service.ts');
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
     const result = await checkHasAnyOrgMembership('SlowPilot');
 
     expect(result.code).toBe('rate_limited');
@@ -121,11 +121,11 @@ describe('checkHasAnyOrgMembership', () => {
     const get = jest.fn<() => Promise<any>>().mockRejectedValueOnce(timeoutError);
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkHasAnyOrgMembership } = await import('../org-check.service.ts');
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
     const result = await checkHasAnyOrgMembership('TimeoutPilot');
 
     expect(result.code).toBe('http_timeout');
@@ -142,11 +142,11 @@ describe('checkCitizenExists', () => {
     });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const { checkCitizenExists } = await import('../org-check.service.js');
     const result = await checkCitizenExists('pilotnominee');
 
     expect(result.status).toBe('found');
@@ -163,11 +163,11 @@ describe('checkCitizenExists', () => {
     });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const { checkCitizenExists } = await import('../org-check.service.js');
     const result = await checkCitizenExists('PilotNominee');
 
     expect(result.status).toBe('found');
@@ -180,11 +180,11 @@ describe('checkCitizenExists', () => {
     const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({ status: 404, data: '', headers: {} });
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const { checkCitizenExists } = await import('../org-check.service.js');
     const result = await checkCitizenExists('GhostPilot');
 
     expect(result.status).toBe('not_found');
@@ -195,11 +195,11 @@ describe('checkCitizenExists', () => {
     const warn = jest.fn();
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn, error: jest.fn(), info: jest.fn() }),
     }));
 
-    const { checkCitizenExists } = await import('../org-check.service.ts');
+    const { checkCitizenExists } = await import('../org-check.service.js');
     const result = await checkCitizenExists('SlowPilot');
 
     expect(result.status).toBe('unavailable');

@@ -1,5 +1,5 @@
 import { Pool, type PoolClient } from 'pg';
-import { getLogger } from '../../utils/logger.ts';
+import { getLogger } from '../../utils/logger.js';
 import { readFileSync } from 'fs';
 
 const logger = getLogger();

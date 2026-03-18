@@ -53,13 +53,13 @@ describe('enqueueNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { enqueueNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { enqueueNominationCheckJob } = await import('../job-queue.repository.js');
     const result = await enqueueNominationCheckJob('user-1', 'all', ['handle-a'], null);
 
     expect(withClient).toHaveBeenCalledTimes(1);
@@ -77,13 +77,13 @@ describe('enqueueNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { enqueueNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { enqueueNominationCheckJob } = await import('../job-queue.repository.js');
     const result = await enqueueNominationCheckJob('user-1', 'all', ['handle-a'], null);
 
     expect(withClient).toHaveBeenCalledTimes(1);
@@ -102,13 +102,13 @@ describe('enqueueNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { enqueueNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { enqueueNominationCheckJob } = await import('../job-queue.repository.js');
     await expect(enqueueNominationCheckJob('user-1', 'all', ['handle-a'], null)).rejects.toThrow('read error');
 
     const calls = queryCalls(query);
@@ -123,13 +123,13 @@ describe('enqueueNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { enqueueNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { enqueueNominationCheckJob } = await import('../job-queue.repository.js');
     await expect(enqueueNominationCheckJob('user-1', 'all', ['handle-a'], null)).rejects.toThrow('db error');
 
     const calls = queryCalls(query);
@@ -153,13 +153,13 @@ describe('claimNextRunnableNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
     const result = await claimNextRunnableNominationCheckJob();
 
     expect(withClient).toHaveBeenCalledTimes(1);
@@ -174,13 +174,13 @@ describe('claimNextRunnableNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
     const result = await claimNextRunnableNominationCheckJob();
 
     expect(withClient).toHaveBeenCalledTimes(1);
@@ -197,13 +197,13 @@ describe('claimNextRunnableNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
     await expect(claimNextRunnableNominationCheckJob()).rejects.toThrow('read error');
 
     const calls = queryCalls(query);
@@ -218,13 +218,13 @@ describe('claimNextRunnableNominationCheckJob', () => {
 
     const withClient = makeWithClient(query);
 
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       isDatabaseConfigured: () => true,
       ensureNominationsSchema: jest.fn(async () => undefined),
       withClient,
     }));
 
-    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.ts');
+    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
     await expect(claimNextRunnableNominationCheckJob()).rejects.toThrow('db error');
 
     const calls = queryCalls(query);

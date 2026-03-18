@@ -1,8 +1,8 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import type { OrgCheckResult, OrgCheckResultCode, OrgCheckStatus } from './types.ts';
-import { getLogger } from '../../utils/logger.ts';
-import { sanitizeForInlineText } from '../../utils/sanitize.ts';
+import type { OrgCheckResult, OrgCheckResultCode, OrgCheckStatus } from './types.js';
+import { getLogger } from '../../utils/logger.js';
+import { sanitizeForInlineText } from '../../utils/sanitize.js';
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
 const defaultOrganizationsPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}/organizations';
