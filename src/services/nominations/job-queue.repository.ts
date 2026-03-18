@@ -94,9 +94,11 @@ export async function enqueueNominationCheckJob(
     try {
       // Serialize concurrent enqueues for the same (scope, handle) pair.
       // FOR UPDATE only locks existing rows — it offers no protection when
-      // the SELECT returns 0 rows. An advisory lock keyed by the scope+handle
-      // string is held for the lifetime of the transaction, so a second
-      // concurrent enqueue blocks here until the first commits or rolls back.
+      // the SELECT returns 0 rows. An advisory lock keyed by a 64-bit hash
+      // (first 8 bytes of md5(scope:handle)) is held for the lifetime of
+      // the transaction, so a second concurrent enqueue blocks here until
+      // the first commits or rolls back. Hash collision risk is negligible
+      // given the small set of distinct (scope, handle) values in practice.
       await client.query(
         `SELECT pg_advisory_xact_lock(
           ('x' || left(md5($1 || ':' || COALESCE($2, '')), 16))::bit(64)::bigint
