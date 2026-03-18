@@ -101,6 +101,7 @@ export async function enqueueNominationCheckJob(
           AND requested_handle IS NOT DISTINCT FROM $2
         ORDER BY created_at DESC
         LIMIT 1
+        FOR UPDATE
         `,
         [requestedScope, requestedHandle]
       );
@@ -206,7 +207,7 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
         FROM nomination_check_jobs
         WHERE status IN ('queued', 'running')
         ORDER BY
-          CASE WHEN status = 'running' THEN 0 ELSE 1 END,
+          CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
           created_at ASC
         FOR UPDATE SKIP LOCKED
         LIMIT 1

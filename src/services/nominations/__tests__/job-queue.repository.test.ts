@@ -135,6 +135,33 @@ describe('enqueueNominationCheckJob', () => {
     const calls = queryCalls(query);
     expect(calls.some((sql) => /ROLLBACK/i.test(sql))).toBe(true);
   });
+
+  it('uses FOR UPDATE on the existence check to prevent concurrent duplicate enqueues', async () => {
+    const jobRow = makeJobRow(42);
+    const query = jest.fn<() => Promise<{ rows: any[] }>>()
+      .mockResolvedValueOnce({ rows: [] })            // BEGIN
+      .mockResolvedValueOnce({ rows: [] })            // SELECT existing — none found
+      .mockResolvedValueOnce({ rows: [{ id: 42 }] }) // INSERT job
+      .mockResolvedValueOnce({ rows: [] })            // INSERT items
+      .mockResolvedValueOnce({ rows: [] })            // COMMIT
+      .mockResolvedValueOnce({ rows: [jobRow] });     // getJobWithItemCounts
+
+    const withClient = makeWithClient(query);
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { enqueueNominationCheckJob } = await import('../job-queue.repository.js');
+    await enqueueNominationCheckJob('user-1', 'all', ['handle-a'], null);
+
+    const calls = queryCalls(query);
+    // The existence check is a plain SELECT ... FOR UPDATE (no SKIP LOCKED)
+    const existenceCheck = calls.find((sql) => /FOR UPDATE/i.test(sql) && !/SKIP LOCKED/i.test(sql));
+    expect(existenceCheck).toMatch(/FOR UPDATE/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -229,5 +256,30 @@ describe('claimNextRunnableNominationCheckJob', () => {
 
     const calls = queryCalls(query);
     expect(calls.some((sql) => /ROLLBACK/i.test(sql))).toBe(true);
+  });
+
+  it('orders queued jobs before running jobs to prevent starvation after worker restart', async () => {
+    const jobRow = makeJobRow(7);
+    const query = jest.fn<() => Promise<{ rows: any[] }>>()
+      .mockResolvedValueOnce({ rows: [] })           // BEGIN
+      .mockResolvedValueOnce({ rows: [{ id: 7 }] }) // SELECT claim
+      .mockResolvedValueOnce({ rows: [] })           // UPDATE status
+      .mockResolvedValueOnce({ rows: [] })           // COMMIT
+      .mockResolvedValueOnce({ rows: [jobRow] });    // getJobWithItemCounts
+
+    const withClient = makeWithClient(query);
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
+    await claimNextRunnableNominationCheckJob();
+
+    const calls = queryCalls(query);
+    const claimQuery = calls.find((sql) => /FOR UPDATE SKIP LOCKED/i.test(sql));
+    expect(claimQuery).toMatch(/CASE WHEN status = 'queued' THEN 0/i);
   });
 });
