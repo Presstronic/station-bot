@@ -28,7 +28,7 @@
 
 ## Release Process
 1. Cut a `release/v{x.y.z}` branch from `main`
-2. Bump the version in **both** `VERSION` and `package.json` — they must always stay in sync; `package.json` is the canonical source of truth
+2. Bump the version in `package.json` — this is the canonical source of truth and what the Docker publish workflow validates against
 3. Run `npm run quality` — must pass before opening the PR
 4. Open a PR titled `release: v{x.y.z} — <short description>`; body should summarize what's in the release
 5. Squash-merge into `main`
@@ -51,4 +51,4 @@ Before opening a PR, verify:
 - [ ] No hardcoded secrets, tokens, or environment-specific values
 - [ ] Migration included if schema changed
 - [ ] `docker-compose` config tested if infra changed
-- [ ] For releases: both `VERSION` and `package.json` bumped to the same value
+- [ ] For releases: version bumped in `package.json`
