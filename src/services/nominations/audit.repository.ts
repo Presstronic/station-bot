@@ -1,5 +1,5 @@
-import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
-import { getCorrelationId } from '../../utils/request-context.ts';
+import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.js';
+import { getCorrelationId } from '../../utils/request-context.js';
 
 export type AuditEventType =
   | 'nomination_access_role_added'

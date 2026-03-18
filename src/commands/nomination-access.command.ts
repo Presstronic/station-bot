@@ -3,20 +3,20 @@ import {
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
+import i18n from '../utils/i18n-config.js';
 import {
   addReviewProcessRoleId,
   getReviewProcessRoleIds,
   removeReviewProcessRoleId,
   resetReviewProcessRoleIds,
-} from '../services/nominations/access-control.repository.ts';
+} from '../services/nominations/access-control.repository.js';
 import {
   ensureAdmin,
   getCommandLocale,
   isNominationConfigurationError,
-} from './nomination.helpers.ts';
-import { recordAuditEvent } from '../services/nominations/audit.repository.ts';
-import { getLogger } from '../utils/logger.ts';
+} from './nomination.helpers.js';
+import { recordAuditEvent } from '../services/nominations/audit.repository.js';
+import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';

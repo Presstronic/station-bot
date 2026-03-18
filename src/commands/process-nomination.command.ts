@@ -2,18 +2,18 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
 } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
+import i18n from '../utils/i18n-config.js';
 import {
   markAllNominationsProcessed,
   markNominationProcessedByHandle,
-} from '../services/nominations/nominations.repository.ts';
+} from '../services/nominations/nominations.repository.js';
 import {
   ensureCanManageReviewProcessing,
   getCommandLocale,
   isNominationConfigurationError,
-} from './nomination.helpers.ts';
-import { recordAuditEvent } from '../services/nominations/audit.repository.ts';
-import { getLogger } from '../utils/logger.ts';
+} from './nomination.helpers.js';
+import { recordAuditEvent } from '../services/nominations/audit.repository.js';
+import { getLogger } from '../utils/logger.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 export const rsiHandleOptionName   = i18n.__({ phrase: 'commands.processNomination.options.rsiHandle.name',   locale: defaultLocale });

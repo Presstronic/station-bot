@@ -3,26 +3,26 @@ import {
   ChatInputCommandInteraction,
   SlashCommandBuilder,
 } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
-import { toDateString } from '../utils/date.ts';
+import i18n from '../utils/i18n-config.js';
+import { toDateString } from '../utils/date.js';
 import {
   getUnprocessedNominations,
   type NominationStatusFilter,
   type NominationSortOption,
-} from '../services/nominations/nominations.repository.ts';
+} from '../services/nominations/nominations.repository.js';
 import {
   ensureCanManageReviewProcessing,
   formatNominationsAsTable,
   getCommandLocale,
   isNominationConfigurationError,
   resolveNominationOrgResultCode,
-} from './nomination.helpers.ts';
-import { getLogger } from '../utils/logger.ts';
+} from './nomination.helpers.js';
+import { getLogger } from '../utils/logger.js';
 import {
   businessResultCodes,
   createEmptyReasonCounts,
   technicalResultCodes,
-} from '../services/nominations/reason-codes.ts';
+} from '../services/nominations/reason-codes.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();

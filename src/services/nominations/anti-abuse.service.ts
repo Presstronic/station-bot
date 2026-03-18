@@ -1,9 +1,9 @@
-import type { AntiAbuseViolation, NominationRatePolicy } from './types.ts';
+import type { AntiAbuseViolation, NominationRatePolicy } from './types.js';
 import {
   countNominationsByUserInWindow,
   countNominationsForTargetInWindow,
   getSecondsSinceLastNominationByUser,
-} from './nominations.repository.ts';
+} from './nominations.repository.js';
 
 const SECONDS_PER_DAY = 86400;
 

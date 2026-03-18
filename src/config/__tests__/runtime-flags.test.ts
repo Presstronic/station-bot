@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { isReadOnlyMode, isPurgeJobsEnabled } from '../runtime-flags.ts';
+import { isReadOnlyMode, isPurgeJobsEnabled } from '../runtime-flags.js';
 
 const originalReadOnlyMode = process.env.BOT_READ_ONLY_MODE;
 const originalPurgeJobsEnabled = process.env.PURGE_JOBS_ENABLED;

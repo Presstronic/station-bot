@@ -6,7 +6,7 @@ beforeEach(() => {
 
 describe('nomination-access command', () => {
   it('returns configuration guidance when database is misconfigured', async () => {
-    jest.unstable_mockModule('../../services/nominations/access-control.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
       addReviewProcessRoleId: jest.fn(async () => {
         throw new Error('DATABASE_URL is required for nomination access control');
       }),
@@ -15,7 +15,7 @@ describe('nomination-access command', () => {
       resetReviewProcessRoleIds: jest.fn(),
     }));
 
-    const { handleNominationAccessCommand } = await import('../nomination-access.command.ts');
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,

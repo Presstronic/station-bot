@@ -1,4 +1,4 @@
-import type { OrgCheckResultCode, OrgCheckStatus } from './types.ts';
+import type { OrgCheckResultCode, OrgCheckStatus } from './types.js';
 
 export const reasonCodeMetadata = {
   in_org: { technical: false, expectedStatus: 'in_org' },

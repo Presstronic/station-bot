@@ -18,10 +18,10 @@ describe('healthcheck command', () => {
   it('registers healthcheck in the active command list', async () => {
     process.env.BOT_READ_ONLY_MODE = 'false';
 
-    jest.unstable_mockModule('../../utils/discord-rest-client.ts', () => ({
+    jest.unstable_mockModule('../../utils/discord-rest-client.js', () => ({
       discordRestClient: { put: jest.fn() },
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -30,16 +30,16 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { getRegisteredCommandNames } = await import('../verify.ts');
+    const { getRegisteredCommandNames } = await import('../verify.js');
 
     expect(getRegisteredCommandNames()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
   });
 
   it('rejects non-admin users', async () => {
-    jest.unstable_mockModule('../../utils/discord-rest-client.ts', () => ({
+    jest.unstable_mockModule('../../utils/discord-rest-client.js', () => ({
       discordRestClient: { put: jest.fn() },
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -48,7 +48,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.ts');
+    const { handleHealthcheckCommand } = await import('../verify.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -71,10 +71,10 @@ describe('healthcheck command', () => {
   it('returns status payload for admin users', async () => {
     process.env.BOT_READ_ONLY_MODE = 'true';
 
-    jest.unstable_mockModule('../../utils/discord-rest-client.ts', () => ({
+    jest.unstable_mockModule('../../utils/discord-rest-client.js', () => ({
       discordRestClient: { put: jest.fn() },
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -83,7 +83,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.ts');
+    const { handleHealthcheckCommand } = await import('../verify.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -118,10 +118,10 @@ describe('healthcheck command', () => {
   });
 
   it('rejects usage outside guilds', async () => {
-    jest.unstable_mockModule('../../utils/discord-rest-client.ts', () => ({
+    jest.unstable_mockModule('../../utils/discord-rest-client.js', () => ({
       discordRestClient: { put: jest.fn() },
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -130,7 +130,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.ts');
+    const { handleHealthcheckCommand } = await import('../verify.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {

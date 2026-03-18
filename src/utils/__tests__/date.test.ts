@@ -1,5 +1,5 @@
 import { describe, expect, it } from '@jest/globals';
-import { toDateString } from '../date.ts';
+import { toDateString } from '../date.js';
 
 describe('toDateString', () => {
   it('extracts YYYY-MM-DD from a full ISO timestamp', () => {

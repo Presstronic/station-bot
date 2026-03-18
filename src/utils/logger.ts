@@ -2,7 +2,7 @@ import { createLogger, format, transports } from 'winston';
 import { ElasticsearchTransport } from 'winston-elasticsearch';
 import type Transport from 'winston-transport';
 import { inspect } from 'node:util';
-import { getCorrelationId } from './request-context.ts';
+import { getCorrelationId } from './request-context.js';
 
 let loggerInstance: ReturnType<typeof createLogger> | null = null;
 

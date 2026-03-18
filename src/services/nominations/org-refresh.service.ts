@@ -1,9 +1,9 @@
-import { checkHasAnyOrgMembership } from './org-check.service.ts';
-import { updateOrgCheckResult } from './nominations.repository.ts';
-import type { NominationRecord, OrgCheckResult, OrgCheckResultCode } from './types.ts';
-import { getLogger } from '../../utils/logger.ts';
-import { sanitizeForInlineText } from '../../utils/sanitize.ts';
-import { businessResultCodes, createEmptyReasonCounts, reasonCodeMetadata, technicalResultCodes } from './reason-codes.ts';
+import { checkHasAnyOrgMembership } from './org-check.service.js';
+import { updateOrgCheckResult } from './nominations.repository.js';
+import type { NominationRecord, OrgCheckResult, OrgCheckResultCode } from './types.js';
+import { getLogger } from '../../utils/logger.js';
+import { sanitizeForInlineText } from '../../utils/sanitize.js';
+import { businessResultCodes, createEmptyReasonCounts, reasonCodeMetadata, technicalResultCodes } from './reason-codes.js';
 
 const logger = getLogger();
 const defaultRefreshConcurrency = 5;

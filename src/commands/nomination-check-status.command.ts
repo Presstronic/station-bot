@@ -1,16 +1,16 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
-import { toDateString } from '../utils/date.ts';
+import i18n from '../utils/i18n-config.js';
+import { toDateString } from '../utils/date.js';
 import {
   ensureCanManageReviewProcessing,
   getCommandLocale,
   isNominationConfigurationError,
-} from './nomination.helpers.ts';
+} from './nomination.helpers.js';
 import {
   getLatestNominationCheckJob,
   getNominationCheckJobById,
-} from '../services/nominations/job-queue.repository.ts';
-import { getLogger } from '../utils/logger.ts';
+} from '../services/nominations/job-queue.repository.js';
+import { getLogger } from '../utils/logger.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();

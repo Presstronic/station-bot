@@ -4,40 +4,40 @@ import {
   handleHealthcheckCommand,
   VERIFY_COMMAND_NAME,
   HEALTHCHECK_COMMAND_NAME,
-} from '../commands/verify.ts';
+} from '../commands/verify.js';
 import {
   handleNominatePlayerCommand,
   NOMINATE_PLAYER_COMMAND_NAME,
-} from '../commands/nominate-player.command.ts';
+} from '../commands/nominate-player.command.js';
 import {
   handleReviewNominationsCommand,
   REVIEW_NOMINATIONS_COMMAND_NAME,
-} from '../commands/review-nominations.command.ts';
+} from '../commands/review-nominations.command.js';
 import {
   handleRefreshNominationOrgStatusCommand,
   REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME,
-} from '../commands/refresh-nomination-org-status.command.ts';
+} from '../commands/refresh-nomination-org-status.command.js';
 import {
   handleNominationCheckStatusCommand,
   NOMINATION_CHECK_STATUS_COMMAND_NAME,
-} from '../commands/nomination-check-status.command.ts';
+} from '../commands/nomination-check-status.command.js';
 import {
   handleProcessNominationCommand,
   PROCESS_NOMINATION_COMMAND_NAME,
-} from '../commands/process-nomination.command.ts';
+} from '../commands/process-nomination.command.js';
 import {
   handleNominationAccessCommand,
   NOMINATION_ACCESS_COMMAND_NAME,
-} from '../commands/nomination-access.command.ts';
+} from '../commands/nomination-access.command.js';
 import {
   handleNominationAuditCommand,
   NOMINATION_AUDIT_COMMAND_NAME,
-} from '../commands/nomination-audit.command.ts';
-import i18n from '../utils/i18n-config.ts';
-import { isReadOnlyMode } from '../config/runtime-flags.ts';
-import { handleVerifyButtonInteraction } from './verifyButton.ts';
-import { runWithCorrelationId } from '../utils/request-context.ts';
-import { getLogger } from '../utils/logger.ts';
+} from '../commands/nomination-audit.command.js';
+import i18n from '../utils/i18n-config.js';
+import { isReadOnlyMode } from '../config/runtime-flags.js';
+import { handleVerifyButtonInteraction } from './verifyButton.js';
+import { runWithCorrelationId } from '../utils/request-context.js';
+import { getLogger } from '../utils/logger.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();

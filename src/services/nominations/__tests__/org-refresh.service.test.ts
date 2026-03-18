@@ -32,14 +32,14 @@ describe('refreshOrgStatusesForNominations', () => {
       checkedAt: '2026-01-01T00:00:00.000Z',
     }));
 
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       updateOrgCheckResult,
     }));
-    jest.unstable_mockModule('../org-check.service.ts', () => ({
+    jest.unstable_mockModule('../org-check.service.js', () => ({
       checkHasAnyOrgMembership,
     }));
 
-    const { refreshOrgStatusesForNominations } = await import('../org-refresh.service.ts');
+    const { refreshOrgStatusesForNominations } = await import('../org-refresh.service.js');
     const summary = await refreshOrgStatusesForNominations(
       [buildNomination('PilotOne'), buildNomination('PilotTwo')] as any,
       0
@@ -62,19 +62,19 @@ describe('refreshOrgStatusesForNominations', () => {
     });
     const loggerError = jest.fn();
 
-    jest.unstable_mockModule('../nominations.repository.ts', () => ({
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
       updateOrgCheckResult,
     }));
-    jest.unstable_mockModule('../org-check.service.ts', () => ({
+    jest.unstable_mockModule('../org-check.service.js', () => ({
       checkHasAnyOrgMembership,
     }));
-    jest.unstable_mockModule('../../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({
         error: loggerError,
       }),
     }));
 
-    const { refreshOrgStatusesForNominations } = await import('../org-refresh.service.ts');
+    const { refreshOrgStatusesForNominations } = await import('../org-refresh.service.js');
     const summary = await refreshOrgStatusesForNominations([buildNomination('Bad\n|`Handle') as any], 1);
 
     expect(summary.errorHandles).toEqual(["Bad /'Handle"]);

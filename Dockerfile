@@ -1,44 +1,37 @@
-# Use the latest LTS version of Node.js
+# Build stage — compile TypeScript to dist/
 FROM node:22.14.0-alpine AS builder
 
-# Set the working directory
 WORKDIR /app
 
 # Copy package files first to leverage Docker layer caching
 COPY package*.json ./
 
-# Install dependencies (builder includes dev deps for type checking)
+# Install all dependencies (dev deps needed for tsc)
 RUN npm ci
 
-# Copy source files
-COPY tsconfig.json ./
+# Copy source and config
+COPY tsconfig.json tsconfig.build.json ./
 COPY src ./src
 
-# Enforced type-checking step during build
-RUN npm run typecheck
+# Compile TypeScript
+RUN npm run build
 
-# Use a minimal Node.js runtime for the final image
+# Runner stage — production image with compiled output only
 FROM node:22.14.0-alpine AS runner
 
-# Set the working directory
 WORKDIR /app
 
-# Install runtime dependencies only
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/package-lock.json ./
+# Install production dependencies only
+COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Copy runtime files
-COPY --from=builder /app/src ./src
-COPY --from=builder /app/tsconfig.json ./
+# Copy compiled output and runtime assets (dist/ includes locales copied by build script)
+COPY --from=builder /app/dist ./dist
 COPY migrations ./migrations
 
-# tsx requires /tmp for its IPC socket; alpine does not include it by default
 # /app/certs is the bind-mount target for the CA cert when SSL is enabled (see docker-compose.ssl.yml)
-RUN mkdir -p /tmp /app/certs
+RUN mkdir -p /app/certs
 
-# Set environment variables
 ENV NODE_ENV=production
 
-# Run the bot from source via tsx
-CMD ["node_modules/.bin/tsx", "src/index.ts"]
+CMD ["node", "dist/index.js"]

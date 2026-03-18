@@ -1,7 +1,7 @@
-import type { NominationEvent, NominationLifecycleState, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.ts';
-import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
-import { reasonCodeMetadata } from './reason-codes.ts';
-import { assertValidTransition, deriveLifecycleStateFromOrgCheck } from './lifecycle.service.ts';
+import type { NominationEvent, NominationLifecycleState, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.js';
+import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.js';
+import { reasonCodeMetadata } from './reason-codes.js';
+import { assertValidTransition, deriveLifecycleStateFromOrgCheck } from './lifecycle.service.js';
 
 export type { NominationLifecycleState };
 

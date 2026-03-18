@@ -1,4 +1,4 @@
-import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
+import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.js';
 
 function assertDatabaseConfigured(): void {
   if (!isDatabaseConfigured()) {

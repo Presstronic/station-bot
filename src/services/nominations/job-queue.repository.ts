@@ -1,13 +1,13 @@
 import type { PoolClient } from 'pg';
-import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
+import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.js';
 import type {
   EnqueueNominationCheckJobResult,
   NominationCheckJob,
   NominationCheckJobItem,
   NominationCheckJobScope,
   NominationCheckJobStatus,
-} from './job-types.ts';
-import { sanitizeForInlineText } from '../../utils/sanitize.ts';
+} from './job-types.js';
+import { sanitizeForInlineText } from '../../utils/sanitize.js';
 
 function assertDatabaseConfigured(): void {
   if (!isDatabaseConfigured()) {

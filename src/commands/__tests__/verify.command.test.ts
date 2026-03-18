@@ -5,17 +5,17 @@ beforeEach(() => {
 });
 
 async function loadHandleVerifyCommand() {
-  jest.unstable_mockModule('../../utils/logger.ts', () => ({
+  jest.unstable_mockModule('../../utils/logger.js', () => ({
     getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
   }));
-  jest.unstable_mockModule('../../utils/discord-rest-client.ts', () => ({
+  jest.unstable_mockModule('../../utils/discord-rest-client.js', () => ({
     discordRestClient: { put: jest.fn() },
   }));
-  jest.unstable_mockModule('../../services/verification-code.services.ts', () => ({
+  jest.unstable_mockModule('../../services/verification-code.services.js', () => ({
     generateDrdntVerificationCode: jest.fn(() => 'TEST-CODE-123'),
   }));
 
-  const { handleVerifyCommand } = await import('../verify.ts');
+  const { handleVerifyCommand } = await import('../verify.js');
   return handleVerifyCommand;
 }
 

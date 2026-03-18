@@ -1,14 +1,14 @@
-import './bootstrap.ts'; // Loads dotenv and any shared setup
+import './bootstrap.js'; // Loads dotenv and any shared setup
 
 import { Client, IntentsBitField } from 'discord.js';
-import { registerAllCommands } from './commands/register-commands.ts';
-import { handleInteraction } from './interactions/interactionRouter.ts';
-import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.ts';
-import { addMissingDefaultRoles } from './services/role.services.ts';
-import { getLogger } from './utils/logger.ts';
-import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.ts';
-import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.ts';
-import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.ts';
+import { registerAllCommands } from './commands/register-commands.js';
+import { handleInteraction } from './interactions/interactionRouter.js';
+import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
+import { addMissingDefaultRoles } from './services/role.services.js';
+import { getLogger } from './utils/logger.js';
+import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
+import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
+import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();

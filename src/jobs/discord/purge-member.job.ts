@@ -1,6 +1,6 @@
 import cron from 'node-cron';
 import { Client, Guild } from 'discord.js';
-import { getLogger } from '../../utils/logger.ts';
+import { getLogger } from '../../utils/logger.js';
 import i18n from 'i18n';
 
 const logger = getLogger();

@@ -18,42 +18,42 @@ afterEach(() => {
 describe('handleInteraction in read-only mode', () => {
   it('returns maintenance message for slash commands and does not execute command flow', async () => {
     const handleHealthcheckCommand = jest.fn();
-    jest.unstable_mockModule('../../commands/verify.ts', () => ({
+    jest.unstable_mockModule('../../commands/verify.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
       HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
       handleNominatePlayerCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
       REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
       handleRefreshNominationOrgStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
       NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
       handleNominationCheckStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -61,18 +61,18 @@ describe('handleInteraction in read-only mode', () => {
         error: jest.fn(),
       }),
     }));
-    jest.unstable_mockModule('../../services/role.services.ts', () => ({
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/rsi.services.ts', () => ({
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
       verifyRSIProfile: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../interactionRouter.ts');
+    const { handleInteraction } = await import('../interactionRouter.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -96,42 +96,42 @@ describe('handleInteraction in read-only mode', () => {
 
   it('returns maintenance message for button interactions and does not execute verify side effects', async () => {
     const handleHealthcheckCommand = jest.fn();
-    jest.unstable_mockModule('../../commands/verify.ts', () => ({
+    jest.unstable_mockModule('../../commands/verify.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
       HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
       handleNominatePlayerCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
       REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
       handleRefreshNominationOrgStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
       NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
       handleNominationCheckStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -139,18 +139,18 @@ describe('handleInteraction in read-only mode', () => {
         error: jest.fn(),
       }),
     }));
-    jest.unstable_mockModule('../../services/role.services.ts', () => ({
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/rsi.services.ts', () => ({
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
       verifyRSIProfile: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../interactionRouter.ts');
+    const { handleInteraction } = await import('../interactionRouter.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -175,42 +175,42 @@ describe('handleInteraction in read-only mode', () => {
     const handleVerifyCommand = jest.fn(async () => undefined);
     const handleHealthcheckCommand = jest.fn();
 
-    jest.unstable_mockModule('../../commands/verify.ts', () => ({
+    jest.unstable_mockModule('../../commands/verify.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
       HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand,
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
       handleNominatePlayerCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
       REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
       handleRefreshNominationOrgStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
       NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
       handleNominationCheckStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -218,18 +218,18 @@ describe('handleInteraction in read-only mode', () => {
         error: jest.fn(),
       }),
     }));
-    jest.unstable_mockModule('../../services/role.services.ts', () => ({
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/rsi.services.ts', () => ({
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
       verifyRSIProfile: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../interactionRouter.ts');
+    const { handleInteraction } = await import('../interactionRouter.js');
 
     process.env.BOT_READ_ONLY_MODE = 'false';
     const reply = jest.fn(async () => undefined);
@@ -252,42 +252,42 @@ describe('handleInteraction in read-only mode', () => {
     const handleVerifyCommand = jest.fn();
     const handleHealthcheckCommand = jest.fn(async () => undefined);
 
-    jest.unstable_mockModule('../../commands/verify.ts', () => ({
+    jest.unstable_mockModule('../../commands/verify.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
       HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand,
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
       handleNominatePlayerCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
       REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
       handleReviewNominationsCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
       REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
       handleRefreshNominationOrgStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
       NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
       handleNominationCheckStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
       PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
       handleProcessNominationCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-access.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
       handleNominationAccessCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-audit.command.ts', () => ({
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/logger.ts', () => ({
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
         info: jest.fn(),
@@ -295,18 +295,18 @@ describe('handleInteraction in read-only mode', () => {
         error: jest.fn(),
       }),
     }));
-    jest.unstable_mockModule('../../services/role.services.ts', () => ({
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
-    jest.unstable_mockModule('../../services/rsi.services.ts', () => ({
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
       verifyRSIProfile: jest.fn(),
     }));
-    jest.unstable_mockModule('../../utils/i18n-config.ts', () => ({
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
       default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
     }));
 
-    const { handleInteraction } = await import('../interactionRouter.ts');
+    const { handleInteraction } = await import('../interactionRouter.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       isChatInputCommand: () => true,

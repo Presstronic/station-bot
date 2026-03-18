@@ -39,28 +39,28 @@ async function loadIndexAndRunReady(
 
   let readyHandler: (() => Promise<void>) | undefined;
 
-  await jest.unstable_mockModule('../bootstrap.ts', () => ({}));
-  await jest.unstable_mockModule('../commands/register-commands.ts', () => ({
+  await jest.unstable_mockModule('../bootstrap.js', () => ({}));
+  await jest.unstable_mockModule('../commands/register-commands.js', () => ({
     registerAllCommands,
   }));
-  await jest.unstable_mockModule('../services/nominations/db.ts', () => ({
+  await jest.unstable_mockModule('../services/nominations/db.js', () => ({
     ensureNominationsSchema,
     isDatabaseConfigured,
   }));
-  await jest.unstable_mockModule('../interactions/interactionRouter.ts', () => ({
+  await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
     handleInteraction: jest.fn(async () => undefined),
   }));
-  await jest.unstable_mockModule('../jobs/discord/purge-member.job.ts', () => ({
+  await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
     scheduleTemporaryMemberCleanup,
     schedulePotentialApplicantCleanup,
   }));
-  await jest.unstable_mockModule('../services/role.services.ts', () => ({
+  await jest.unstable_mockModule('../services/role.services.js', () => ({
     addMissingDefaultRoles,
   }));
-  await jest.unstable_mockModule('../services/nominations/job-worker.service.ts', () => ({
+  await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
     startNominationCheckWorkerLoop,
   }));
-  await jest.unstable_mockModule('../utils/logger.ts', () => ({
+  await jest.unstable_mockModule('../utils/logger.js', () => ({
     getLogger: () => logger,
   }));
   await jest.unstable_mockModule('discord.js', () => {
@@ -94,7 +94,7 @@ async function loadIndexAndRunReady(
     };
   });
 
-  await import('../index.ts');
+  await import('../index.js');
   expect(readyHandler).toBeDefined();
   await readyHandler!();
 
@@ -182,28 +182,28 @@ describe('startup wiring with read-only mode', () => {
 
     let readyHandler: (() => Promise<void>) | undefined;
 
-    await jest.unstable_mockModule('../bootstrap.ts', () => ({}));
-    await jest.unstable_mockModule('../commands/register-commands.ts', () => ({
+    await jest.unstable_mockModule('../bootstrap.js', () => ({}));
+    await jest.unstable_mockModule('../commands/register-commands.js', () => ({
       registerAllCommands,
     }));
-    await jest.unstable_mockModule('../services/nominations/db.ts', () => ({
+    await jest.unstable_mockModule('../services/nominations/db.js', () => ({
       ensureNominationsSchema,
       isDatabaseConfigured,
     }));
-    await jest.unstable_mockModule('../interactions/interactionRouter.ts', () => ({
+    await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),
     }));
-    await jest.unstable_mockModule('../jobs/discord/purge-member.job.ts', () => ({
+    await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
     }));
-    await jest.unstable_mockModule('../services/role.services.ts', () => ({
+    await jest.unstable_mockModule('../services/role.services.js', () => ({
       addMissingDefaultRoles,
     }));
-    await jest.unstable_mockModule('../services/nominations/job-worker.service.ts', () => ({
+    await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
     }));
-    await jest.unstable_mockModule('../utils/logger.ts', () => ({
+    await jest.unstable_mockModule('../utils/logger.js', () => ({
       getLogger: () => logger,
     }));
     await jest.unstable_mockModule('discord.js', () => {
@@ -228,7 +228,7 @@ describe('startup wiring with read-only mode', () => {
       };
     });
 
-    await import('../index.ts');
+    await import('../index.js');
     await readyHandler!();
 
     expect(ensureNominationsSchema).toHaveBeenCalledTimes(1);

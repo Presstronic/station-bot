@@ -17,7 +17,7 @@ function makeDbMock(queryResult: { rows: unknown[] }) {
 }
 
 function mockRequestContext(correlationId: string | undefined) {
-  jest.unstable_mockModule('../../../utils/request-context.ts', () => ({
+  jest.unstable_mockModule('../../../utils/request-context.js', () => ({
     getCorrelationId: jest.fn(() => correlationId),
     runWithCorrelationId: jest.fn(),
   }));
@@ -26,14 +26,14 @@ function mockRequestContext(correlationId: string | undefined) {
 describe('recordAuditEvent', () => {
   it('inserts an audit row with all fields', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { recordAuditEvent } = await import('../audit.repository.ts');
+    const { recordAuditEvent } = await import('../audit.repository.js');
 
     await recordAuditEvent({
       eventType: 'nomination_processed_single',
@@ -61,14 +61,14 @@ describe('recordAuditEvent', () => {
 
   it('captures correlation_id from request context when available', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext('corr-abc-123');
 
-    const { recordAuditEvent } = await import('../audit.repository.ts');
+    const { recordAuditEvent } = await import('../audit.repository.js');
 
     await recordAuditEvent({
       eventType: 'nomination_processed_bulk',
@@ -84,14 +84,14 @@ describe('recordAuditEvent', () => {
 
   it('stores null for correlation_id when no context is active', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { recordAuditEvent } = await import('../audit.repository.ts');
+    const { recordAuditEvent } = await import('../audit.repository.js');
 
     await recordAuditEvent({
       eventType: 'nomination_access_roles_reset',
@@ -106,14 +106,14 @@ describe('recordAuditEvent', () => {
 
   it('inserts a failure audit row with error message', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { recordAuditEvent } = await import('../audit.repository.ts');
+    const { recordAuditEvent } = await import('../audit.repository.js');
 
     await recordAuditEvent({
       eventType: 'nomination_access_role_added',
@@ -139,14 +139,14 @@ describe('recordAuditEvent', () => {
   });
 
   it('throws when database is not configured', async () => {
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: jest.fn(),
       isDatabaseConfigured: jest.fn(() => false),
       ensureNominationsSchema: jest.fn(async () => undefined),
     }));
     mockRequestContext(undefined);
 
-    const { recordAuditEvent } = await import('../audit.repository.ts');
+    const { recordAuditEvent } = await import('../audit.repository.js');
 
     await expect(
       recordAuditEvent({
@@ -162,14 +162,14 @@ describe('recordAuditEvent', () => {
 describe('getAuditEvents', () => {
   it('returns empty array when no rows', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     const result = await getAuditEvents();
     expect(result).toEqual([]);
@@ -194,14 +194,14 @@ describe('getAuditEvents', () => {
         },
       ],
     });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     const result = await getAuditEvents();
     expect(result).toHaveLength(1);
@@ -239,14 +239,14 @@ describe('getAuditEvents', () => {
         },
       ],
     });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     const result = await getAuditEvents();
     expect(result[0].correlationId).toBeUndefined();
@@ -254,14 +254,14 @@ describe('getAuditEvents', () => {
 
   it('applies eventType filter in SQL', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     await getAuditEvents({ eventType: 'nomination_processed_bulk' });
 
@@ -272,14 +272,14 @@ describe('getAuditEvents', () => {
 
   it('applies since filter in SQL', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     const since = new Date('2026-01-01T00:00:00Z');
     await getAuditEvents({ since });
@@ -291,14 +291,14 @@ describe('getAuditEvents', () => {
 
   it('applies limit in SQL', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     await getAuditEvents({ limit: 10 });
 
@@ -309,27 +309,27 @@ describe('getAuditEvents', () => {
 
   it('throws on invalid limit', async () => {
     const db = makeDbMock({ rows: [] });
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: db.withClient,
       isDatabaseConfigured: db.isDatabaseConfigured,
       ensureNominationsSchema: db.ensureNominationsSchema,
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     await expect(getAuditEvents({ limit: 0 })).rejects.toThrow('Invalid limit');
   });
 
   it('throws when database is not configured', async () => {
-    jest.unstable_mockModule('../db.ts', () => ({
+    jest.unstable_mockModule('../db.js', () => ({
       withClient: jest.fn(),
       isDatabaseConfigured: jest.fn(() => false),
       ensureNominationsSchema: jest.fn(async () => undefined),
     }));
     mockRequestContext(undefined);
 
-    const { getAuditEvents } = await import('../audit.repository.ts');
+    const { getAuditEvents } = await import('../audit.repository.js');
 
     await expect(getAuditEvents()).rejects.toThrow('DATABASE_URL is required');
   });

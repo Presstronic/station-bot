@@ -2,8 +2,8 @@ import { describe, expect, it } from '@jest/globals';
 import {
   assertValidTransition,
   deriveLifecycleStateFromOrgCheck,
-} from '../lifecycle.service.ts';
-import type { NominationLifecycleState, OrgCheckResultCode } from '../types.ts';
+} from '../lifecycle.service.js';
+import type { NominationLifecycleState, OrgCheckResultCode } from '../types.js';
 
 describe('assertValidTransition', () => {
   const validCases: Array<[NominationLifecycleState, NominationLifecycleState]> = [

@@ -1,18 +1,18 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
-import i18n from '../utils/i18n-config.ts';
+import i18n from '../utils/i18n-config.js';
 import {
   getUnprocessedNominationByHandle,
   getUnprocessedNominations,
-} from '../services/nominations/nominations.repository.ts';
-import { enqueueNominationCheckJob } from '../services/nominations/job-queue.repository.ts';
+} from '../services/nominations/nominations.repository.js';
+import { enqueueNominationCheckJob } from '../services/nominations/job-queue.repository.js';
 import {
   ensureCanManageReviewProcessing,
   getCommandLocale,
   isNominationConfigurationError,
-} from './nomination.helpers.ts';
-import { recordAuditEvent } from '../services/nominations/audit.repository.ts';
-import { getLogger } from '../utils/logger.ts';
-import { sanitizeForInlineText } from '../utils/sanitize.ts';
+} from './nomination.helpers.js';
+import { recordAuditEvent } from '../services/nominations/audit.repository.js';
+import { getLogger } from '../utils/logger.js';
+import { sanitizeForInlineText } from '../utils/sanitize.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();

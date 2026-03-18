@@ -1,7 +1,7 @@
-import { getLogger } from '../../utils/logger.ts';
-import { sanitizeForInlineText } from '../../utils/sanitize.ts';
-import { checkHasAnyOrgMembership } from './org-check.service.ts';
-import { updateOrgCheckResult } from './nominations.repository.ts';
+import { getLogger } from '../../utils/logger.js';
+import { sanitizeForInlineText } from '../../utils/sanitize.js';
+import { checkHasAnyOrgMembership } from './org-check.service.js';
+import { updateOrgCheckResult } from './nominations.repository.js';
 import {
   claimNextRunnableNominationCheckJob,
   claimNominationCheckJobItems,
@@ -9,7 +9,7 @@ import {
   failNominationCheckJobItem,
   refreshNominationCheckJobProgress,
   requeueNominationCheckJobItem,
-} from './job-queue.repository.ts';
+} from './job-queue.repository.js';
 
 const logger = getLogger();
 

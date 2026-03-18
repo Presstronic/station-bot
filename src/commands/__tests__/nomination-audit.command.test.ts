@@ -50,7 +50,7 @@ function makeInteraction(optionOverrides: {
 
 describe('parseSinceOption', () => {
   it('parses ISO timestamp', async () => {
-    const { parseSinceOption } = await import('../nomination-audit.command.ts');
+    const { parseSinceOption } = await import('../nomination-audit.command.js');
     const result = parseSinceOption('2026-01-01T00:00:00Z');
     expect(result).not.toBeNull();
     expect(result!.toISOString()).toBe('2026-01-01T00:00:00.000Z');
@@ -58,7 +58,7 @@ describe('parseSinceOption', () => {
 
   it('parses shorthand hours (e.g. 24h)', async () => {
     const before = Date.now();
-    const { parseSinceOption } = await import('../nomination-audit.command.ts');
+    const { parseSinceOption } = await import('../nomination-audit.command.js');
     const result = parseSinceOption('24h');
     const after = Date.now();
     expect(result).not.toBeNull();
@@ -68,7 +68,7 @@ describe('parseSinceOption', () => {
 
   it('parses shorthand days (e.g. 7d)', async () => {
     const before = Date.now();
-    const { parseSinceOption } = await import('../nomination-audit.command.ts');
+    const { parseSinceOption } = await import('../nomination-audit.command.js');
     const result = parseSinceOption('7d');
     const after = Date.now();
     expect(result).not.toBeNull();
@@ -77,7 +77,7 @@ describe('parseSinceOption', () => {
   });
 
   it('returns null for invalid input', async () => {
-    const { parseSinceOption } = await import('../nomination-audit.command.ts');
+    const { parseSinceOption } = await import('../nomination-audit.command.js');
     expect(parseSinceOption('not-a-date')).toBeNull();
     expect(parseSinceOption('abc')).toBeNull();
   });
@@ -85,11 +85,11 @@ describe('parseSinceOption', () => {
 
 describe('handleNominationAuditCommand', () => {
   it('replies with none message when no events found', async () => {
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => []),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);
@@ -103,11 +103,11 @@ describe('handleNominationAuditCommand', () => {
 
   it('passes event-type, since, and limit options to getAuditEvents', async () => {
     const getAuditEvents = jest.fn(async () => [makeAuditEvent()]);
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents,
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction({
       eventType: 'nomination_processed_bulk',
       since: '2026-01-01T00:00:00Z',
@@ -129,11 +129,11 @@ describe('handleNominationAuditCommand', () => {
 
   it('defaults to limit=25 when no limit provided', async () => {
     const getAuditEvents = jest.fn(async () => [makeAuditEvent()]);
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents,
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);
@@ -144,11 +144,11 @@ describe('handleNominationAuditCommand', () => {
   });
 
   it('inline reply includes event table', async () => {
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => [makeAuditEvent()]),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);
@@ -161,11 +161,11 @@ describe('handleNominationAuditCommand', () => {
   });
 
   it('renders event createdAt as YYYY-MM-DD in audit table', async () => {
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => [makeAuditEvent({ createdAt: '2026-03-12T10:00:00.000Z' })]),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);
@@ -177,11 +177,11 @@ describe('handleNominationAuditCommand', () => {
 
   it('appends truncated hint when result count equals limit', async () => {
     const events = Array.from({ length: 26 }, (_, i) => makeAuditEvent({ id: i }));
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => events),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);
@@ -195,11 +195,11 @@ describe('handleNominationAuditCommand', () => {
 
   it('does not append truncated hint when result count is below limit', async () => {
     const events = Array.from({ length: 5 }, (_, i) => makeAuditEvent({ id: i }));
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => events),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);
@@ -209,11 +209,11 @@ describe('handleNominationAuditCommand', () => {
   });
 
   it('replies with invalidSince message for bad since value', async () => {
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => []),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction({ since: 'not-a-date' });
 
     await handleNominationAuditCommand(interaction);
@@ -230,11 +230,11 @@ describe('handleNominationAuditCommand', () => {
     const events = Array.from({ length: 10 }, (_, i) =>
       makeAuditEvent({ id: i, targetHandle: longHandle, payloadJson: { data: 'x'.repeat(100) } })
     );
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => events),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);
@@ -245,13 +245,13 @@ describe('handleNominationAuditCommand', () => {
   });
 
   it('replies with configuration error when getAuditEvents throws config error', async () => {
-    jest.unstable_mockModule('../../services/nominations/audit.repository.ts', () => ({
+    jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
       getAuditEvents: jest.fn(async () => {
         throw new Error('DATABASE_URL is required for audit persistence');
       }),
     }));
 
-    const { handleNominationAuditCommand } = await import('../nomination-audit.command.ts');
+    const { handleNominationAuditCommand } = await import('../nomination-audit.command.js');
     const interaction = makeInteraction();
 
     await handleNominationAuditCommand(interaction);

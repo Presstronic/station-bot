@@ -1,6 +1,7 @@
 /** @type {import('jest').Config} */
 export default {
   preset: 'ts-jest/presets/default-esm',
+  resolver: 'ts-jest-resolver',
   testEnvironment: 'node',
   extensionsToTreatAsEsm: ['.ts'],
   transform: {

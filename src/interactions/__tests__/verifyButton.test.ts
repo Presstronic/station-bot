@@ -16,21 +16,21 @@ async function loadHandlerWithMocks({
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
 
-  await jest.unstable_mockModule('../../utils/logger.ts', () => ({
+  await jest.unstable_mockModule('../../utils/logger.js', () => ({
     getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
   }));
-  await jest.unstable_mockModule('../../commands/verify.ts', () => ({
+  await jest.unstable_mockModule('../../commands/verify.js', () => ({
     getUserVerificationData,
   }));
-  await jest.unstable_mockModule('../../services/rsi.services.ts', () => ({
+  await jest.unstable_mockModule('../../services/rsi.services.js', () => ({
     verifyRSIProfile,
   }));
-  await jest.unstable_mockModule('../../services/role.services.ts', () => ({
+  await jest.unstable_mockModule('../../services/role.services.js', () => ({
     assignVerifiedRole,
     removeVerifiedRole,
   }));
 
-  const { handleVerifyButtonInteraction } = await import('../verifyButton.ts');
+  const { handleVerifyButtonInteraction } = await import('../verifyButton.js');
 
   return {
     handleVerifyButtonInteraction,
