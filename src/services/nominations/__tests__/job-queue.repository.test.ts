@@ -192,7 +192,7 @@ describe('claimNextRunnableNominationCheckJob', () => {
     }));
 
     const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
-    const result = await claimNextRunnableNominationCheckJob();
+    const result = await claimNextRunnableNominationCheckJob(300000);
 
     expect(withClient).toHaveBeenCalledTimes(1);
     expect(result?.id).toBe(7);
@@ -213,7 +213,7 @@ describe('claimNextRunnableNominationCheckJob', () => {
     }));
 
     const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
-    const result = await claimNextRunnableNominationCheckJob();
+    const result = await claimNextRunnableNominationCheckJob(300000);
 
     expect(withClient).toHaveBeenCalledTimes(1);
     expect(result).toBeNull();
@@ -236,7 +236,7 @@ describe('claimNextRunnableNominationCheckJob', () => {
     }));
 
     const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
-    await expect(claimNextRunnableNominationCheckJob()).rejects.toThrow('read error');
+    await expect(claimNextRunnableNominationCheckJob(300000)).rejects.toThrow('read error');
 
     const calls = queryCalls(query);
     expect(calls.some((sql) => /ROLLBACK/i.test(sql))).toBe(false);
@@ -257,13 +257,13 @@ describe('claimNextRunnableNominationCheckJob', () => {
     }));
 
     const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
-    await expect(claimNextRunnableNominationCheckJob()).rejects.toThrow('db error');
+    await expect(claimNextRunnableNominationCheckJob(300000)).rejects.toThrow('db error');
 
     const calls = queryCalls(query);
     expect(calls.some((sql) => /ROLLBACK/i.test(sql))).toBe(true);
   });
 
-  it('orders queued jobs before running jobs to prevent starvation after worker restart', async () => {
+  it('skips running jobs with no claimable items to prevent starvation after worker restart', async () => {
     const jobRow = makeJobRow(7);
     const query = jest.fn<() => Promise<{ rows: any[] }>>()
       .mockResolvedValueOnce({ rows: [] })           // BEGIN
@@ -281,10 +281,13 @@ describe('claimNextRunnableNominationCheckJob', () => {
     }));
 
     const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
-    await claimNextRunnableNominationCheckJob();
+    await claimNextRunnableNominationCheckJob(300000);
 
     const calls = queryCalls(query);
     const claimQuery = calls.find((sql) => /FOR UPDATE SKIP LOCKED/i.test(sql));
-    expect(claimQuery).toMatch(/CASE WHEN status = 'queued' THEN 0/i);
+    // Running jobs are excluded unless they have at least one claimable item
+    expect(claimQuery).toMatch(/EXISTS.*nomination_check_job_items/si);
+    // Ordered purely by age — no static priority weighting
+    expect(claimQuery).not.toMatch(/CASE WHEN status/i);
   });
 });

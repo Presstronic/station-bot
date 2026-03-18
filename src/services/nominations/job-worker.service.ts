@@ -61,7 +61,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   const staleLockMs = Math.max(1000, parseEnvInt('NOMINATION_WORKER_STALE_LOCK_MS', defaultStaleLockMs));
   const maxAttempts = Math.max(1, parseEnvInt('NOMINATION_WORKER_MAX_ATTEMPTS', defaultMaxAttempts));
 
-  const job = await claimNextRunnableNominationCheckJob();
+  const job = await claimNextRunnableNominationCheckJob(staleLockMs);
   if (!job) {
     return false;
   }

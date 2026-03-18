@@ -95,13 +95,16 @@ export async function enqueueNominationCheckJob(
       // Serialize concurrent enqueues for the same (scope, handle) pair.
       // FOR UPDATE only locks existing rows — it offers no protection when
       // the SELECT returns 0 rows. An advisory lock keyed by a 64-bit hash
-      // (first 8 bytes of md5(scope:handle)) is held for the lifetime of
-      // the transaction, so a second concurrent enqueue blocks here until
-      // the first commits or rolls back. Hash collision risk is negligible
-      // given the small set of distinct (scope, handle) values in practice.
+      // (first 8 bytes of md5 of a prefix-encoded scope+handle string) is
+      // held for the lifetime of the transaction, so a second concurrent
+      // enqueue blocks here until the first commits or rolls back.
+      // Prefix encoding ('scope:null' vs 'scope:handle:value') preserves
+      // NULL distinctly, matching the IS NOT DISTINCT FROM predicate used
+      // in the existence check. Hash collision risk is negligible given the
+      // small set of distinct (scope, handle) values in practice.
       await client.query(
         `SELECT pg_advisory_xact_lock(
-          ('x' || left(md5($1 || ':' || COALESCE($2, '')), 16))::bit(64)::bigint
+          ('x' || left(md5(CASE WHEN $2 IS NULL THEN $1 || ':null' ELSE $1 || ':handle:' || $2 END), 16))::bit(64)::bigint
         )`,
         [requestedScope, requestedHandle]
       );
@@ -206,7 +209,7 @@ export async function getLatestNominationCheckJob(): Promise<NominationCheckJob 
   return getJobWithItemCounts(Number(result.rows[0].id));
 }
 
-export async function claimNextRunnableNominationCheckJob(): Promise<NominationCheckJob | null> {
+export async function claimNextRunnableNominationCheckJob(staleLockMs: number): Promise<NominationCheckJob | null> {
   assertDatabaseConfigured();
   await ensureNominationsSchema();
 
@@ -217,14 +220,22 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
       const claimResult = await client.query(
         `
         SELECT id
-        FROM nomination_check_jobs
+        FROM nomination_check_jobs j
         WHERE status IN ('queued', 'running')
-        ORDER BY
-          CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
-          created_at ASC
+          AND (
+            status = 'queued'
+            OR EXISTS (
+              SELECT 1 FROM nomination_check_job_items i
+              WHERE i.job_id = j.id
+                AND i.status IN ('pending', 'running')
+                AND (i.locked_at IS NULL OR i.locked_at < NOW() - ($1::numeric * interval '1 millisecond'))
+            )
+          )
+        ORDER BY created_at ASC
         FOR UPDATE SKIP LOCKED
         LIMIT 1
-        `
+        `,
+        [staleLockMs]
       );
       if (claimResult.rows.length === 0) {
         await client.query('COMMIT');
