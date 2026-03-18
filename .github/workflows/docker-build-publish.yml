@@ -16,11 +16,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Get version from VERSION file
+      - name: Get version from package.json
         id: version
         shell: bash
         run: |
-          VERSION=$(cat VERSION)
+          VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Validate version tag
@@ -28,12 +28,12 @@ jobs:
         run: |
           # Extract the tag name (e.g. "v0.0.9")
           TAG=${GITHUB_REF#refs/tags/}
-          # Build the expected tag by prefixing the VERSION file's content with "v"
+          # Build the expected tag by prefixing the package.json version with "v"
           EXPECTED_TAG="v${{ steps.version.outputs.version }}"
           echo "Pushed tag: $TAG"
           echo "Expected tag: $EXPECTED_TAG"
           if [ "$TAG" != "$EXPECTED_TAG" ]; then
-            echo "Error: The pushed tag does not match the version in the VERSION file."
+            echo "Error: The pushed tag does not match the version in package.json."
             exit 1
           fi
 

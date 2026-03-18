@@ -107,25 +107,13 @@ export async function enqueueNominationCheckJob(
 
       if (existingResult.rows.length > 0) {
         const existingJobId = Number(existingResult.rows[0].id);
-        const existingJobResult = await client.query(
-          `
-          SELECT
-            j.*,
-            COALESCE(SUM(CASE WHEN i.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count,
-            COALESCE(SUM(CASE WHEN i.status = 'running' THEN 1 ELSE 0 END), 0) AS running_count
-          FROM nomination_check_jobs j
-          LEFT JOIN nomination_check_job_items i ON i.job_id = j.id
-          WHERE j.id = $1
-          GROUP BY j.id
-          `,
-          [existingJobId]
-        );
         await client.query('COMMIT');
         committed = true;
-        if (existingJobResult.rows.length === 0) {
+        const job = await getJobWithItemCounts(existingJobId, client);
+        if (!job) {
           throw new Error('Failed to load existing nomination check job');
         }
-        return { job: mapJobRow(existingJobResult.rows[0]), reused: true };
+        return { job, reused: true };
       }
 
       const insertJobResult = await client.query(

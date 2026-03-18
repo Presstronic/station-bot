@@ -72,8 +72,8 @@ describe('enqueueNominationCheckJob', () => {
     const query = jest.fn<() => Promise<{ rows: any[] }>>()
       .mockResolvedValueOnce({ rows: [] })            // BEGIN
       .mockResolvedValueOnce({ rows: [{ id: 99 }] }) // SELECT existing — found
-      .mockResolvedValueOnce({ rows: [jobRow] })      // SELECT job with counts
-      .mockResolvedValueOnce({ rows: [] });            // COMMIT
+      .mockResolvedValueOnce({ rows: [] })            // COMMIT
+      .mockResolvedValueOnce({ rows: [jobRow] });     // getJobWithItemCounts (reuses client)
 
     const withClient = makeWithClient(query);
 
