@@ -65,10 +65,11 @@ export function getDbPool(): Pool {
     return poolInstance;
   }
 
+  const maxConnections = Math.max(1, envInt('PG_POOL_MAX', 10));
   poolInstance = new Pool({
     connectionString: process.env.DATABASE_URL,
-    min: Math.max(0, envInt('PG_POOL_MIN', 2)),
-    max: Math.max(1, envInt('PG_POOL_MAX', 10)),
+    min: Math.min(Math.max(0, envInt('PG_POOL_MIN', 2)), maxConnections),
+    max: maxConnections,
     idleTimeoutMillis: Math.max(0, envInt('PG_IDLE_TIMEOUT_MS', 30000)),
     connectionTimeoutMillis: Math.max(0, envInt('PG_CONNECT_TIMEOUT_MS', 10000)),
     statement_timeout: Math.max(0, envInt('PG_STATEMENT_TIMEOUT_MS', 15000)),
