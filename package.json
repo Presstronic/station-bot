@@ -5,7 +5,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "dev": "tsx src/index.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && cp -r src/locales dist/locales",
     "start": "NODE_ENV=production node dist/index.js",
     "lint": "tsc -p tsconfig.lint.json --noEmit",
     "test": "NODE_ENV=test node --experimental-vm-modules node_modules/.bin/jest --detectOpenHandles",

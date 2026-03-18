@@ -25,7 +25,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --omit=dev
 
-# Copy compiled output and runtime assets
+# Copy compiled output and runtime assets (dist/ includes locales copied by build script)
 COPY --from=builder /app/dist ./dist
 COPY migrations ./migrations
 
