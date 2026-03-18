@@ -92,6 +92,18 @@ export async function enqueueNominationCheckJob(
     await client.query('BEGIN');
     let committed = false;
     try {
+      // Serialize concurrent enqueues for the same (scope, handle) pair.
+      // FOR UPDATE only locks existing rows — it offers no protection when
+      // the SELECT returns 0 rows. An advisory lock keyed by the scope+handle
+      // string is held for the lifetime of the transaction, so a second
+      // concurrent enqueue blocks here until the first commits or rolls back.
+      await client.query(
+        `SELECT pg_advisory_xact_lock(
+          ('x' || left(md5($1 || ':' || COALESCE($2, '')), 16))::bit(64)::bigint
+        )`,
+        [requestedScope, requestedHandle]
+      );
+
       const existingResult = await client.query(
         `
         SELECT id
@@ -101,7 +113,6 @@ export async function enqueueNominationCheckJob(
           AND requested_handle IS NOT DISTINCT FROM $2
         ORDER BY created_at DESC
         LIMIT 1
-        FOR UPDATE
         `,
         [requestedScope, requestedHandle]
       );
