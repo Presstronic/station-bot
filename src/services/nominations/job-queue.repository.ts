@@ -1,3 +1,4 @@
+import type { PoolClient } from 'pg';
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.ts';
 import type {
   EnqueueNominationCheckJobResult,
@@ -48,9 +49,12 @@ function mapItemRow(row: any): NominationCheckJobItem {
   };
 }
 
-async function getJobWithItemCounts(jobId: number): Promise<NominationCheckJob | null> {
-  const result = await withClient((client) =>
-    client.query(
+async function getJobWithItemCounts(
+  jobId: number,
+  client?: PoolClient
+): Promise<NominationCheckJob | null> {
+  const query = (c: PoolClient) =>
+    c.query(
       `
       SELECT
         j.*,
@@ -62,8 +66,8 @@ async function getJobWithItemCounts(jobId: number): Promise<NominationCheckJob |
       GROUP BY j.id
       `,
       [jobId]
-    )
-  );
+    );
+  const result = client ? await query(client) : await withClient(query);
   if (result.rows.length === 0) {
     return null;
   }
@@ -86,6 +90,7 @@ export async function enqueueNominationCheckJob(
 
   return withClient(async (client) => {
     await client.query('BEGIN');
+    let committed = false;
     try {
       const existingResult = await client.query(
         `
@@ -102,24 +107,13 @@ export async function enqueueNominationCheckJob(
 
       if (existingResult.rows.length > 0) {
         const existingJobId = Number(existingResult.rows[0].id);
-        const existingJobResult = await client.query(
-          `
-          SELECT
-            j.*,
-            COALESCE(SUM(CASE WHEN i.status = 'pending' THEN 1 ELSE 0 END), 0) AS pending_count,
-            COALESCE(SUM(CASE WHEN i.status = 'running' THEN 1 ELSE 0 END), 0) AS running_count
-          FROM nomination_check_jobs j
-          LEFT JOIN nomination_check_job_items i ON i.job_id = j.id
-          WHERE j.id = $1
-          GROUP BY j.id
-          `,
-          [existingJobId]
-        );
         await client.query('COMMIT');
-        if (existingJobResult.rows.length === 0) {
+        committed = true;
+        const job = await getJobWithItemCounts(existingJobId, client);
+        if (!job) {
           throw new Error('Failed to load existing nomination check job');
         }
-        return { job: mapJobRow(existingJobResult.rows[0]), reused: true };
+        return { job, reused: true };
       }
 
       const insertJobResult = await client.query(
@@ -159,13 +153,14 @@ export async function enqueueNominationCheckJob(
       );
 
       await client.query('COMMIT');
-      const job = await getJobWithItemCounts(jobId);
+      committed = true;
+      const job = await getJobWithItemCounts(jobId, client);
       if (!job) {
         throw new Error('Failed to load created nomination check job');
       }
       return { job, reused: false };
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!committed) await client.query('ROLLBACK');
       throw error;
     }
   });
@@ -203,6 +198,7 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
 
   return withClient(async (client) => {
     await client.query('BEGIN');
+    let committed = false;
     try {
       const claimResult = await client.query(
         `
@@ -218,6 +214,7 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
       );
       if (claimResult.rows.length === 0) {
         await client.query('COMMIT');
+        committed = true;
         return null;
       }
 
@@ -233,9 +230,10 @@ export async function claimNextRunnableNominationCheckJob(): Promise<NominationC
         [jobId]
       );
       await client.query('COMMIT');
-      return getJobWithItemCounts(jobId);
+      committed = true;
+      return getJobWithItemCounts(jobId, client);
     } catch (error) {
-      await client.query('ROLLBACK');
+      if (!committed) await client.query('ROLLBACK');
       throw error;
     }
   });
