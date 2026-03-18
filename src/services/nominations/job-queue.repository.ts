@@ -230,6 +230,11 @@ export async function claimNextRunnableNominationCheckJob(staleLockMs: number): 
                 AND i.status IN ('pending', 'running')
                 AND (i.locked_at IS NULL OR i.locked_at < NOW() - ($1::numeric * interval '1 millisecond'))
             )
+            OR NOT EXISTS (
+              SELECT 1 FROM nomination_check_job_items i
+              WHERE i.job_id = j.id
+                AND i.status IN ('pending', 'running')
+            )
           )
         ORDER BY created_at ASC
         FOR UPDATE SKIP LOCKED

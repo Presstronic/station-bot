@@ -285,9 +285,38 @@ describe('claimNextRunnableNominationCheckJob', () => {
 
     const calls = queryCalls(query);
     const claimQuery = calls.find((sql) => /FOR UPDATE SKIP LOCKED/i.test(sql));
-    // Running jobs are excluded unless they have at least one claimable item
+    // Running jobs excluded unless they have claimable items OR no non-terminal items
     expect(claimQuery).toMatch(/EXISTS.*nomination_check_job_items/si);
+    expect(claimQuery).toMatch(/NOT EXISTS.*nomination_check_job_items/si);
     // Ordered purely by age — no static priority weighting
     expect(claimQuery).not.toMatch(/CASE WHEN status/i);
+  });
+
+  it('still claims a running job with no pending/running items so the worker can finalize it', async () => {
+    // Scenario: worker A crashed after completing the last item but before
+    // calling refreshNominationCheckJobProgress. All items are terminal
+    // (completed/failed) but the job is still status='running'. Without this
+    // path the job would be stuck in 'running' forever.
+    const jobRow = { ...makeJobRow(9), status: 'running', pending_count: 0, running_count: 0 };
+    const query = jest.fn<() => Promise<{ rows: any[] }>>()
+      .mockResolvedValueOnce({ rows: [] })           // BEGIN
+      .mockResolvedValueOnce({ rows: [{ id: 9 }] }) // SELECT claim — running job, no non-terminal items
+      .mockResolvedValueOnce({ rows: [] })           // UPDATE status
+      .mockResolvedValueOnce({ rows: [] })           // COMMIT
+      .mockResolvedValueOnce({ rows: [jobRow] });    // getJobWithItemCounts
+
+    const withClient = makeWithClient(query);
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { claimNextRunnableNominationCheckJob } = await import('../job-queue.repository.js');
+    const result = await claimNextRunnableNominationCheckJob(300000);
+
+    expect(withClient).toHaveBeenCalledTimes(1);
+    expect(result?.id).toBe(9);
   });
 });
