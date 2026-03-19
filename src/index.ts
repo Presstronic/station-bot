@@ -87,8 +87,16 @@ client.once('ready', async () => {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
     if (isDatabaseConfigured()) {
-      startNominationCheckWorkerLoop();
-      logger.info('Started nomination check worker loop.');
+      const workerHandle = startNominationCheckWorkerLoop();
+      if (workerHandle) {
+        logger.info('Started nomination check worker loop.');
+        const shutdown = () => {
+          logger.info('Graceful shutdown: clearing nomination worker interval.');
+          clearInterval(workerHandle);
+        };
+        process.once('SIGTERM', shutdown);
+        process.once('SIGINT', shutdown);
+      }
     }
   } else {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');

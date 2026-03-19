@@ -68,7 +68,20 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 
   logger.info(`Nomination worker claimed job ${job.id} (scope=${job.requestedScope}, total=${job.totalCount})`);
 
+  // +2 slack accounts for stale-lock reclaims that may re-claim items
+  // already counted in totalCount.
+  const maxBatches = Math.ceil(job.totalCount / batchSize) + 2;
+  let batchNumber = 0;
+
   while (true) {
+    batchNumber++;
+    if (batchNumber > maxBatches) {
+      logger.warn(
+        `Nomination worker exceeded max batch iterations for job ${job.id} (batchNumber=${batchNumber}, maxBatches=${maxBatches}) — possible stuck items, breaking`
+      );
+      break;
+    }
+
     const items = await claimNominationCheckJobItems(job.id, batchSize, staleLockMs);
     if (items.length === 0) {
       break;

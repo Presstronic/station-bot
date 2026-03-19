@@ -51,6 +51,63 @@ describe('runNominationCheckWorkerCycle', () => {
     expect(completeNominationCheckJobItem).toHaveBeenCalledTimes(2);
   });
 
+  it('breaks out of the batch loop after maxBatches iterations when items never drain', async () => {
+    // Simulate a stuck queue where claimNominationCheckJobItems never returns empty.
+    // With totalCount=1 and batchSize=1: maxBatches = ceil(1/1) + 2 = 3.
+    // The loop should process exactly 3 batches and then break with a warning
+    // rather than looping indefinitely.
+    const claimNextRunnableNominationCheckJob = jest.fn(async () => ({
+      id: 300,
+      requestedScope: 'all',
+      totalCount: 1,
+    }));
+    const claimNominationCheckJobItems = jest.fn(async () => [
+      { id: 99, normalizedHandle: 'stuckhandle', attemptCount: 1 },
+    ]);
+    const completeNominationCheckJobItem = jest.fn(async () => undefined);
+    const refreshNominationCheckJobProgress = jest.fn(async () => ({
+      status: 'running',
+      completedCount: 0,
+      failedCount: 0,
+    }));
+
+    const envBackup = process.env.NOMINATION_WORKER_BATCH_SIZE;
+    process.env.NOMINATION_WORKER_BATCH_SIZE = '1';
+
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
+      claimNextRunnableNominationCheckJob,
+      claimNominationCheckJobItems,
+      completeNominationCheckJobItem,
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress,
+    }));
+    jest.unstable_mockModule('../org-check.service.js', () => ({
+      checkHasAnyOrgMembership: jest.fn(async () => ({
+        code: 'in_org',
+        status: 'in_org',
+        checkedAt: '2026-01-01T00:00:00.000Z',
+      })),
+    }));
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      updateOrgCheckResult: jest.fn(),
+    }));
+
+    const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
+    const ran = await runNominationCheckWorkerCycle();
+
+    // maxBatches = ceil(1 / 1) + 2 = 3 — loop claims items in batches 1, 2, 3
+    // then batchNumber reaches 4, exceeds maxBatches, and breaks
+    expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(3);
+    expect(ran).toBe(true);
+
+    if (envBackup === undefined) {
+      delete process.env.NOMINATION_WORKER_BATCH_SIZE;
+    } else {
+      process.env.NOMINATION_WORKER_BATCH_SIZE = envBackup;
+    }
+  });
+
   it('requeues and then fails items once max attempts are reached', async () => {
     const claimNextRunnableNominationCheckJob = jest.fn(async () => ({
       id: 201,
