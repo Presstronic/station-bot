@@ -92,9 +92,13 @@ client.once('ready', async () => {
         logger.info('Started nomination check worker loop.');
         const shutdown = () => {
           logger.info('Graceful shutdown: clearing nomination worker interval.');
+          process.exitCode = 0;
           clearInterval(workerHandle);
           client.destroy();
-          process.exit(0);
+          // Allow resources to drain naturally. Force-exit after 10 s as a
+          // safety net in case something (e.g. the PG pool) keeps the loop alive.
+          const forceExit = setTimeout(() => process.exit(0), 10_000);
+          forceExit.unref();
         };
         process.once('SIGTERM', shutdown);
         process.once('SIGINT', shutdown);

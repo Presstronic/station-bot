@@ -68,9 +68,11 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 
   logger.info(`Nomination worker claimed job ${job.id} (scope=${job.requestedScope}, total=${job.totalCount})`);
 
+  // Scale by maxAttempts so items that fail and are requeued within the same
+  // cycle still have room to exhaust all retry attempts before the cap fires.
   // +2 slack accounts for stale-lock reclaims that may re-claim items
   // already counted in totalCount.
-  const maxBatches = Math.ceil(job.totalCount / batchSize) + 2;
+  const maxBatches = Math.ceil(job.totalCount / batchSize) * maxAttempts + 2;
   let batchNumber = 0;
   let cappedByLimit = false;
 
@@ -124,8 +126,8 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
     );
   } else if (cappedByLimit) {
     logger.warn(
-      `Nomination worker hit batch cap for job ${job.id} — items remain unprocessed; job stays running and will be retried on next poll`,
-      { jobId: job.id, status: jobStatus, completed: finishedJob?.completedCount ?? 0, failed: finishedJob?.failedCount ?? 0 }
+      `Nomination worker hit batch cap for job ${job.id} — items remain unprocessed; job stays running and will be retried on a subsequent poll once items become claimable (after staleLockMs elapses)`,
+      { jobId: job.id, status: jobStatus, completed: finishedJob?.completedCount ?? 0, failed: finishedJob?.failedCount ?? 0, staleLockMs }
     );
   } else {
     logger.info(

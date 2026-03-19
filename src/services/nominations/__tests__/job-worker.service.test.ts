@@ -53,9 +53,10 @@ describe('runNominationCheckWorkerCycle', () => {
 
   it('breaks out of the batch loop after maxBatches iterations when items never drain', async () => {
     // Simulate a stuck queue where claimNominationCheckJobItems never returns empty.
-    // With totalCount=1 and batchSize=1: maxBatches = ceil(1/1) + 2 = 3.
+    // With totalCount=1, batchSize=1, maxAttempts=3:
+    //   maxBatches = ceil(1/1) * 3 + 2 = 5
     // The loop checks batchNumber >= maxBatches before incrementing, so it processes
-    // exactly 3 batches (batchNumber reaches 3) and then breaks with a warning.
+    // exactly 5 batches (batchNumber reaches 5) and then breaks with a warning.
     const warnSpy = jest.fn();
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), warn: warnSpy, error: jest.fn() }),
@@ -76,8 +77,10 @@ describe('runNominationCheckWorkerCycle', () => {
       failedCount: 0,
     }));
 
-    const envBackup = process.env.NOMINATION_WORKER_BATCH_SIZE;
+    const batchSizeBackup = process.env.NOMINATION_WORKER_BATCH_SIZE;
+    const maxAttemptsBackup = process.env.NOMINATION_WORKER_MAX_ATTEMPTS;
     process.env.NOMINATION_WORKER_BATCH_SIZE = '1';
+    process.env.NOMINATION_WORKER_MAX_ATTEMPTS = '3';
 
     try {
       jest.unstable_mockModule('../job-queue.repository.js', () => ({
@@ -102,22 +105,27 @@ describe('runNominationCheckWorkerCycle', () => {
       const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
       const ran = await runNominationCheckWorkerCycle();
 
-      // maxBatches = ceil(1 / 1) + 2 = 3 — loop processes batches until batchNumber
-      // reaches maxBatches (3), then the >= guard fires on the next iteration and breaks.
+      // maxBatches = ceil(1 / 1) * 3 + 2 = 5 — loop processes batches until
+      // batchNumber reaches maxBatches (5), then the >= guard fires and breaks.
       // Two warnings are emitted: one from the cap guard, one from the end-of-cycle
       // cappedByLimit path (distinct from the "exhausted claimable items" info log).
-      expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(3);
+      expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(5);
       expect(ran).toBe(true);
       expect(warnSpy).toHaveBeenCalledTimes(2);
       // First warn: the cap guard
-      expect(warnSpy.mock.calls[0][1]).toMatchObject({ jobId: 300, batchesProcessed: 3, maxBatches: 3 });
+      expect(warnSpy.mock.calls[0][1]).toMatchObject({ jobId: 300, batchesProcessed: 5, maxBatches: 5 });
       // Second warn: end-of-cycle log indicating items remain and job stays running
       expect(warnSpy.mock.calls[1][1]).toMatchObject({ jobId: 300, status: 'running' });
     } finally {
-      if (envBackup === undefined) {
+      if (batchSizeBackup === undefined) {
         delete process.env.NOMINATION_WORKER_BATCH_SIZE;
       } else {
-        process.env.NOMINATION_WORKER_BATCH_SIZE = envBackup;
+        process.env.NOMINATION_WORKER_BATCH_SIZE = batchSizeBackup;
+      }
+      if (maxAttemptsBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_MAX_ATTEMPTS;
+      } else {
+        process.env.NOMINATION_WORKER_MAX_ATTEMPTS = maxAttemptsBackup;
       }
     }
   });
