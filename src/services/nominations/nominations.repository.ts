@@ -115,18 +115,18 @@ export async function recordNomination(
   return withClient(async (client) => {
     await client.query('BEGIN');
     try {
-      // Serialize concurrent nominations to the same target so the target cap
-      // check and the event write are atomic across requests from different users.
-      // The lock is keyed by a 64-bit hash of the handle with a prefix to avoid
-      // collisions with advisory locks from other parts of the codebase.
-      await client.query(
-        `SELECT pg_advisory_xact_lock(
-          ('x' || left(md5('nomination_target:' || $1), 16))::bit(64)::bigint
-        )`,
-        [normalizedHandle]
-      );
-
       if (targetMaxPerDay > 0) {
+        // Serialize concurrent nominations to the same target so the cap check
+        // and the event write are atomic across requests from different users.
+        // The lock is keyed by a 64-bit hash of the handle with a prefix to
+        // avoid collisions with advisory locks from other parts of the codebase.
+        await client.query(
+          `SELECT pg_advisory_xact_lock(
+            ('x' || left(md5('nomination_target:' || $1), 16))::bit(64)::bigint
+          )`,
+          [normalizedHandle]
+        );
+
         const capResult = await client.query(
           `SELECT COUNT(*)::int AS event_count
            FROM nomination_events
