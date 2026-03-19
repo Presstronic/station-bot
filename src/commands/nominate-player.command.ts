@@ -163,7 +163,6 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     }
   } catch (error) {
     if (error instanceof NominationTargetCapExceededError) {
-      const locale = getCommandLocale(interaction);
       await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominatePlayer.responses.targetDailyLimitReached', locale },

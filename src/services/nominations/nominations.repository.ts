@@ -135,7 +135,6 @@ export async function recordNomination(
           [normalizedHandle]
         );
         if (Number(capResult.rows[0].event_count) >= targetMaxPerDay) {
-          await client.query('ROLLBACK');
           throw new NominationTargetCapExceededError(rsiHandle.trim());
         }
       }
