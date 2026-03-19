@@ -38,9 +38,11 @@ const client = new Client({
   ],
 });
 
-// Declared at module scope so the shutdown handler can clear it regardless of
-// when the signal arrives (before or after ready, worker enabled or not).
+// Declared at module scope so the shutdown handler can stop them regardless of
+// when the signal arrives (before or after ready, jobs enabled or not).
 let workerHandle: NodeJS.Timeout | null = null;
+let tempMemberCronTask: { stop: () => void } | null = null;
+let potentialApplicantCronTask: { stop: () => void } | null = null;
 let shuttingDown = false;
 
 const shutdown = () => {
@@ -51,6 +53,8 @@ const shutdown = () => {
   if (workerHandle !== null) {
     clearInterval(workerHandle);
   }
+  tempMemberCronTask?.stop();
+  potentialApplicantCronTask?.stop();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -107,8 +111,8 @@ client.once('ready', async () => {
     }
 
     if (purgeJobsEnabled) {
-      scheduleTemporaryMemberCleanup(client);
-      schedulePotentialApplicantCleanup(client);
+      tempMemberCronTask = scheduleTemporaryMemberCleanup(client);
+      potentialApplicantCronTask = schedulePotentialApplicantCleanup(client);
       logger.info('Scheduled member purge jobs.');
     } else {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');

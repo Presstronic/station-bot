@@ -45,8 +45,8 @@ async function loadIndexAndRunReady(
   const ensureNominationsSchema = jest.fn(async () => undefined);
   const isDatabaseConfigured = jest.fn(() => false);
   const addMissingDefaultRoles = jest.fn(async () => undefined);
-  const scheduleTemporaryMemberCleanup = jest.fn();
-  const schedulePotentialApplicantCleanup = jest.fn();
+  const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: jest.fn() }));
+  const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: jest.fn() }));
   const startNominationCheckWorkerLoop = jest.fn();
   const logger = {
     debug: jest.fn(),
@@ -277,8 +277,10 @@ describe('startup wiring with read-only mode', () => {
     const ensureNominationsSchema = jest.fn(async () => undefined);
     const isDatabaseConfigured = jest.fn(() => true);
     const addMissingDefaultRoles = jest.fn(async () => undefined);
-    const scheduleTemporaryMemberCleanup = jest.fn();
-    const schedulePotentialApplicantCleanup = jest.fn();
+    const tempMemberStopSpy = jest.fn();
+    const potentialApplicantStopSpy = jest.fn();
+    const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: tempMemberStopSpy }));
+    const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: potentialApplicantStopSpy }));
     const startNominationCheckWorkerLoop = jest.fn(() => fakeInterval);
     const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
@@ -318,6 +320,7 @@ describe('startup wiring with read-only mode', () => {
     });
 
     process.env.BOT_READ_ONLY_MODE = 'false';
+    process.env.PURGE_JOBS_ENABLED = 'true';
     process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
     process.env.NOMINATION_WORKER_ENABLED = 'true';
 
@@ -328,6 +331,8 @@ describe('startup wiring with read-only mode', () => {
 
     expect(process.exitCode).toBe(0);
     expect(clearIntervalSpy).toHaveBeenCalledWith(fakeInterval);
+    expect(tempMemberStopSpy).toHaveBeenCalledTimes(1);
+    expect(potentialApplicantStopSpy).toHaveBeenCalledTimes(1);
     expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(endDbPoolIfInitialized).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_000);
@@ -340,5 +345,6 @@ describe('startup wiring with read-only mode', () => {
     exitSpy.mockRestore();
     setTimeoutSpy.mockRestore();
     delete process.env.NOMINATION_WORKER_ENABLED;
+    delete process.env.PURGE_JOBS_ENABLED;
   });
 });
