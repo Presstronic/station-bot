@@ -1,3 +1,5 @@
+export const SECONDS_PER_DAY = 86400;
+
 export type OrgCheckStatus = 'in_org' | 'not_in_org' | 'unknown';
 
 export type OrgCheckResultCode =
@@ -61,3 +63,12 @@ export type AntiAbuseViolation =
   | { kind: 'cooldown'; secondsRemaining: number }
   | { kind: 'targetDailyLimit'; displayHandle: string }
   | { kind: 'userDailyLimit' };
+
+export class NominationTargetCapExceededError extends Error {
+  readonly displayHandle: string;
+  constructor(displayHandle: string) {
+    super(`Target daily nomination cap exceeded for ${displayHandle}`);
+    this.name = 'NominationTargetCapExceededError';
+    this.displayHandle = displayHandle;
+  }
+}

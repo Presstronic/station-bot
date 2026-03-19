@@ -1,4 +1,5 @@
 import type { NominationEvent, NominationLifecycleState, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.js';
+import { NominationTargetCapExceededError, SECONDS_PER_DAY } from './types.js';
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.js';
 import { reasonCodeMetadata } from './reason-codes.js';
 import { assertValidTransition, deriveLifecycleStateFromOrgCheck } from './lifecycle.service.js';
@@ -94,11 +95,14 @@ async function getEventsByHandles(normalizedHandles: string[]): Promise<Map<stri
   return eventsByHandle;
 }
 
+export { NominationTargetCapExceededError };
+
 export async function recordNomination(
   rsiHandle: string,
   nominatorUserId: string,
   nominatorUserTag: string,
-  reason: string | null
+  reason: string | null,
+  targetMaxPerDay = 0
 ): Promise<NominationRecord> {
   assertDatabaseConfigured();
   await ensureNominationsSchema();
@@ -111,6 +115,30 @@ export async function recordNomination(
   return withClient(async (client) => {
     await client.query('BEGIN');
     try {
+      if (targetMaxPerDay > 0) {
+        // Serialize concurrent nominations to the same target so the cap check
+        // and the event write are atomic across requests from different users.
+        // The lock is keyed by a 64-bit hash of the handle with a prefix to
+        // avoid collisions with advisory locks from other parts of the codebase.
+        await client.query(
+          `SELECT pg_advisory_xact_lock(
+            ('x' || left(md5('nomination_target:' || $1), 16))::bit(64)::bigint
+          )`,
+          [normalizedHandle]
+        );
+
+        const capResult = await client.query(
+          `SELECT COUNT(*)::int AS event_count
+           FROM nomination_events
+           WHERE normalized_handle = $1
+             AND created_at >= clock_timestamp() - ($2 * INTERVAL '1 second')`,
+          [normalizedHandle, SECONDS_PER_DAY]
+        );
+        if (Number(capResult.rows[0].event_count) >= targetMaxPerDay) {
+          throw new NominationTargetCapExceededError(rsiHandle.trim());
+        }
+      }
+
       const existingRow = await client.query(
         `SELECT lifecycle_state FROM nominations WHERE normalized_handle = $1 FOR UPDATE`,
         [normalizedHandle]

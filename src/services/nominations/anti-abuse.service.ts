@@ -1,11 +1,10 @@
 import type { AntiAbuseViolation, NominationRatePolicy } from './types.js';
+import { SECONDS_PER_DAY } from './types.js';
 import {
   countNominationsByUserInWindow,
   countNominationsForTargetInWindow,
   getSecondsSinceLastNominationByUser,
 } from './nominations.repository.js';
-
-const SECONDS_PER_DAY = 86400;
 
 export async function checkNominationAntiAbuse(
   userId: string,

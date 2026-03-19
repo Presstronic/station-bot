@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import { recordNomination } from '../services/nominations/nominations.repository.js';
+import { NominationTargetCapExceededError } from '../services/nominations/types.js';
 import {
   getCommandLocale,
   getOrganizationMemberRoleName,
@@ -146,7 +147,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
 
       // Use RSI's canonical handle casing when available; fall back to user-submitted handle.
       const displayHandle = citizenCheck.status === 'found' ? citizenCheck.canonicalHandle : rsiHandle;
-      const updated = await recordNomination(displayHandle, interaction.user.id, interaction.user.tag, reason);
+      const updated = await recordNomination(displayHandle, interaction.user.id, interaction.user.tag, reason, policy.targetMaxPerDay);
       await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominatePlayer.responses.created', locale },
@@ -161,6 +162,16 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       nominationsInProgress.delete(interaction.user.id);
     }
   } catch (error) {
+    if (error instanceof NominationTargetCapExceededError) {
+      await interaction.editReply({
+        content: i18n.__mf(
+          { phrase: 'commands.nominatePlayer.responses.targetDailyLimitReached', locale },
+          { rsiHandle: error.displayHandle }
+        ),
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`nominate-player command failed: ${errorMessage}`);
     const isConfigurationError = isNominationConfigurationError(error);
