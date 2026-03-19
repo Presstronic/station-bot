@@ -527,6 +527,48 @@ describe('nominations commands', () => {
     );
   });
 
+  it('nominate-player shows target daily limit message when recordNomination throws NominationTargetCapExceededError', async () => {
+    // Import the real error class from types.ts (never mocked) so that the
+    // command's instanceof check and the thrown instance share the same class.
+    const { NominationTargetCapExceededError } = await import('../../services/nominations/types.js');
+
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(async () => { throw new NominationTargetCapExceededError('PilotNominee'); }),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
+      checkNominationAntiAbuse: jest.fn(async () => null),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const interaction = createNominationInteraction();
+
+    await handleNominatePlayerCommand(interaction);
+
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('PilotNominee'),
+        allowedMentions: { parse: [] },
+      })
+    );
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('maximum number of nominations'),
+      })
+    );
+  });
+
   it('nominate-player blocks submission and does not write when user daily limit is reached', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
