@@ -136,11 +136,12 @@ describe('runNominationCheckWorkerCycle', () => {
       requestedScope: 'all',
       totalCount: 1,
     }));
+    // Two batches only: batch 2's in-loop refresh returns 'failed' (terminal),
+    // triggering an early break — claimNominationCheckJobItems is never called a third time.
     const claimNominationCheckJobItems = jest
       .fn<() => Promise<any[]>>()
       .mockImplementationOnce(async () => [{ id: 1, normalizedHandle: 'pilotone', attemptCount: 1 }])
-      .mockImplementationOnce(async () => [{ id: 1, normalizedHandle: 'pilotone', attemptCount: 3 }])
-      .mockImplementationOnce(async () => []);
+      .mockImplementationOnce(async () => [{ id: 1, normalizedHandle: 'pilotone', attemptCount: 3 }]);
     const checkHasAnyOrgMembership = jest.fn(async () => {
       throw new Error('transient');
     });
@@ -158,9 +159,8 @@ describe('runNominationCheckWorkerCycle', () => {
         requeueNominationCheckJobItem,
         failNominationCheckJobItem,
         refreshNominationCheckJobProgress: jest.fn<() => Promise<any>>()
-          .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 1
-          .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 2
-          .mockResolvedValueOnce({ status: 'failed', completedCount: 0, failedCount: 1 }), // final post-loop call
+          .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 })  // in-loop after batch 1
+          .mockResolvedValueOnce({ status: 'failed', completedCount: 0, failedCount: 1 }),  // in-loop after batch 2 — terminal, breaks early; reused as finishedJob
       }));
       jest.unstable_mockModule('../org-check.service.js', () => ({
         checkHasAnyOrgMembership,
@@ -174,6 +174,8 @@ describe('runNominationCheckWorkerCycle', () => {
 
       expect(requeueNominationCheckJobItem).toHaveBeenCalledTimes(1);
       expect(failNominationCheckJobItem).toHaveBeenCalledTimes(1);
+      // Terminal status on batch 2's refresh triggers early loop exit — no third claim.
+      expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(2);
     } finally {
       if (envBackup === undefined) {
         delete process.env.NOMINATION_WORKER_MAX_ATTEMPTS;

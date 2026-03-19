@@ -57,9 +57,9 @@ async function mapWithConcurrency<T>(items: T[], limit: number, iteratee: (item:
 
 export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   const workerConcurrency = Math.max(1, parseEnvInt('NOMINATION_WORKER_CONCURRENCY', defaultWorkerConcurrency));
-  const batchSize = Math.max(1, parseEnvInt('NOMINATION_WORKER_BATCH_SIZE', defaultBatchSize));
+  const batchSize = Math.max(1, Math.floor(parseEnvInt('NOMINATION_WORKER_BATCH_SIZE', defaultBatchSize)));
   const staleLockMs = Math.max(1000, parseEnvInt('NOMINATION_WORKER_STALE_LOCK_MS', defaultStaleLockMs));
-  const maxAttempts = Math.max(1, parseEnvInt('NOMINATION_WORKER_MAX_ATTEMPTS', defaultMaxAttempts));
+  const maxAttempts = Math.max(1, Math.floor(parseEnvInt('NOMINATION_WORKER_MAX_ATTEMPTS', defaultMaxAttempts)));
 
   const job = await claimNextRunnableNominationCheckJob(staleLockMs);
   if (!job) {
