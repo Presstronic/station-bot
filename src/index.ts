@@ -95,7 +95,9 @@ client.once('ready', async () => {
           process.exitCode = 0;
           clearInterval(workerHandle);
           client.destroy();
-          void getDbPool().end();
+          getDbPool().end().catch((err: unknown) => {
+            logger.error(`Error closing PG pool during shutdown: ${String(err)}`);
+          });
           // Force-exit after 10 s as a last-resort safety net in case any
           // remaining handle keeps the event loop alive.
           const forceExit = setTimeout(() => process.exit(0), 10_000);

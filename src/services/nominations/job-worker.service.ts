@@ -75,6 +75,9 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   const maxBatches = Math.ceil(job.totalCount / batchSize) * maxAttempts + 2;
   let batchNumber = 0;
   let cappedByLimit = false;
+  // Set when the loop breaks because a batch refresh returned a terminal status;
+  // reused as finishedJob below to avoid a redundant DB round-trip.
+  let lastProgressIfTerminal: Awaited<ReturnType<typeof refreshNominationCheckJobProgress>> = null;
 
   while (true) {
     if (batchNumber >= maxBatches) {
@@ -113,11 +116,12 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
     const batchProgress = await refreshNominationCheckJobProgress(job.id);
     const batchStatus = batchProgress?.status ?? 'unknown';
     if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
+      lastProgressIfTerminal = batchProgress;
       break;
     }
   }
 
-  const finishedJob = await refreshNominationCheckJobProgress(job.id);
+  const finishedJob = lastProgressIfTerminal ?? await refreshNominationCheckJobProgress(job.id);
   const jobStatus = finishedJob?.status ?? 'unknown';
   const isTerminal = jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled';
   if (isTerminal) {
