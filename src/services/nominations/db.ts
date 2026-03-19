@@ -87,6 +87,8 @@ export function getDbPool(): Pool {
 export async function endDbPoolIfInitialized(): Promise<void> {
   if (poolInstance !== null) {
     await poolInstance.end();
+    poolInstance = null;
+    schemaEnsured = false;
   }
 }
 

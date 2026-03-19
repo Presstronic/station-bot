@@ -253,6 +253,7 @@ describe('startup wiring with read-only mode', () => {
     const fakeInterval = { _destroyed: false } as unknown as NodeJS.Timeout;
     const clearIntervalSpy = jest.spyOn(global, 'clearInterval').mockImplementation(() => undefined);
     const exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    const setTimeoutSpy = jest.spyOn(global, 'setTimeout').mockReturnValue({ unref: jest.fn() } as unknown as NodeJS.Timeout);
     const destroySpy = jest.fn();
     const endDbPoolIfInitialized = jest.fn(async () => undefined);
 
@@ -313,6 +314,7 @@ describe('startup wiring with read-only mode', () => {
     expect(clearIntervalSpy).toHaveBeenCalledWith(fakeInterval);
     expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(endDbPoolIfInitialized).toHaveBeenCalledTimes(1);
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_000);
 
     // SIGINT arriving after SIGTERM must not re-invoke cleanup (idempotency guard)
     process.emit('SIGINT');
@@ -320,6 +322,7 @@ describe('startup wiring with read-only mode', () => {
 
     clearIntervalSpy.mockRestore();
     exitSpy.mockRestore();
+    setTimeoutSpy.mockRestore();
     delete process.env.NOMINATION_WORKER_ENABLED;
   });
 });
