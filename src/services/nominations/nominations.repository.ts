@@ -1,5 +1,5 @@
 import type { NominationEvent, NominationLifecycleState, NominationRecord, OrgCheckResult, OrgCheckStatus } from './types.js';
-import { NominationTargetCapExceededError } from './types.js';
+import { NominationTargetCapExceededError, SECONDS_PER_DAY } from './types.js';
 import { ensureNominationsSchema, isDatabaseConfigured, withClient } from './db.js';
 import { reasonCodeMetadata } from './reason-codes.js';
 import { assertValidTransition, deriveLifecycleStateFromOrgCheck } from './lifecycle.service.js';
@@ -131,8 +131,8 @@ export async function recordNomination(
           `SELECT COUNT(*)::int AS event_count
            FROM nomination_events
            WHERE normalized_handle = $1
-             AND created_at >= NOW() - ($2 * INTERVAL '1 second')`,
-          [normalizedHandle, 86400]
+             AND created_at >= clock_timestamp() - ($2 * INTERVAL '1 second')`,
+          [normalizedHandle, SECONDS_PER_DAY]
         );
         if (Number(capResult.rows[0].event_count) >= targetMaxPerDay) {
           throw new NominationTargetCapExceededError(rsiHandle.trim());

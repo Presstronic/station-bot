@@ -1,3 +1,5 @@
+export const SECONDS_PER_DAY = 86400;
+
 export type OrgCheckStatus = 'in_org' | 'not_in_org' | 'unknown';
 
 export type OrgCheckResultCode =
