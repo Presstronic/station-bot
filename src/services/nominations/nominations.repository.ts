@@ -131,8 +131,8 @@ export async function recordNomination(
           `SELECT COUNT(*)::int AS event_count
            FROM nomination_events
            WHERE normalized_handle = $1
-             AND created_at >= NOW() - INTERVAL '1 day'`,
-          [normalizedHandle]
+             AND created_at >= NOW() - ($2 * INTERVAL '1 second')`,
+          [normalizedHandle, 86400]
         );
         if (Number(capResult.rows[0].event_count) >= targetMaxPerDay) {
           throw new NominationTargetCapExceededError(rsiHandle.trim());
