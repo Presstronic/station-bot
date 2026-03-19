@@ -2,16 +2,32 @@ import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals
 
 const originalEnv = { ...process.env };
 
+// Captured in beforeEach so afterEach can remove only the listeners added
+// by the current test's index.js import, leaving any pre-existing Jest or
+// Node signal handlers untouched.
+let preTestSigtermListeners: Function[] = [];
+let preTestSigintListeners: Function[] = [];
+
 beforeEach(() => {
   jest.resetModules();
   process.env = { ...originalEnv, DISCORD_BOT_TOKEN: 'test-token' };
   delete process.env.DATABASE_URL;
+  preTestSigtermListeners = [...process.rawListeners('SIGTERM')];
+  preTestSigintListeners = [...process.rawListeners('SIGINT')];
 });
 
 afterEach(() => {
   process.env = { ...originalEnv };
-  process.removeAllListeners('SIGTERM');
-  process.removeAllListeners('SIGINT');
+  for (const listener of process.rawListeners('SIGTERM')) {
+    if (!preTestSigtermListeners.includes(listener)) {
+      process.off('SIGTERM', listener as NodeJS.SignalsListener);
+    }
+  }
+  for (const listener of process.rawListeners('SIGINT')) {
+    if (!preTestSigintListeners.includes(listener)) {
+      process.off('SIGINT', listener as NodeJS.SignalsListener);
+    }
+  }
 });
 
 async function loadIndexAndRunReady(
