@@ -52,3 +52,4 @@ Before opening a PR, verify:
 - [ ] Migration included if schema changed
 - [ ] `docker-compose` config tested if infra changed
 - [ ] For releases: version bumped in `package.json`
+- [ ] Documentation is consistent with the final implementation: inline comments, PR title/body/test-plan, and any referenced GitHub issues all reflect what was actually built — not an earlier draft or superseded approach
