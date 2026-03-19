@@ -38,6 +38,31 @@ const client = new Client({
   ],
 });
 
+// Declared at module scope so the shutdown handler can clear it regardless of
+// when the signal arrives (before or after ready, worker enabled or not).
+let workerHandle: NodeJS.Timeout | null = null;
+
+const shutdown = () => {
+  logger.info('Graceful shutdown initiated.');
+  process.exitCode = 0;
+  if (workerHandle !== null) {
+    clearInterval(workerHandle);
+  }
+  client.destroy();
+  if (isDatabaseConfigured()) {
+    getDbPool().end().catch((err: unknown) => {
+      logger.error(`Error closing PG pool during shutdown: ${String(err)}`);
+    });
+  }
+  // Force-exit after 10 s as a last-resort safety net in case any remaining
+  // handle keeps the event loop alive after cleanup.
+  const forceExit = setTimeout(() => process.exit(0), 10_000);
+  forceExit.unref();
+};
+
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
+
 client.once('ready', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
@@ -87,24 +112,9 @@ client.once('ready', async () => {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
     if (isDatabaseConfigured()) {
-      const workerHandle = startNominationCheckWorkerLoop();
+      workerHandle = startNominationCheckWorkerLoop();
       if (workerHandle) {
         logger.info('Started nomination check worker loop.');
-        const shutdown = () => {
-          logger.info('Graceful shutdown: clearing nomination worker interval.');
-          process.exitCode = 0;
-          clearInterval(workerHandle);
-          client.destroy();
-          getDbPool().end().catch((err: unknown) => {
-            logger.error(`Error closing PG pool during shutdown: ${String(err)}`);
-          });
-          // Force-exit after 10 s as a last-resort safety net in case any
-          // remaining handle keeps the event loop alive.
-          const forceExit = setTimeout(() => process.exit(0), 10_000);
-          forceExit.unref();
-        };
-        process.once('SIGTERM', shutdown);
-        process.once('SIGINT', shutdown);
       }
     }
   } else {

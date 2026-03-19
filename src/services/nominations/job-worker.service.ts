@@ -75,9 +75,11 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   const maxBatches = Math.ceil(job.totalCount / batchSize) * maxAttempts + 2;
   let batchNumber = 0;
   let cappedByLimit = false;
-  // Set when the loop breaks because a batch refresh returned a terminal status;
-  // reused as finishedJob below to avoid a redundant DB round-trip.
-  let lastProgressIfTerminal: Awaited<ReturnType<typeof refreshNominationCheckJobProgress>> = null;
+  // Tracks the most recent refreshNominationCheckJobProgress result. Reused as
+  // finishedJob after the loop to avoid a redundant DB round-trip whenever the
+  // last refresh is still current (terminal break, empty-items break after ≥1
+  // batch, or cap break after ≥1 batch). Null when zero batches were processed.
+  let lastKnownProgress: Awaited<ReturnType<typeof refreshNominationCheckJobProgress>> = null;
 
   while (true) {
     if (batchNumber >= maxBatches) {
@@ -113,15 +115,17 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
       }
     });
 
-    const batchProgress = await refreshNominationCheckJobProgress(job.id);
-    const batchStatus = batchProgress?.status ?? 'unknown';
+    lastKnownProgress = await refreshNominationCheckJobProgress(job.id);
+    const batchStatus = lastKnownProgress?.status ?? 'unknown';
     if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
-      lastProgressIfTerminal = batchProgress;
       break;
     }
   }
 
-  const finishedJob = lastProgressIfTerminal ?? await refreshNominationCheckJobProgress(job.id);
+  // Use the cached result when available (any break path after ≥1 processed batch
+  // leaves lastKnownProgress current). Fall back to a fresh refresh only when zero
+  // batches were processed (first claim returned empty).
+  const finishedJob = lastKnownProgress ?? await refreshNominationCheckJobProgress(job.id);
   const jobStatus = finishedJob?.status ?? 'unknown';
   const isTerminal = jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled';
   if (isTerminal) {
