@@ -48,7 +48,7 @@ async function loadIndexAndRunReady(
   await jest.unstable_mockModule('../services/nominations/db.js', () => ({
     ensureNominationsSchema,
     isDatabaseConfigured,
-    getDbPool: jest.fn(() => ({ end: jest.fn(async () => undefined) })),
+    endDbPoolIfInitialized: jest.fn(async () => undefined),
   }));
   await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
     handleInteraction: jest.fn(async () => undefined),
@@ -196,7 +196,7 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/db.js', () => ({
       ensureNominationsSchema,
       isDatabaseConfigured,
-      getDbPool: jest.fn(() => ({ end: jest.fn(async () => undefined) })),
+      endDbPoolIfInitialized: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),
@@ -252,8 +252,9 @@ describe('startup wiring with read-only mode', () => {
   it('shutdown handler clears the worker interval, destroys the client, and sets exitCode=0', async () => {
     const fakeInterval = { _destroyed: false } as unknown as NodeJS.Timeout;
     const clearIntervalSpy = jest.spyOn(global, 'clearInterval').mockImplementation(() => undefined);
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
     const destroySpy = jest.fn();
-    const poolEnd = jest.fn(async () => undefined);
+    const endDbPoolIfInitialized = jest.fn(async () => undefined);
 
     const registerAllCommands = jest.fn(async () => ({ passed: [], failed: [] }));
     const ensureNominationsSchema = jest.fn(async () => undefined);
@@ -271,7 +272,7 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/db.js', () => ({
       ensureNominationsSchema,
       isDatabaseConfigured,
-      getDbPool: jest.fn(() => ({ end: poolEnd })),
+      endDbPoolIfInitialized,
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),
@@ -311,13 +312,14 @@ describe('startup wiring with read-only mode', () => {
     expect(process.exitCode).toBe(0);
     expect(clearIntervalSpy).toHaveBeenCalledWith(fakeInterval);
     expect(destroySpy).toHaveBeenCalledTimes(1);
-    expect(poolEnd).toHaveBeenCalledTimes(1);
+    expect(endDbPoolIfInitialized).toHaveBeenCalledTimes(1);
 
-    // Second signal must not re-invoke cleanup (idempotency)
-    process.emit('SIGTERM');
+    // SIGINT arriving after SIGTERM must not re-invoke cleanup (idempotency guard)
+    process.emit('SIGINT');
     expect(destroySpy).toHaveBeenCalledTimes(1);
 
     clearIntervalSpy.mockRestore();
+    exitSpy.mockRestore();
     delete process.env.NOMINATION_WORKER_ENABLED;
   });
 });

@@ -84,6 +84,12 @@ export function getDbPool(): Pool {
   return poolInstance;
 }
 
+export async function endDbPoolIfInitialized(): Promise<void> {
+  if (poolInstance !== null) {
+    await poolInstance.end();
+  }
+}
+
 export async function withClient<T>(callback: (client: PoolClient) => Promise<T>): Promise<T> {
   const client = await getDbPool().connect();
   try {

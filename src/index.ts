@@ -7,7 +7,7 @@ import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } fro
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
-import { ensureNominationsSchema, getDbPool, isDatabaseConfigured } from './services/nominations/db.js';
+import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 
 const logger = getLogger();
@@ -41,19 +41,21 @@ const client = new Client({
 // Declared at module scope so the shutdown handler can clear it regardless of
 // when the signal arrives (before or after ready, worker enabled or not).
 let workerHandle: NodeJS.Timeout | null = null;
+let shuttingDown = false;
 
 const shutdown = () => {
+  if (shuttingDown) return;
+  shuttingDown = true;
   logger.info('Graceful shutdown initiated.');
   process.exitCode = 0;
   if (workerHandle !== null) {
     clearInterval(workerHandle);
   }
   client.destroy();
-  if (isDatabaseConfigured()) {
-    getDbPool().end().catch((err: unknown) => {
-      logger.error(`Error closing PG pool during shutdown: ${String(err)}`);
-    });
-  }
+  endDbPoolIfInitialized().catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error closing PG pool during shutdown: ${message}`, err);
+  });
   // Force-exit after 10 s as a last-resort safety net in case any remaining
   // handle keeps the event loop alive after cleanup.
   const forceExit = setTimeout(() => process.exit(0), 10_000);
