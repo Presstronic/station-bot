@@ -7,7 +7,7 @@ import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } fro
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
-import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
+import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 
 const logger = getLogger();
@@ -37,6 +37,37 @@ const client = new Client({
     IntentsBitField.Flags.GuildMembers,
   ],
 });
+
+// Declared at module scope so the shutdown handler can stop them regardless of
+// when the signal arrives (before or after ready, jobs enabled or not).
+let workerHandle: NodeJS.Timeout | null = null;
+let tempMemberCronTask: { stop: () => void } | null = null;
+let potentialApplicantCronTask: { stop: () => void } | null = null;
+let shuttingDown = false;
+
+const shutdown = () => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  logger.info('Graceful shutdown initiated.');
+  process.exitCode = 0;
+  if (workerHandle !== null) {
+    clearInterval(workerHandle);
+  }
+  tempMemberCronTask?.stop();
+  potentialApplicantCronTask?.stop();
+  client.destroy();
+  endDbPoolIfInitialized().catch((err: unknown) => {
+    const message = err instanceof Error ? err.message : String(err);
+    logger.error(`Error closing PG pool during shutdown: ${message}`, err);
+  });
+  // Force-exit after 10 s as a last-resort safety net in case any remaining
+  // handle keeps the event loop alive after cleanup.
+  const forceExit = setTimeout(() => process.exit(0), 10_000);
+  forceExit.unref();
+};
+
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
 
 client.once('ready', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
@@ -80,15 +111,17 @@ client.once('ready', async () => {
     }
 
     if (purgeJobsEnabled) {
-      scheduleTemporaryMemberCleanup(client);
-      schedulePotentialApplicantCleanup(client);
+      tempMemberCronTask = scheduleTemporaryMemberCleanup(client);
+      potentialApplicantCronTask = schedulePotentialApplicantCleanup(client);
       logger.info('Scheduled member purge jobs.');
     } else {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
     if (isDatabaseConfigured()) {
-      startNominationCheckWorkerLoop();
-      logger.info('Started nomination check worker loop.');
+      workerHandle = startNominationCheckWorkerLoop();
+      if (workerHandle) {
+        logger.info('Started nomination check worker loop.');
+      }
     }
   } else {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');

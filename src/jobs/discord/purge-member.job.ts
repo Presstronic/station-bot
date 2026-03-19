@@ -63,13 +63,13 @@ export async function purgeMembers(
 /**
  * Cleanup task for "Temporary Member" role.
  */
-export function scheduleTemporaryMemberCleanup(client: Client) {
+export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTask {
   const TEMPORARY_ROLE_NAME = 'Temporary Member';
   const HOURS_TO_EXPIRE = 48;
 
   logger.info(`SCHEDTEMPMBR: Bot is in ${client.guilds.cache.size} guild(s).`);
 
-  cron.schedule(temporaryMemberPurgeCronSchedule, async () => {
+  return cron.schedule(temporaryMemberPurgeCronSchedule, async () => {
     logger.info('[Job] Running Temporary Member Cleanup');
     logger.info(`SCHEDTEMPMBR->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
 
@@ -105,13 +105,13 @@ export function scheduleTemporaryMemberCleanup(client: Client) {
 /**
  * Cleanup task for "Potential Applicant" role.
  */
-export function schedulePotentialApplicantCleanup(client: Client) {
+export function schedulePotentialApplicantCleanup(client: Client): cron.ScheduledTask {
   const ROLE_NAME = 'Potential Applicant';
   const HOURS_TO_EXPIRE = 720; // 30 days
 
   logger.info(`SCHEDPOTAPP: Bot is in ${client.guilds.cache.size} guild(s).`);
 
-  cron.schedule(potentialApplicantPurgeCronSchedule, async () => {
+  return cron.schedule(potentialApplicantPurgeCronSchedule, async () => {
     logger.info('[Job] Running Potential Applicant Cleanup');
     logger.info(`SCHEDPOTAPP->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
 
