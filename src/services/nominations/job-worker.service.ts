@@ -70,8 +70,6 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 
   // +2 slack accounts for stale-lock reclaims that may re-claim items
   // already counted in totalCount.
-  // +2 slack accounts for stale-lock reclaims that may re-claim items
-  // already counted in totalCount.
   const maxBatches = Math.ceil(job.totalCount / batchSize) + 2;
   let batchNumber = 0;
   let cappedByLimit = false;
@@ -110,7 +108,11 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
       }
     });
 
-    await refreshNominationCheckJobProgress(job.id);
+    const batchProgress = await refreshNominationCheckJobProgress(job.id);
+    const batchStatus = batchProgress?.status ?? 'unknown';
+    if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
+      break;
+    }
   }
 
   const finishedJob = await refreshNominationCheckJobProgress(job.id);

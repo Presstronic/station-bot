@@ -148,7 +148,10 @@ describe('runNominationCheckWorkerCycle', () => {
       completeNominationCheckJobItem: jest.fn(),
       requeueNominationCheckJobItem,
       failNominationCheckJobItem,
-      refreshNominationCheckJobProgress: jest.fn(async () => ({ status: 'failed', completedCount: 0, failedCount: 1 })),
+      refreshNominationCheckJobProgress: jest.fn<() => Promise<any>>()
+        .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 1
+        .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 2
+        .mockResolvedValueOnce({ status: 'failed', completedCount: 0, failedCount: 1 }), // final post-loop call
     }));
     jest.unstable_mockModule('../org-check.service.js', () => ({
       checkHasAnyOrgMembership,
