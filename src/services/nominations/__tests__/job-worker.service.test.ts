@@ -103,11 +103,16 @@ describe('runNominationCheckWorkerCycle', () => {
       const ran = await runNominationCheckWorkerCycle();
 
       // maxBatches = ceil(1 / 1) + 2 = 3 — loop processes batches until batchNumber
-      // reaches maxBatches (3), then the >= guard fires on the next iteration and breaks
+      // reaches maxBatches (3), then the >= guard fires on the next iteration and breaks.
+      // Two warnings are emitted: one from the cap guard, one from the end-of-cycle
+      // cappedByLimit path (distinct from the "exhausted claimable items" info log).
       expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(3);
       expect(ran).toBe(true);
-      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledTimes(2);
+      // First warn: the cap guard
       expect(warnSpy.mock.calls[0][1]).toMatchObject({ jobId: 300, batchesProcessed: 3, maxBatches: 3 });
+      // Second warn: end-of-cycle log indicating items remain and job stays running
+      expect(warnSpy.mock.calls[1][1]).toMatchObject({ jobId: 300, status: 'running' });
     } finally {
       if (envBackup === undefined) {
         delete process.env.NOMINATION_WORKER_BATCH_SIZE;

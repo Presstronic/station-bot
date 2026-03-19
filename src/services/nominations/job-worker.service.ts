@@ -70,8 +70,11 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 
   // +2 slack accounts for stale-lock reclaims that may re-claim items
   // already counted in totalCount.
+  // +2 slack accounts for stale-lock reclaims that may re-claim items
+  // already counted in totalCount.
   const maxBatches = Math.ceil(job.totalCount / batchSize) + 2;
   let batchNumber = 0;
+  let cappedByLimit = false;
 
   while (true) {
     if (batchNumber >= maxBatches) {
@@ -79,6 +82,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
         `Nomination worker reached max batch iterations for job ${job.id} — possible stuck items, breaking`,
         { jobId: job.id, batchesProcessed: batchNumber, maxBatches }
       );
+      cappedByLimit = true;
       break;
     }
     batchNumber++;
@@ -115,6 +119,11 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   if (isTerminal) {
     logger.info(
       `Nomination worker completed job ${job.id} (status=${jobStatus}, completed=${finishedJob?.completedCount ?? 0}, failed=${finishedJob?.failedCount ?? 0})`
+    );
+  } else if (cappedByLimit) {
+    logger.warn(
+      `Nomination worker hit batch cap for job ${job.id} — items remain unprocessed; job stays running and will be retried on next poll`,
+      { jobId: job.id, status: jobStatus, completed: finishedJob?.completedCount ?? 0, failed: finishedJob?.failedCount ?? 0 }
     );
   } else {
     logger.info(

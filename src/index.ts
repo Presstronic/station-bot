@@ -93,6 +93,7 @@ client.once('ready', async () => {
         const shutdown = () => {
           logger.info('Graceful shutdown: clearing nomination worker interval.');
           clearInterval(workerHandle);
+          process.exit(0);
         };
         process.once('SIGTERM', shutdown);
         process.once('SIGINT', shutdown);
