@@ -94,6 +94,7 @@ client.once('ready', async () => {
           logger.info('Graceful shutdown: clearing nomination worker interval.');
           clearInterval(workerHandle);
           client.destroy();
+          process.exit(0);
         };
         process.once('SIGTERM', shutdown);
         process.once('SIGINT', shutdown);

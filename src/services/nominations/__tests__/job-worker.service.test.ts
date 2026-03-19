@@ -142,34 +142,36 @@ describe('runNominationCheckWorkerCycle', () => {
     const envBackup = process.env.NOMINATION_WORKER_MAX_ATTEMPTS;
     process.env.NOMINATION_WORKER_MAX_ATTEMPTS = '3';
 
-    jest.unstable_mockModule('../job-queue.repository.js', () => ({
-      claimNextRunnableNominationCheckJob,
-      claimNominationCheckJobItems,
-      completeNominationCheckJobItem: jest.fn(),
-      requeueNominationCheckJobItem,
-      failNominationCheckJobItem,
-      refreshNominationCheckJobProgress: jest.fn<() => Promise<any>>()
-        .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 1
-        .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 2
-        .mockResolvedValueOnce({ status: 'failed', completedCount: 0, failedCount: 1 }), // final post-loop call
-    }));
-    jest.unstable_mockModule('../org-check.service.js', () => ({
-      checkHasAnyOrgMembership,
-    }));
-    jest.unstable_mockModule('../nominations.repository.js', () => ({
-      updateOrgCheckResult: jest.fn(),
-    }));
+    try {
+      jest.unstable_mockModule('../job-queue.repository.js', () => ({
+        claimNextRunnableNominationCheckJob,
+        claimNominationCheckJobItems,
+        completeNominationCheckJobItem: jest.fn(),
+        requeueNominationCheckJobItem,
+        failNominationCheckJobItem,
+        refreshNominationCheckJobProgress: jest.fn<() => Promise<any>>()
+          .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 1
+          .mockResolvedValueOnce({ status: 'running', completedCount: 0, failedCount: 0 }) // in-loop after batch 2
+          .mockResolvedValueOnce({ status: 'failed', completedCount: 0, failedCount: 1 }), // final post-loop call
+      }));
+      jest.unstable_mockModule('../org-check.service.js', () => ({
+        checkHasAnyOrgMembership,
+      }));
+      jest.unstable_mockModule('../nominations.repository.js', () => ({
+        updateOrgCheckResult: jest.fn(),
+      }));
 
-    const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
-    await runNominationCheckWorkerCycle();
+      const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
+      await runNominationCheckWorkerCycle();
 
-    expect(requeueNominationCheckJobItem).toHaveBeenCalledTimes(1);
-    expect(failNominationCheckJobItem).toHaveBeenCalledTimes(1);
-
-    if (envBackup === undefined) {
-      delete process.env.NOMINATION_WORKER_MAX_ATTEMPTS;
-    } else {
-      process.env.NOMINATION_WORKER_MAX_ATTEMPTS = envBackup;
+      expect(requeueNominationCheckJobItem).toHaveBeenCalledTimes(1);
+      expect(failNominationCheckJobItem).toHaveBeenCalledTimes(1);
+    } finally {
+      if (envBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_MAX_ATTEMPTS;
+      } else {
+        process.env.NOMINATION_WORKER_MAX_ATTEMPTS = envBackup;
+      }
     }
   });
 });
