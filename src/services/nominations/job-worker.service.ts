@@ -74,13 +74,14 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   let batchNumber = 0;
 
   while (true) {
-    batchNumber++;
-    if (batchNumber > maxBatches) {
+    if (batchNumber >= maxBatches) {
       logger.warn(
-        `Nomination worker exceeded max batch iterations for job ${job.id} (batchNumber=${batchNumber}, maxBatches=${maxBatches}) — possible stuck items, breaking`
+        `Nomination worker exceeded max batch iterations for job ${job.id} — possible stuck items, breaking`,
+        { jobId: job.id, batchesProcessed: batchNumber, maxBatches }
       );
       break;
     }
+    batchNumber++;
 
     const items = await claimNominationCheckJobItems(job.id, batchSize, staleLockMs);
     if (items.length === 0) {

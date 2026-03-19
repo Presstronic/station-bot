@@ -54,8 +54,13 @@ describe('runNominationCheckWorkerCycle', () => {
   it('breaks out of the batch loop after maxBatches iterations when items never drain', async () => {
     // Simulate a stuck queue where claimNominationCheckJobItems never returns empty.
     // With totalCount=1 and batchSize=1: maxBatches = ceil(1/1) + 2 = 3.
-    // The loop should process exactly 3 batches and then break with a warning
-    // rather than looping indefinitely.
+    // The loop checks batchNumber >= maxBatches before incrementing, so it processes
+    // exactly 3 batches (batchNumber reaches 3) and then breaks with a warning.
+    const warnSpy = jest.fn();
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ info: jest.fn(), warn: warnSpy, error: jest.fn() }),
+    }));
+
     const claimNextRunnableNominationCheckJob = jest.fn(async () => ({
       id: 300,
       requestedScope: 'all',
@@ -74,37 +79,41 @@ describe('runNominationCheckWorkerCycle', () => {
     const envBackup = process.env.NOMINATION_WORKER_BATCH_SIZE;
     process.env.NOMINATION_WORKER_BATCH_SIZE = '1';
 
-    jest.unstable_mockModule('../job-queue.repository.js', () => ({
-      claimNextRunnableNominationCheckJob,
-      claimNominationCheckJobItems,
-      completeNominationCheckJobItem,
-      requeueNominationCheckJobItem: jest.fn(),
-      failNominationCheckJobItem: jest.fn(),
-      refreshNominationCheckJobProgress,
-    }));
-    jest.unstable_mockModule('../org-check.service.js', () => ({
-      checkHasAnyOrgMembership: jest.fn(async () => ({
-        code: 'in_org',
-        status: 'in_org',
-        checkedAt: '2026-01-01T00:00:00.000Z',
-      })),
-    }));
-    jest.unstable_mockModule('../nominations.repository.js', () => ({
-      updateOrgCheckResult: jest.fn(),
-    }));
+    try {
+      jest.unstable_mockModule('../job-queue.repository.js', () => ({
+        claimNextRunnableNominationCheckJob,
+        claimNominationCheckJobItems,
+        completeNominationCheckJobItem,
+        requeueNominationCheckJobItem: jest.fn(),
+        failNominationCheckJobItem: jest.fn(),
+        refreshNominationCheckJobProgress,
+      }));
+      jest.unstable_mockModule('../org-check.service.js', () => ({
+        checkHasAnyOrgMembership: jest.fn(async () => ({
+          code: 'in_org',
+          status: 'in_org',
+          checkedAt: '2026-01-01T00:00:00.000Z',
+        })),
+      }));
+      jest.unstable_mockModule('../nominations.repository.js', () => ({
+        updateOrgCheckResult: jest.fn(),
+      }));
 
-    const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
-    const ran = await runNominationCheckWorkerCycle();
+      const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
+      const ran = await runNominationCheckWorkerCycle();
 
-    // maxBatches = ceil(1 / 1) + 2 = 3 — loop claims items in batches 1, 2, 3
-    // then batchNumber reaches 4, exceeds maxBatches, and breaks
-    expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(3);
-    expect(ran).toBe(true);
-
-    if (envBackup === undefined) {
-      delete process.env.NOMINATION_WORKER_BATCH_SIZE;
-    } else {
-      process.env.NOMINATION_WORKER_BATCH_SIZE = envBackup;
+      // maxBatches = ceil(1 / 1) + 2 = 3 — loop processes batches until batchNumber
+      // reaches maxBatches (3), then the >= guard fires on the next iteration and breaks
+      expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(3);
+      expect(ran).toBe(true);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy.mock.calls[0][1]).toMatchObject({ jobId: 300, batchesProcessed: 3, maxBatches: 3 });
+    } finally {
+      if (envBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_BATCH_SIZE;
+      } else {
+        process.env.NOMINATION_WORKER_BATCH_SIZE = envBackup;
+      }
     }
   });
 
