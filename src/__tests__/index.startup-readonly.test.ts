@@ -46,6 +46,7 @@ async function loadIndexAndRunReady(
   await jest.unstable_mockModule('../services/nominations/db.js', () => ({
     ensureNominationsSchema,
     isDatabaseConfigured,
+    getDbPool: jest.fn(() => ({ end: jest.fn(async () => undefined) })),
   }));
   await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
     handleInteraction: jest.fn(async () => undefined),
@@ -189,6 +190,7 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/db.js', () => ({
       ensureNominationsSchema,
       isDatabaseConfigured,
+      getDbPool: jest.fn(() => ({ end: jest.fn(async () => undefined) })),
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),

@@ -7,7 +7,7 @@ import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } fro
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
-import { ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
+import { ensureNominationsSchema, getDbPool, isDatabaseConfigured } from './services/nominations/db.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 
 const logger = getLogger();
@@ -95,8 +95,9 @@ client.once('ready', async () => {
           process.exitCode = 0;
           clearInterval(workerHandle);
           client.destroy();
-          // Allow resources to drain naturally. Force-exit after 10 s as a
-          // safety net in case something (e.g. the PG pool) keeps the loop alive.
+          void getDbPool().end();
+          // Force-exit after 10 s as a last-resort safety net in case any
+          // remaining handle keeps the event loop alive.
           const forceExit = setTimeout(() => process.exit(0), 10_000);
           forceExit.unref();
         };
