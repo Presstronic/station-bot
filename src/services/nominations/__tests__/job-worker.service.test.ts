@@ -16,8 +16,7 @@ describe('runNominationCheckWorkerCycle', () => {
       .mockImplementationOnce(async () => [
         { id: 1, normalizedHandle: 'pilotone', attemptCount: 1 },
         { id: 2, normalizedHandle: 'pilottwo', attemptCount: 1 },
-      ])
-      .mockImplementationOnce(async () => []);
+      ]);
     const checkHasAnyOrgMembership = jest.fn(async () => ({
       code: 'in_org',
       status: 'in_org',
@@ -46,6 +45,7 @@ describe('runNominationCheckWorkerCycle', () => {
 
     expect(ran).toBe(true);
     expect(claimNextRunnableNominationCheckJob).toHaveBeenCalledTimes(1);
+    expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(1);
     expect(checkHasAnyOrgMembership).toHaveBeenCalledTimes(2);
     expect(updateOrgCheckResult).toHaveBeenCalledTimes(2);
     expect(completeNominationCheckJobItem).toHaveBeenCalledTimes(2);

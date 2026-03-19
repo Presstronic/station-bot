@@ -10,6 +10,8 @@ beforeEach(() => {
 
 afterEach(() => {
   process.env = { ...originalEnv };
+  process.removeAllListeners('SIGTERM');
+  process.removeAllListeners('SIGINT');
 });
 
 async function loadIndexAndRunReady(
@@ -81,6 +83,10 @@ async function loadIndexAndRunReady(
       }
 
       on() {
+        return undefined;
+      }
+
+      destroy() {
         return undefined;
       }
 
@@ -220,6 +226,9 @@ describe('startup wiring with read-only mode', () => {
         on() {
           return undefined;
         }
+        destroy() {
+          return undefined;
+        }
         login() {
           return Promise.resolve('ok');
         }
@@ -238,5 +247,77 @@ describe('startup wiring with read-only mode', () => {
     expect(registerAllCommands).not.toHaveBeenCalled();
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
     exitSpy.mockRestore();
+  });
+
+  it('shutdown handler clears the worker interval, destroys the client, and sets exitCode=0', async () => {
+    const fakeInterval = { _destroyed: false } as unknown as NodeJS.Timeout;
+    const clearIntervalSpy = jest.spyOn(global, 'clearInterval').mockImplementation(() => undefined);
+    const destroySpy = jest.fn();
+    const poolEnd = jest.fn(async () => undefined);
+
+    const registerAllCommands = jest.fn(async () => ({ passed: [], failed: [] }));
+    const ensureNominationsSchema = jest.fn(async () => undefined);
+    const isDatabaseConfigured = jest.fn(() => true);
+    const addMissingDefaultRoles = jest.fn(async () => undefined);
+    const scheduleTemporaryMemberCleanup = jest.fn();
+    const schedulePotentialApplicantCleanup = jest.fn();
+    const startNominationCheckWorkerLoop = jest.fn(() => fakeInterval);
+    const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+
+    let readyHandler: (() => Promise<void>) | undefined;
+
+    await jest.unstable_mockModule('../bootstrap.js', () => ({}));
+    await jest.unstable_mockModule('../commands/register-commands.js', () => ({ registerAllCommands }));
+    await jest.unstable_mockModule('../services/nominations/db.js', () => ({
+      ensureNominationsSchema,
+      isDatabaseConfigured,
+      getDbPool: jest.fn(() => ({ end: poolEnd })),
+    }));
+    await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
+      handleInteraction: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
+      scheduleTemporaryMemberCleanup,
+      schedulePotentialApplicantCleanup,
+    }));
+    await jest.unstable_mockModule('../services/role.services.js', () => ({ addMissingDefaultRoles }));
+    await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
+      startNominationCheckWorkerLoop,
+    }));
+    await jest.unstable_mockModule('../utils/logger.js', () => ({ getLogger: () => logger }));
+    await jest.unstable_mockModule('discord.js', () => {
+      class MockClient {
+        guilds = { cache: new Map() };
+        user = { tag: 'station-bot#0001' };
+        once(event: string, callback: () => Promise<void>) {
+          if (event === 'ready') readyHandler = callback;
+        }
+        on() { return undefined; }
+        destroy = destroySpy;
+        login() { return Promise.resolve('ok'); }
+      }
+      return { Client: MockClient, IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } } };
+    });
+
+    process.env.BOT_READ_ONLY_MODE = 'false';
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+    process.env.NOMINATION_WORKER_ENABLED = 'true';
+
+    await import('../index.js');
+    await readyHandler!();
+
+    process.emit('SIGTERM');
+
+    expect(process.exitCode).toBe(0);
+    expect(clearIntervalSpy).toHaveBeenCalledWith(fakeInterval);
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+    expect(poolEnd).toHaveBeenCalledTimes(1);
+
+    // Second signal must not re-invoke cleanup (idempotency)
+    process.emit('SIGTERM');
+    expect(destroySpy).toHaveBeenCalledTimes(1);
+
+    clearIntervalSpy.mockRestore();
+    delete process.env.NOMINATION_WORKER_ENABLED;
   });
 });
