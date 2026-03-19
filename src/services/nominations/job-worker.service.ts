@@ -76,7 +76,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   while (true) {
     if (batchNumber >= maxBatches) {
       logger.warn(
-        `Nomination worker exceeded max batch iterations for job ${job.id} — possible stuck items, breaking`,
+        `Nomination worker reached max batch iterations for job ${job.id} — possible stuck items, breaking`,
         { jobId: job.id, batchesProcessed: batchNumber, maxBatches }
       );
       break;
