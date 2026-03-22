@@ -14,13 +14,14 @@ export function toDateString(value: string | null | undefined): string {
  *   1h+    → "1 hour and 4 minutes" (omits minutes when exactly on the hour)
  */
 export function formatDuration(seconds: number): string {
-  const totalSeconds = Math.max(0, Math.floor(seconds));
+  // Round up so the displayed duration is never shorter than the actual wait.
+  const totalSeconds = Math.max(0, Math.ceil(seconds));
 
   if (totalSeconds < 60) {
     return totalSeconds === 1 ? '1 second' : `${totalSeconds} seconds`;
   }
 
-  const totalMinutes = Math.floor(totalSeconds / 60);
+  const totalMinutes = Math.ceil(totalSeconds / 60);
   if (totalMinutes < 60) {
     return totalMinutes === 1 ? '1 minute' : `${totalMinutes} minutes`;
   }

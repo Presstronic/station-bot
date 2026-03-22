@@ -40,16 +40,16 @@ describe('formatDuration', () => {
     expect(formatDuration(60)).toBe('1 minute');
   });
 
-  it('returns "1 minute" for 61–119', () => {
-    expect(formatDuration(90)).toBe('1 minute');
+  it('returns "2 minutes" for 61–119 (rounds up to avoid understating wait)', () => {
+    expect(formatDuration(90)).toBe('2 minutes');
   });
 
   it('returns "12 minutes" for 720', () => {
     expect(formatDuration(720)).toBe('12 minutes');
   });
 
-  it('returns "59 minutes" for 3599', () => {
-    expect(formatDuration(3599)).toBe('59 minutes');
+  it('returns "1 hour" for 3599 (rounds up to next whole minute boundary)', () => {
+    expect(formatDuration(3599)).toBe('1 hour');
   });
 
   it('returns "1 hour" for 3600', () => {
@@ -76,8 +76,8 @@ describe('formatDuration', () => {
     expect(formatDuration(0)).toBe('0 seconds');
   });
 
-  it('floors fractional seconds', () => {
-    expect(formatDuration(1.9)).toBe('1 second');
+  it('rounds up fractional seconds', () => {
+    expect(formatDuration(1.9)).toBe('2 seconds');
   });
 
   it('clamps negative values to 0 seconds', () => {

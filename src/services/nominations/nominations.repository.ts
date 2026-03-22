@@ -517,7 +517,7 @@ export async function getSecondsUntilUserWindowResets(
     client.query(
       `
       SELECT GREATEST(
-        EXTRACT(EPOCH FROM (created_at + ($2 * INTERVAL '1 second') - NOW()))::int,
+        CEIL(EXTRACT(EPOCH FROM (created_at + ($2 * INTERVAL '1 second') - NOW())))::int,
         0
       ) AS seconds_until_reset
       FROM nomination_events
