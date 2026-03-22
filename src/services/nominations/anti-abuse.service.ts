@@ -4,6 +4,7 @@ import {
   countNominationsByUserInWindow,
   countNominationsForTargetInWindow,
   getSecondsSinceLastNominationByUser,
+  getSecondsUntilUserWindowResets,
 } from './nominations.repository.js';
 
 export async function checkNominationAntiAbuse(
@@ -29,7 +30,8 @@ export async function checkNominationAntiAbuse(
   if (policy.userMaxPerDay > 0) {
     const count = await countNominationsByUserInWindow(userId, SECONDS_PER_DAY);
     if (count >= policy.userMaxPerDay) {
-      return { kind: 'userDailyLimit' };
+      const secondsUntilReset = await getSecondsUntilUserWindowResets(userId, SECONDS_PER_DAY);
+      return { kind: 'userDailyLimit', secondsUntilReset };
     }
   }
 

@@ -62,7 +62,7 @@ export interface NominationRatePolicy {
 export type AntiAbuseViolation =
   | { kind: 'cooldown'; secondsRemaining: number }
   | { kind: 'targetDailyLimit'; displayHandle: string }
-  | { kind: 'userDailyLimit' };
+  | { kind: 'userDailyLimit'; secondsUntilReset: number };
 
 export class NominationTargetCapExceededError extends Error {
   readonly displayHandle: string;

@@ -12,6 +12,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(),
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -23,6 +24,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -38,6 +40,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => 30),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -53,6 +56,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => 60),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -68,6 +72,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => 90),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -83,6 +88,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 3),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -98,6 +104,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 2),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -113,6 +120,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 5),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 3600),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -120,7 +128,7 @@ describe('checkNominationAntiAbuse', () => {
       ...DISABLED_POLICY,
       userMaxPerDay: 5,
     });
-    expect(result).toEqual({ kind: 'userDailyLimit' });
+    expect(result).toEqual({ kind: 'userDailyLimit', secondsUntilReset: 3600 });
   });
 
   it('returns null when user count is below cap', async () => {
@@ -128,6 +136,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 4),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -143,6 +152,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => 30),
       countNominationsForTargetInWindow: jest.fn(async () => 99),
       countNominationsByUserInWindow: jest.fn(async () => 99),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
@@ -159,6 +169,7 @@ describe('checkNominationAntiAbuse', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 1),
       countNominationsByUserInWindow: jest.fn(async () => 1),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');

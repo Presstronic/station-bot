@@ -86,6 +86,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
@@ -121,6 +122,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
@@ -160,6 +162,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
@@ -189,6 +192,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
@@ -232,6 +236,7 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed,
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
@@ -266,6 +271,7 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed,
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
       getReviewProcessRoleIds: jest.fn(async () => ['review-role-1']),
@@ -306,6 +312,7 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed,
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
@@ -337,6 +344,7 @@ describe('nominations commands', () => {
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
       markAllNominationsProcessed: jest.fn(async () => 1),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
       getReviewProcessRoleIds: jest.fn(async () => {
@@ -384,6 +392,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
@@ -434,6 +443,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => null),
@@ -469,6 +479,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(),
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'cooldown', secondsRemaining: 42 })),
@@ -483,7 +494,7 @@ describe('nominations commands', () => {
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('42s'),
+        content: expect.stringContaining('42 seconds'),
       })
     );
   });
@@ -500,6 +511,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(),
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => ({
@@ -542,6 +554,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => null),
@@ -581,9 +594,10 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(),
       countNominationsForTargetInWindow: jest.fn(),
       countNominationsByUserInWindow: jest.fn(),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
-      checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'userDailyLimit' })),
+      checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'userDailyLimit', secondsUntilReset: 3600 })),
     }));
 
     const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
@@ -595,7 +609,7 @@ describe('nominations commands', () => {
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('nomination limit in the last 24 hours'),
+        content: expect.stringContaining('resets in approximately 1 hour'),
       })
     );
   });
@@ -612,6 +626,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/anti-abuse.service.js', () => ({
       checkNominationAntiAbuse: jest.fn(async () => null),
@@ -655,6 +670,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'not_found' })),
@@ -688,6 +704,7 @@ describe('nominations commands', () => {
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
       countNominationsForTargetInWindow: jest.fn(async () => 0),
       countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
     jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
       checkCitizenExists: jest.fn(async () => ({ status: 'unavailable' })),

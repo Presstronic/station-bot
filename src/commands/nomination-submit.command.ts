@@ -13,6 +13,7 @@ import { getNominationRatePolicy } from '../services/nominations/anti-abuse.poli
 import { checkNominationAntiAbuse } from '../services/nominations/anti-abuse.service.js';
 import { checkCitizenExists } from '../services/nominations/org-check.service.js';
 import { sanitizeForInlineText } from '../utils/sanitize.js';
+import { formatDuration } from '../utils/date.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
@@ -119,7 +120,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
         if (violation.kind === 'cooldown') {
           content = i18n.__mf(
             { phrase: 'commands.nominationSubmit.responses.cooldownActive', locale },
-            { secondsRemaining: String(violation.secondsRemaining) }
+            { formattedWait: formatDuration(violation.secondsRemaining) }
           );
         } else if (violation.kind === 'targetDailyLimit') {
           content = i18n.__mf(
@@ -127,7 +128,10 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
             { rsiHandle: violation.displayHandle }
           );
         } else {
-          content = i18n.__({ phrase: 'commands.nominationSubmit.responses.userDailyLimitReached', locale });
+          content = i18n.__mf(
+            { phrase: 'commands.nominationSubmit.responses.userDailyLimitReached', locale },
+            { resetsIn: formatDuration(violation.secondsUntilReset) }
+          );
         }
         await interaction.editReply({ content, allowedMentions: { parse: [] } });
         return;

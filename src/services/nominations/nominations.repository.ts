@@ -505,3 +505,31 @@ export async function countNominationsByUserInWindow(
 
   return Number(result.rows[0].event_count);
 }
+
+export async function getSecondsUntilUserWindowResets(
+  userId: string,
+  windowSeconds: number
+): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT GREATEST(
+        EXTRACT(EPOCH FROM (created_at + ($2 * INTERVAL '1 second') - NOW()))::int,
+        0
+      ) AS seconds_until_reset
+      FROM nomination_events
+      WHERE nominator_user_id = $1
+        AND created_at >= NOW() - ($2 * INTERVAL '1 second')
+      ORDER BY created_at ASC
+      LIMIT 1
+      `,
+      [userId, windowSeconds]
+    )
+  );
+
+  if (result.rows.length === 0) return 0;
+  return Number(result.rows[0].seconds_until_reset);
+}
