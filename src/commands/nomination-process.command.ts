@@ -100,11 +100,11 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder()
         .setCustomId(confirmId)
-        .setLabel(i18n.__({ phrase: 'commands.nominationProcess.buttons.confirm', locale: defaultLocale }))
+        .setLabel(i18n.__({ phrase: 'commands.nominationProcess.buttons.confirm', locale }))
         .setStyle(ButtonStyle.Danger),
       new ButtonBuilder()
         .setCustomId(cancelId)
-        .setLabel(i18n.__({ phrase: 'commands.nominationProcess.buttons.cancel', locale: defaultLocale }))
+        .setLabel(i18n.__({ phrase: 'commands.nominationProcess.buttons.cancel', locale }))
         .setStyle(ButtonStyle.Secondary),
     );
 
@@ -161,7 +161,13 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         result: 'failure',
         errorMessage: err instanceof Error ? err.message : String(err),
       }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
-      throw err;
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      logger.error(`nomination-process bulk failed: ${errorMessage}`);
+      const phrase = isNominationConfigurationError(err)
+        ? 'commands.nominationCommon.responses.configurationError'
+        : 'commands.nominationCommon.responses.unexpectedError';
+      await interaction.editReply({ content: i18n.__({ phrase, locale }), components: [] });
+      return;
     }
     await interaction.editReply({
       content: i18n.__mf(

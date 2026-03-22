@@ -301,13 +301,14 @@ describe('nominations commands', () => {
   });
 
   it('bulk process: cancels when Cancel button clicked', async () => {
+    const markAllNominationsProcessed = jest.fn(async () => 0);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
-      markAllNominationsProcessed: jest.fn(async () => 0),
+      markAllNominationsProcessed,
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
@@ -334,16 +335,18 @@ describe('nominations commands', () => {
       content: expect.stringContaining('cancelled'),
       components: [],
     }));
+    expect(markAllNominationsProcessed).not.toHaveBeenCalled();
   });
 
   it('bulk process: shows timeout message when no button clicked within 60s', async () => {
+    const markAllNominationsProcessed = jest.fn(async () => 0);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
-      markAllNominationsProcessed: jest.fn(async () => 0),
+      markAllNominationsProcessed,
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
@@ -366,6 +369,7 @@ describe('nominations commands', () => {
       content: expect.stringContaining('timed out'),
       components: [],
     }));
+    expect(markAllNominationsProcessed).not.toHaveBeenCalled();
   });
 
   it('bulk process: shows none-to-process when no unprocessed nominations exist', async () => {
