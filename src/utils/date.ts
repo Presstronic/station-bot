@@ -9,8 +9,9 @@ export function toDateString(value: string | null | undefined): string {
 
 /**
  * Formats a duration in seconds to a human-readable string.
+ * Rounds up so the displayed time is never shorter than the actual wait.
  *   < 60s  → "45 seconds"
- *   1–59m  → "12 minutes"
+ *   1–59m  → "2 minutes" (90s rounds up to 2)
  *   1h+    → "1 hour and 4 minutes" (omits minutes when exactly on the hour)
  */
 export function formatDuration(seconds: number): string {

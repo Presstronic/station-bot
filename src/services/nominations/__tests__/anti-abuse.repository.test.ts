@@ -111,7 +111,7 @@ describe('getSecondsUntilUserWindowResets', () => {
     }));
 
     const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
-    expect(await getSecondsUntilUserWindowResets('user-1', 86400)).toBe(0);
+    expect(await getSecondsUntilUserWindowResets('user-1', 86400, 5)).toBe(0);
   });
 
   it('returns 0 when user has no events in the window', async () => {
@@ -125,7 +125,7 @@ describe('getSecondsUntilUserWindowResets', () => {
     }));
 
     const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
-    expect(await getSecondsUntilUserWindowResets('user-1', 86400)).toBe(0);
+    expect(await getSecondsUntilUserWindowResets('user-1', 86400, 5)).toBe(0);
   });
 
   it('returns seconds_until_reset from query result', async () => {
@@ -139,7 +139,7 @@ describe('getSecondsUntilUserWindowResets', () => {
     }));
 
     const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
-    expect(await getSecondsUntilUserWindowResets('user-1', 86400)).toBe(3600);
+    expect(await getSecondsUntilUserWindowResets('user-1', 86400, 5)).toBe(3600);
   });
 
   it('passes userId and windowSeconds as query parameters', async () => {
@@ -152,9 +152,9 @@ describe('getSecondsUntilUserWindowResets', () => {
     }));
 
     const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
-    await getSecondsUntilUserWindowResets('user-42', 86400);
+    await getSecondsUntilUserWindowResets('user-42', 86400, 5);
 
-    expect(query).toHaveBeenCalledWith(expect.any(String), ['user-42', 86400]);
+    expect(query).toHaveBeenCalledWith(expect.any(String), ['user-42', 86400, 5]);
   });
 });
 
