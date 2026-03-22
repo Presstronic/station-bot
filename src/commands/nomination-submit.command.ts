@@ -151,10 +151,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominationSubmit.responses.created', locale },
-          {
-            rsiHandle: updated.displayHandle,
-            nominationCount: String(updated.nominationCount),
-          }
+          { rsiHandle: updated.displayHandle }
         ),
         allowedMentions: { parse: [] },
       });
