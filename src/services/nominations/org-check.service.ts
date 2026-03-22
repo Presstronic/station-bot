@@ -1,6 +1,9 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
-import type { OrgCheckResult, OrgCheckResultCode, OrgCheckStatus } from './types.js';
+import type { OrgCheckResult, OrgCheckResultCode } from './types.js';
+
+/** Internal result of a single org-check HTTP attempt. Never stored or displayed. */
+type OrgCheckOutcome = Extract<OrgCheckResultCode, 'in_org' | 'not_in_org'> | 'undetermined';
 import { getLogger } from '../../utils/logger.js';
 import { sanitizeForInlineText } from '../../utils/sanitize.js';
 
@@ -211,7 +214,7 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   };
 }
 
-function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
+function parseOrgOutcomeFromOrganizationsPage(html: string): OrgCheckOutcome {
   const $ = cheerio.load(html);
   const orgLink = $('a[href*="/orgs/"]').first().text().trim();
   if (orgLink.length > 0) {
@@ -227,7 +230,7 @@ function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckStatus {
     return 'not_in_org';
   }
 
-  return 'unknown';
+  return 'undetermined';
 }
 
 export type CitizenExistsResult =
@@ -288,8 +291,8 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
     );
   }
 
-  const status = parseOrgStatusFromOrganizationsPage(organizationsPage.html);
-  if (status === 'unknown') {
+  const outcome = parseOrgOutcomeFromOrganizationsPage(organizationsPage.html);
+  if (outcome === 'undetermined') {
     return createTechnicalResult(
       'parse_failed',
       `Could not infer organization status from organizations page for handle "${safeHandle}"`
@@ -297,8 +300,8 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
   }
 
   return {
-    code: status,
-    status,
+    code: outcome,
+    status: outcome,
     checkedAt: new Date().toISOString(),
   };
 }
