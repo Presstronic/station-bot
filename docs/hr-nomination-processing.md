@@ -11,12 +11,14 @@ When a member nominates someone, the nomination moves through the following stat
 | State | What it means |
 |---|---|
 | `new` | Just submitted, not yet checked |
-| `checked` | An org check ran but couldn't give a clear answer — needs manual review |
+| `checked` | Org check ran but returned an inconclusive result — **Needs Re-check** before you can act on it |
 | `qualified` | Checked and confirmed **not** in another org — good to reach out |
 | `disqualified_in_org` | Checked and found to be in another org — probably not a fit |
 | `processed` | You've actioned it — done |
 
-> **`unknown` org check status** means the system couldn't determine org membership (RSI was unreachable, timed out, etc.). These nominations stay visible until you manually action them or re-run the org check.
+> **`checked` / Needs Re-check** means the org check ran but couldn't produce a definitive answer (e.g. RSI returned an unrecognised page layout, the request timed out, or the result was ambiguous). The nomination is still visible and unprocessed. Run `/nomination-refresh rsi-handle: <handle>` to queue a fresh check, then review again once the status updates. In the `/nomination-review` summary this state is counted under **Needs Attention**.
+>
+> **`unknown` org check status** (shown in the Org column of the review list) means the system checked but could not determine org membership. These nominations remain visible until you manually action them or re-run the org check with `/nomination-refresh`.
 
 ---
 
@@ -101,5 +103,5 @@ Once you've reviewed and acted on a nomination (reached out, decided to pass, et
 ## Tips
 
 - Start with `/nomination-review status: qualified sort: nomination_count_desc` to see your best candidates first — qualified and most-nominated.
-- A nomination with `checked` or `unknown` org status doesn't mean the player is disqualified — it means the system couldn't confirm. You can re-run the org check or review manually.
+- A nomination showing **Needs Attention** in the summary doesn't mean the player is disqualified — it means the system couldn't confirm their org status. Run `/nomination-refresh` to queue a fresh check or filter by `status: checked` to review these individually.
 - All process actions are logged. See your admin for audit log access.

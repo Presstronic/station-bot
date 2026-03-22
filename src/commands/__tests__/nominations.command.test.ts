@@ -885,6 +885,83 @@ describe('nominations commands', () => {
     expect(content).toContain('Never checked: 1');
   });
 
+  it('nomination-review summary shows Needs Attention count equal to number of checked nominations', async () => {
+    const getUnprocessedNominations = jest.fn(async () => [
+      {
+        normalizedHandle: 'checkedpilot1',
+        displayHandle: 'CheckedPilot1',
+        nominationCount: 1,
+        lifecycleState: 'checked',
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: 'unknown',
+        lastOrgCheckAt: '2026-01-02T00:00:00.000Z',
+        lastOrgCheckResultCode: 'parse_failed',
+        events: [{ nominatorUserId: 'u1', nominatorUserTag: 'tester#0001', reason: null, createdAt: '2026-01-01T00:00:00.000Z' }],
+      },
+      {
+        normalizedHandle: 'checkedpilot2',
+        displayHandle: 'CheckedPilot2',
+        nominationCount: 1,
+        lifecycleState: 'checked',
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: 'unknown',
+        lastOrgCheckAt: '2026-01-02T00:00:00.000Z',
+        lastOrgCheckResultCode: 'http_timeout',
+        events: [{ nominatorUserId: 'u2', nominatorUserTag: 'tester#0002', reason: null, createdAt: '2026-01-01T00:00:00.000Z' }],
+      },
+      {
+        normalizedHandle: 'newpilot',
+        displayHandle: 'NewPilot',
+        nominationCount: 1,
+        lifecycleState: 'new',
+        processedByUserId: null,
+        processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null,
+        lastOrgCheckAt: null,
+        lastOrgCheckResultCode: null,
+        events: [{ nominatorUserId: 'u3', nominatorUserTag: 'tester#0003', reason: null, createdAt: '2026-01-01T00:00:00.000Z' }],
+      },
+    ]);
+
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => null, getInteger: () => null },
+    } as any;
+
+    await handleNominationReviewCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('Needs Attention (re-check required): 2');
+    expect(content).not.toContain('Checked (technical)');
+  });
+
   it('queues org-check refresh for all unprocessed nominations', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {
