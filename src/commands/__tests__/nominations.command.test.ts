@@ -100,7 +100,7 @@ describe('nominations commands', () => {
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('Nomination recorded'),
+        content: expect.stringContaining('Your nomination for'),
         allowedMentions: { parse: [] },
       })
     );
@@ -452,7 +452,7 @@ describe('nominations commands', () => {
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('Nomination recorded'),
+        content: expect.stringContaining('Your nomination for'),
       })
     );
   });
@@ -703,7 +703,7 @@ describe('nominations commands', () => {
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('Nomination recorded'),
+        content: expect.stringContaining('Your nomination for'),
         allowedMentions: { parse: [] },
       })
     );

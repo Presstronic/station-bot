@@ -71,7 +71,7 @@
       "responses": {
         "roleRequired": "You must have the role {roleName} or higher to nominate players.",
         "invalidHandle": "Please provide a valid RSI handle.",
-        "created": "Nomination recorded for {rsiHandle}. Total nominations: {nominationCount}.",
+        "created": "Your nomination for {rsiHandle} has been logged. Every nomination is a meaningful step in growing and strengthening Dreadnought Industries — we appreciate your support. Fly safe o7",
         "submissionInProgress": "Your previous nomination is still being processed. Please try again in a moment.",
         "cooldownActive": "You must wait {secondsRemaining}s before nominating again.",
         "targetDailyLimitReached": "{rsiHandle} has already reached the maximum number of nominations in the last 24 hours.",
