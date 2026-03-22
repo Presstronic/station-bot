@@ -73,9 +73,9 @@
         "invalidHandle": "Please provide a valid RSI handle.",
         "created": "Your nomination for {rsiHandle} has been logged. Every nomination is a meaningful step in growing and strengthening Dreadnought Industries — we appreciate your support. Fly safe o7",
         "submissionInProgress": "Your previous nomination is still being processed. Please try again in a moment.",
-        "cooldownActive": "You must wait {secondsRemaining}s before nominating again.",
+        "cooldownActive": "You must wait {formattedWait} before nominating again.",
         "targetDailyLimitReached": "{rsiHandle} has already reached the maximum number of nominations in the last 24 hours.",
-        "userDailyLimitReached": "You have reached your nomination limit in the last 24 hours.",
+        "userDailyLimitReached": "You have reached your daily nomination limit. Your limit resets in approximately {resetsIn}.",
         "citizenNotFound": "That handle doesn't appear to belong to a valid Citizen in the 'Verse. Please check the name and try again."
       }
     },

@@ -505,3 +505,41 @@ export async function countNominationsByUserInWindow(
 
   return Number(result.rows[0].event_count);
 }
+
+export async function getSecondsUntilUserWindowResets(
+  userId: string,
+  windowSeconds: number,
+  cap: number
+): Promise<number> {
+  if (!isDatabaseConfigured()) return 0;
+  await ensureNominationsSchema();
+
+  // Select the event whose expiry will bring the user's count back below cap.
+  // When count == cap that is the oldest event; when count > cap (e.g. due to a
+  // policy change) it is the (count - cap + 1)th-oldest event.  A single window-
+  // function pass computes both the total and the correct row without a second query.
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT GREATEST(
+        CEIL(EXTRACT(EPOCH FROM (created_at + ($2 * INTERVAL '1 second') - NOW())))::int,
+        0
+      ) AS seconds_until_reset
+      FROM (
+        SELECT created_at,
+               ROW_NUMBER() OVER (ORDER BY created_at ASC) AS rn,
+               COUNT(*)     OVER ()                        AS total
+        FROM nomination_events
+        WHERE nominator_user_id = $1
+          AND created_at >= NOW() - ($2 * INTERVAL '1 second')
+      ) ranked
+      WHERE rn = GREATEST(total - $3::int + 1, 1)
+        AND total >= $3::int
+      `,
+      [userId, windowSeconds, cap]
+    )
+  );
+
+  if (result.rows.length === 0) return 0;
+  return Number(result.rows[0].seconds_until_reset);
+}

@@ -102,6 +102,62 @@ describe('countNominationsForTargetInWindow', () => {
   });
 });
 
+describe('getSecondsUntilUserWindowResets', () => {
+  it('returns 0 when database is not configured', async () => {
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => false,
+      ensureNominationsSchema: jest.fn(),
+      withClient: jest.fn(),
+    }));
+
+    const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
+    expect(await getSecondsUntilUserWindowResets('user-1', 86400, 5)).toBe(0);
+  });
+
+  it('returns 0 when user has no events in the window', async () => {
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) =>
+      fn({ query: jest.fn(async () => ({ rows: [] })) })
+    );
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
+    expect(await getSecondsUntilUserWindowResets('user-1', 86400, 5)).toBe(0);
+  });
+
+  it('returns seconds_until_reset from query result', async () => {
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) =>
+      fn({ query: jest.fn(async () => ({ rows: [{ seconds_until_reset: 3600 }] })) })
+    );
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
+    expect(await getSecondsUntilUserWindowResets('user-1', 86400, 5)).toBe(3600);
+  });
+
+  it('passes userId, windowSeconds, and cap as query parameters', async () => {
+    const query = jest.fn(async () => ({ rows: [] }));
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getSecondsUntilUserWindowResets } = await import('../nominations.repository.js');
+    await getSecondsUntilUserWindowResets('user-42', 86400, 5);
+
+    expect(query).toHaveBeenCalledWith(expect.any(String), ['user-42', 86400, 5]);
+  });
+});
+
 describe('countNominationsByUserInWindow', () => {
   it('returns 0 when database is not configured', async () => {
     jest.unstable_mockModule('../db.js', () => ({
