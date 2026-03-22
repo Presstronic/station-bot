@@ -28,19 +28,19 @@ const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 const maxDiscordMessageLength = 1800;
 
-export const statusOptionName = i18n.__({ phrase: 'commands.reviewNominations.options.status.name', locale: defaultLocale });
-export const sortOptionName   = i18n.__({ phrase: 'commands.reviewNominations.options.sort.name',   locale: defaultLocale });
-export const limitOptionName  = i18n.__({ phrase: 'commands.reviewNominations.options.limit.name',  locale: defaultLocale });
+export const statusOptionName = i18n.__({ phrase: 'commands.nominationReview.options.status.name', locale: defaultLocale });
+export const sortOptionName   = i18n.__({ phrase: 'commands.nominationReview.options.sort.name',   locale: defaultLocale });
+export const limitOptionName  = i18n.__({ phrase: 'commands.nominationReview.options.limit.name',  locale: defaultLocale });
 
-export const REVIEW_NOMINATIONS_COMMAND_NAME = 'review-nominations';
+export const NOMINATION_REVIEW_COMMAND_NAME = 'nomination-review';
 
-export const reviewNominationsCommandBuilder = new SlashCommandBuilder()
-  .setName(REVIEW_NOMINATIONS_COMMAND_NAME)
-  .setDescription(i18n.__({ phrase: 'commands.reviewNominations.description', locale: defaultLocale }))
+export const nominationReviewCommandBuilder = new SlashCommandBuilder()
+  .setName(NOMINATION_REVIEW_COMMAND_NAME)
+  .setDescription(i18n.__({ phrase: 'commands.nominationReview.description', locale: defaultLocale }))
   .setDMPermission(false)
   .addStringOption((o) =>
     o.setName(statusOptionName)
-     .setDescription(i18n.__({ phrase: 'commands.reviewNominations.options.status.description', locale: defaultLocale }))
+     .setDescription(i18n.__({ phrase: 'commands.nominationReview.options.status.description', locale: defaultLocale }))
      .setRequired(false)
      .addChoices(
        { name: 'new',                 value: 'new' },
@@ -51,7 +51,7 @@ export const reviewNominationsCommandBuilder = new SlashCommandBuilder()
   )
   .addStringOption((o) =>
     o.setName(sortOptionName)
-     .setDescription(i18n.__({ phrase: 'commands.reviewNominations.options.sort.description', locale: defaultLocale }))
+     .setDescription(i18n.__({ phrase: 'commands.nominationReview.options.sort.description', locale: defaultLocale }))
      .setRequired(false)
      .addChoices(
        { name: 'newest',                value: 'newest' },
@@ -61,7 +61,7 @@ export const reviewNominationsCommandBuilder = new SlashCommandBuilder()
   )
   .addIntegerOption((o) =>
     o.setName(limitOptionName)
-     .setDescription(i18n.__({ phrase: 'commands.reviewNominations.options.limit.description', locale: defaultLocale }))
+     .setDescription(i18n.__({ phrase: 'commands.nominationReview.options.limit.description', locale: defaultLocale }))
      .setRequired(false)
      .setMinValue(1)
      .setMaxValue(100)
@@ -84,7 +84,7 @@ function getLastRefreshedAtUtc(lastCheckTimes: Array<string | null>): string {
   return latest;
 }
 
-export async function handleReviewNominationsCommand(interaction: ChatInputCommandInteraction) {
+export async function handleNominationReviewCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   try {
     if (!(await ensureCanManageReviewProcessing(interaction))) {
@@ -107,17 +107,17 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     const displayNominations = isTruncated ? nominations.slice(0, limitValue) : nominations;
 
     const truncationSuffix = isTruncated
-      ? i18n.__({ phrase: 'commands.reviewNominations.responses.truncatedHint', locale })
+      ? i18n.__({ phrase: 'commands.nominationReview.responses.truncatedHint', locale })
       : '';
     const filterContext = i18n.__mf(
-      { phrase: 'commands.reviewNominations.responses.filterContext', locale },
+      { phrase: 'commands.nominationReview.responses.filterContext', locale },
       { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
     ) + truncationSuffix;
 
     if (displayNominations.length === 0) {
       await interaction.editReply({
         content: i18n.__mf(
-          { phrase: 'commands.reviewNominations.responses.noneFiltered', locale },
+          { phrase: 'commands.nominationReview.responses.noneFiltered', locale },
           { filterContext }
         ),
       });
@@ -154,7 +154,7 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
 
     const table = formatNominationsAsTable(displayNominations);
     const summary = i18n.__mf(
-      { phrase: 'commands.reviewNominations.responses.summary', locale },
+      { phrase: 'commands.nominationReview.responses.summary', locale },
       {
         filterContext,
         table: `\`\`\`\n${table}\n\`\`\``,
@@ -188,7 +188,7 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     });
     await interaction.editReply({
       content: i18n.__mf(
-        { phrase: 'commands.reviewNominations.responses.summaryAttachment', locale },
+        { phrase: 'commands.nominationReview.responses.summaryAttachment', locale },
         {
           filterContext,
           totalCount: String(displayNominations.length),
@@ -215,7 +215,7 @@ export async function handleReviewNominationsCommand(interaction: ChatInputComma
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`review-nominations command failed: ${errorMessage}`);
+    logger.error(`nomination-review command failed: ${errorMessage}`);
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';

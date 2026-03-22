@@ -6,25 +6,25 @@ import {
   HEALTHCHECK_COMMAND_NAME,
 } from '../commands/verify.js';
 import {
-  handleNominatePlayerCommand,
-  NOMINATE_PLAYER_COMMAND_NAME,
-} from '../commands/nominate-player.command.js';
+  handleNominationSubmitCommand,
+  NOMINATION_SUBMIT_COMMAND_NAME,
+} from '../commands/nomination-submit.command.js';
 import {
-  handleReviewNominationsCommand,
-  REVIEW_NOMINATIONS_COMMAND_NAME,
-} from '../commands/review-nominations.command.js';
+  handleNominationReviewCommand,
+  NOMINATION_REVIEW_COMMAND_NAME,
+} from '../commands/nomination-review.command.js';
 import {
-  handleRefreshNominationOrgStatusCommand,
-  REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME,
-} from '../commands/refresh-nomination-org-status.command.js';
+  handleNominationRefreshCommand,
+  NOMINATION_REFRESH_COMMAND_NAME,
+} from '../commands/nomination-refresh.command.js';
 import {
-  handleNominationCheckStatusCommand,
-  NOMINATION_CHECK_STATUS_COMMAND_NAME,
-} from '../commands/nomination-check-status.command.js';
+  handleNominationJobStatusCommand,
+  NOMINATION_JOB_STATUS_COMMAND_NAME,
+} from '../commands/nomination-job-status.command.js';
 import {
-  handleProcessNominationCommand,
-  PROCESS_NOMINATION_COMMAND_NAME,
-} from '../commands/process-nomination.command.js';
+  handleNominationProcessCommand,
+  NOMINATION_PROCESS_COMMAND_NAME,
+} from '../commands/nomination-process.command.js';
 import {
   handleNominationAccessCommand,
   NOMINATION_ACCESS_COMMAND_NAME,
@@ -70,16 +70,16 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleVerifyCommand(interaction);
         } else if (interaction.commandName === HEALTHCHECK_COMMAND_NAME) {
           await handleHealthcheckCommand(interaction);
-        } else if (interaction.commandName === NOMINATE_PLAYER_COMMAND_NAME) {
-          await handleNominatePlayerCommand(interaction);
-        } else if (interaction.commandName === REVIEW_NOMINATIONS_COMMAND_NAME) {
-          await handleReviewNominationsCommand(interaction);
-        } else if (interaction.commandName === REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME) {
-          await handleRefreshNominationOrgStatusCommand(interaction);
-        } else if (interaction.commandName === NOMINATION_CHECK_STATUS_COMMAND_NAME) {
-          await handleNominationCheckStatusCommand(interaction);
-        } else if (interaction.commandName === PROCESS_NOMINATION_COMMAND_NAME) {
-          await handleProcessNominationCommand(interaction);
+        } else if (interaction.commandName === NOMINATION_SUBMIT_COMMAND_NAME) {
+          await handleNominationSubmitCommand(interaction);
+        } else if (interaction.commandName === NOMINATION_REVIEW_COMMAND_NAME) {
+          await handleNominationReviewCommand(interaction);
+        } else if (interaction.commandName === NOMINATION_REFRESH_COMMAND_NAME) {
+          await handleNominationRefreshCommand(interaction);
+        } else if (interaction.commandName === NOMINATION_JOB_STATUS_COMMAND_NAME) {
+          await handleNominationJobStatusCommand(interaction);
+        } else if (interaction.commandName === NOMINATION_PROCESS_COMMAND_NAME) {
+          await handleNominationProcessCommand(interaction);
         } else if (interaction.commandName === NOMINATION_ACCESS_COMMAND_NAME) {
           await handleNominationAccessCommand(interaction);
         } else if (interaction.commandName === NOMINATION_AUDIT_COMMAND_NAME) {

@@ -16,22 +16,22 @@ import { recordAuditEvent } from '../services/nominations/audit.repository.js';
 import { getLogger } from '../utils/logger.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
-export const rsiHandleOptionName   = i18n.__({ phrase: 'commands.processNomination.options.rsiHandle.name',   locale: defaultLocale });
-export const confirmAllOptionName  = i18n.__({ phrase: 'commands.processNomination.options.confirmAll.name',  locale: defaultLocale });
+export const rsiHandleOptionName   = i18n.__({ phrase: 'commands.nominationProcess.options.rsiHandle.name',   locale: defaultLocale });
+export const confirmAllOptionName  = i18n.__({ phrase: 'commands.nominationProcess.options.confirmAll.name',  locale: defaultLocale });
 const logger = getLogger();
 
-export const PROCESS_NOMINATION_COMMAND_NAME = 'process-nomination';
+export const NOMINATION_PROCESS_COMMAND_NAME = 'nomination-process';
 
-export const processNominationCommandBuilder = new SlashCommandBuilder()
-  .setName(PROCESS_NOMINATION_COMMAND_NAME)
-  .setDescription(i18n.__({ phrase: 'commands.processNomination.description', locale: defaultLocale }))
+export const nominationProcessCommandBuilder = new SlashCommandBuilder()
+  .setName(NOMINATION_PROCESS_COMMAND_NAME)
+  .setDescription(i18n.__({ phrase: 'commands.nominationProcess.description', locale: defaultLocale }))
   .setDMPermission(false)
   .addStringOption((option) =>
     option
       .setName(rsiHandleOptionName)
       .setDescription(
         i18n.__({
-          phrase: 'commands.processNomination.options.rsiHandle.description',
+          phrase: 'commands.nominationProcess.options.rsiHandle.description',
           locale: defaultLocale,
         })
       )
@@ -39,11 +39,11 @@ export const processNominationCommandBuilder = new SlashCommandBuilder()
   )
   .addBooleanOption((o) =>
     o.setName(confirmAllOptionName)
-     .setDescription(i18n.__({ phrase: 'commands.processNomination.options.confirmAll.description', locale: defaultLocale }))
+     .setDescription(i18n.__({ phrase: 'commands.nominationProcess.options.confirmAll.description', locale: defaultLocale }))
      .setRequired(false)
   );
 
-export async function handleProcessNominationCommand(interaction: ChatInputCommandInteraction) {
+export async function handleNominationProcessCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   try {
     if (!(await ensureCanManageReviewProcessing(interaction))) {
@@ -78,11 +78,11 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
       await interaction.reply({
         content: updated
           ? i18n.__mf(
-              { phrase: 'commands.processNomination.responses.singleProcessed', locale },
+              { phrase: 'commands.nominationProcess.responses.singleProcessed', locale },
               { rsiHandle: handle }
             )
           : i18n.__mf(
-              { phrase: 'commands.processNomination.responses.singleNotFound', locale },
+              { phrase: 'commands.nominationProcess.responses.singleNotFound', locale },
               { rsiHandle: handle }
             ),
         ephemeral: true,
@@ -94,7 +94,7 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
     const confirmAll = interaction.options.getBoolean(confirmAllOptionName);
     if (!confirmAll) {
       await interaction.reply({
-        content: i18n.__({ phrase: 'commands.processNomination.responses.confirmAllRequired', locale }),
+        content: i18n.__({ phrase: 'commands.nominationProcess.responses.confirmAllRequired', locale }),
         ephemeral: true,
         allowedMentions: { parse: [] },
       });
@@ -123,7 +123,7 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
     }
     await interaction.reply({
       content: i18n.__mf(
-        { phrase: 'commands.processNomination.responses.allProcessed', locale },
+        { phrase: 'commands.nominationProcess.responses.allProcessed', locale },
         { processedCount: String(count) }
       ),
       ephemeral: true,
@@ -131,7 +131,7 @@ export async function handleProcessNominationCommand(interaction: ChatInputComma
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`process-nomination command failed: ${errorMessage}`);
+    logger.error(`nomination-process command failed: ${errorMessage}`);
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';

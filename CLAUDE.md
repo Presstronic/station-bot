@@ -2,14 +2,18 @@
 
 ## Commits
 - Never include `Co-Authored-By` trailers or any AI attribution in commit messages.
+- Before committing any code, always run `npm run quality` locally and confirm it passes.
+- Before committing, perform an objective self-review of all changed code from the perspective of a senior principal engineer: check for SOLID principles, single responsibility, clean abstractions, naming clarity, test coverage, and any code smells or over-engineering. Surface any concerns before the code is committed.
 
 ## Workflow
 - All changes go through: issue → feature branch → PR. No direct commits to main.
+- When starting work on a new issue, assign it to `GitAddRemote` if possible.
 - Branch naming: use a prefix matching the change type — `feature/ISSUE-{n}`, `bug/ISSUE-{n}`, `chore/ISSUE-{n}`, `release/v{x.y.z}`
 - PR title format: `<type>: ISSUE-{n} — description` (Conventional Commits style — e.g. `feature`, `bug`, `chore`, `fix`, `release`)
 - PRs close issues via "Closes #n" in body
 - All PRs are squash-merged into main
 - Quality gate before every PR: `npm run quality`
+- When addressing code review comments: reply to the comment explaining what was done, then resolve it.
 
 ## Security
 - Never commit `.env` files, credentials, private keys, or the `certs/` directory — all are `.gitignore`d

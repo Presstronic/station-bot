@@ -92,9 +92,9 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
@@ -123,7 +123,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction({
       options: {
         getString: (name: string, required?: boolean) => {
@@ -135,7 +135,7 @@ describe('nominations commands', () => {
       },
     });
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -166,9 +166,9 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(interaction.editReply).toHaveBeenCalledWith(
@@ -191,7 +191,7 @@ describe('nominations commands', () => {
       countNominationsByUserInWindow: jest.fn(async () => 0),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction({
       guild: {
         roles: {
@@ -213,7 +213,7 @@ describe('nominations commands', () => {
       },
     });
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(interaction.editReply).toHaveBeenCalledWith(
@@ -234,7 +234,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = {
       inGuild: () => true,
@@ -245,7 +245,7 @@ describe('nominations commands', () => {
       reply: processReply,
     } as any;
 
-    await handleProcessNominationCommand(processInteraction);
+    await handleNominationProcessCommand(processInteraction);
 
     expect(markAllNominationsProcessed).toHaveBeenCalledWith('admin-1');
     expect(processReply).toHaveBeenCalledWith(
@@ -274,7 +274,7 @@ describe('nominations commands', () => {
       resetReviewProcessRoleIds: jest.fn(),
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = createNominationInteraction({
       user: { id: 'role-user' },
@@ -283,7 +283,7 @@ describe('nominations commands', () => {
       reply: processReply,
     });
 
-    await handleProcessNominationCommand(processInteraction);
+    await handleNominationProcessCommand(processInteraction);
 
     expect(markAllNominationsProcessed).toHaveBeenCalledWith('role-user');
     expect(processReply).toHaveBeenCalledWith(
@@ -308,7 +308,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = {
       inGuild: () => true,
@@ -319,7 +319,7 @@ describe('nominations commands', () => {
       reply: processReply,
     } as any;
 
-    await handleProcessNominationCommand(processInteraction);
+    await handleNominationProcessCommand(processInteraction);
 
     expect(processReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -347,7 +347,7 @@ describe('nominations commands', () => {
       resetReviewProcessRoleIds: jest.fn(),
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const processReply = jest.fn(async () => undefined);
     const processInteraction = createNominationInteraction({
       user: { id: 'role-user' },
@@ -356,7 +356,7 @@ describe('nominations commands', () => {
       reply: processReply,
     });
 
-    await handleProcessNominationCommand(processInteraction);
+    await handleNominationProcessCommand(processInteraction);
 
     expect(processReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -390,7 +390,7 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction({
       guild: {
         roles: {
@@ -417,12 +417,12 @@ describe('nominations commands', () => {
       },
     });
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(rolesFetch).not.toHaveBeenCalled();
   });
 
-  it('nominate-player allows submission when anti-abuse check passes', async () => {
+  it('nomination-submit allows submission when anti-abuse check passes', async () => {
     const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -443,10 +443,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
@@ -457,7 +457,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nominate-player blocks submission and does not write when cooldown is active', async () => {
+  it('nomination-submit blocks submission and does not write when cooldown is active', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -474,10 +474,10 @@ describe('nominations commands', () => {
       checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'cooldown', secondsRemaining: 42 })),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -488,7 +488,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nominate-player blocks submission and does not write when target daily limit is reached', async () => {
+  it('nomination-submit blocks submission and does not write when target daily limit is reached', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -508,10 +508,10 @@ describe('nominations commands', () => {
       })),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -527,7 +527,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nominate-player shows target daily limit message when recordNomination throws NominationTargetCapExceededError', async () => {
+  it('nomination-submit shows target daily limit message when recordNomination throws NominationTargetCapExceededError', async () => {
     // Import the real error class from types.ts (never mocked) so that the
     // command's instanceof check and the thrown instance share the same class.
     const { NominationTargetCapExceededError } = await import('../../services/nominations/types.js');
@@ -551,10 +551,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -569,7 +569,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nominate-player blocks submission and does not write when user daily limit is reached', async () => {
+  it('nomination-submit blocks submission and does not write when user daily limit is reached', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -586,10 +586,10 @@ describe('nominations commands', () => {
       checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'userDailyLimit' })),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -600,7 +600,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nominate-player rejects a concurrent submission from the same user', async () => {
+  it('nomination-submit rejects a concurrent submission from the same user', async () => {
     const recordNomination = jest.fn(async () => new Promise(() => {})); // never resolves
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -621,16 +621,16 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const firstInteraction = createNominationInteraction();
     const secondEditReply = jest.fn(async () => undefined);
     const secondInteraction = createNominationInteraction({ editReply: secondEditReply });
 
     // Start first request but don't await — it blocks on recordNomination
-    const firstRequest = handleNominatePlayerCommand(firstInteraction);
+    const firstRequest = handleNominationSubmitCommand(firstInteraction);
 
     // Second request from the same user arrives while first is in-flight
-    await handleNominatePlayerCommand(secondInteraction);
+    await handleNominationSubmitCommand(secondInteraction);
 
     expect(secondInteraction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(secondEditReply).toHaveBeenCalledWith(
@@ -643,7 +643,7 @@ describe('nominations commands', () => {
     firstRequest.catch(() => {});
   });
 
-  it('nominate-player rejects nomination when RSI citizen is not found', async () => {
+  it('nomination-submit rejects nomination when RSI citizen is not found', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -661,10 +661,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -676,7 +676,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nominate-player proceeds with nomination when RSI citizen check is unavailable', async () => {
+  it('nomination-submit proceeds with nomination when RSI citizen check is unavailable', async () => {
     const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -694,10 +694,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominatePlayerCommand(interaction);
+    await handleNominationSubmitCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
@@ -751,7 +751,7 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership,
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const deferReply = jest.fn(async () => undefined);
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -764,7 +764,7 @@ describe('nominations commands', () => {
       options: { getString: () => null, getInteger: () => null },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(getUnprocessedNominations).toHaveBeenCalledTimes(1);
@@ -772,7 +772,7 @@ describe('nominations commands', () => {
     expect(updateOrgCheckResult).not.toHaveBeenCalled();
     expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('Tip: run /refresh-nomination-org-status'),
+        content: expect.stringContaining('Tip: run /nomination-refresh'),
       })
     );
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
@@ -845,7 +845,7 @@ describe('nominations commands', () => {
       })),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -857,7 +857,7 @@ describe('nominations commands', () => {
       options: { getString: () => null, getInteger: () => null },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const editPayload = (editReply as unknown as { mock: { calls: any[][] } }).mock.calls[0]?.[0] as
       | { content?: string }
@@ -914,7 +914,7 @@ describe('nominations commands', () => {
       enqueueNominationCheckJob,
     }));
 
-    const { handleRefreshNominationOrgStatusCommand } = await import('../refresh-nomination-org-status.command.js');
+    const { handleNominationRefreshCommand } = await import('../nomination-refresh.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -926,7 +926,7 @@ describe('nominations commands', () => {
       options: { getString: () => null },
     } as any;
 
-    await handleRefreshNominationOrgStatusCommand(interaction);
+    await handleNominationRefreshCommand(interaction);
 
     expect(enqueueNominationCheckJob).toHaveBeenCalledWith(
       'admin-1',
@@ -973,7 +973,7 @@ describe('nominations commands', () => {
       enqueueNominationCheckJob,
     }));
 
-    const { handleRefreshNominationOrgStatusCommand } = await import('../refresh-nomination-org-status.command.js');
+    const { handleNominationRefreshCommand } = await import('../nomination-refresh.command.js');
     const interaction = {
       inGuild: () => true,
       locale: 'en-US',
@@ -984,7 +984,7 @@ describe('nominations commands', () => {
       options: { getString: () => 'PilotNominee' },
     } as any;
 
-    await handleRefreshNominationOrgStatusCommand(interaction);
+    await handleNominationRefreshCommand(interaction);
 
     expect(getUnprocessedNominationByHandle).toHaveBeenCalledWith('PilotNominee');
     expect(getUnprocessedNominations).not.toHaveBeenCalled();
@@ -1013,8 +1013,8 @@ describe('nominations commands', () => {
       enqueueNominationCheckJob,
     }));
 
-    const { handleRefreshNominationOrgStatusCommand } = await import(
-      '../refresh-nomination-org-status.command.js'
+    const { handleNominationRefreshCommand } = await import(
+      '../nomination-refresh.command.js'
     );
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -1027,7 +1027,7 @@ describe('nominations commands', () => {
       options: { getString: () => 'Bad\n|`Handle' },
     } as any;
 
-    await handleRefreshNominationOrgStatusCommand(interaction);
+    await handleNominationRefreshCommand(interaction);
 
     const editPayload = (editReply as unknown as { mock: { calls: any[][] } }).mock.calls[0]?.[0] as
       | { content?: string }
@@ -1056,8 +1056,8 @@ describe('nominations commands', () => {
       enqueueNominationCheckJob,
     }));
 
-    const { handleRefreshNominationOrgStatusCommand } = await import(
-      '../refresh-nomination-org-status.command.js'
+    const { handleNominationRefreshCommand } = await import(
+      '../nomination-refresh.command.js'
     );
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -1070,7 +1070,7 @@ describe('nominations commands', () => {
       options: { getString: () => '   ' },
     } as any;
 
-    await handleRefreshNominationOrgStatusCommand(interaction);
+    await handleNominationRefreshCommand(interaction);
 
     expect(getUnprocessedNominations).not.toHaveBeenCalled();
     expect(getUnprocessedNominationByHandle).not.toHaveBeenCalled();
@@ -1114,8 +1114,8 @@ describe('nominations commands', () => {
       enqueueNominationCheckJob,
     }));
 
-    const { handleRefreshNominationOrgStatusCommand } = await import(
-      '../refresh-nomination-org-status.command.js'
+    const { handleNominationRefreshCommand } = await import(
+      '../nomination-refresh.command.js'
     );
     const editReply = jest.fn(async () => undefined);
     const interaction = {
@@ -1128,7 +1128,7 @@ describe('nominations commands', () => {
       options: { getString: () => null },
     } as any;
 
-    await handleRefreshNominationOrgStatusCommand(interaction);
+    await handleNominationRefreshCommand(interaction);
 
     const editPayload = (editReply as unknown as { mock: { calls: any[][] } }).mock.calls[0]?.[0] as
       | { content?: string }
@@ -1170,7 +1170,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleNominationCheckStatusCommand } = await import('../nomination-check-status.command.js');
+    const { handleNominationJobStatusCommand } = await import('../nomination-job-status.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1182,7 +1182,7 @@ describe('nominations commands', () => {
       options: { getString: () => null },
     } as any;
 
-    await handleNominationCheckStatusCommand(interaction);
+    await handleNominationJobStatusCommand(interaction);
 
     expect(getLatestNominationCheckJob).toHaveBeenCalledTimes(1);
     expect(getNominationCheckJobById).not.toHaveBeenCalled();
@@ -1198,7 +1198,7 @@ describe('nominations commands', () => {
     expect(content).toContain('n/a');
   });
 
-  it('review-nominations passes status/sort/limit options to getUnprocessedNominations', async () => {
+  it('nomination-review passes status/sort/limit options to getUnprocessedNominations', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
@@ -1209,7 +1209,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../nomination-review.command.js');
     const interaction = {
       inGuild: () => true,
       locale: 'en-US',
@@ -1230,13 +1230,13 @@ describe('nominations commands', () => {
       },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     // limit is sent as limitValue + 1 to enable truncation detection without a COUNT query
     expect(getUnprocessedNominations).toHaveBeenCalledWith({ status: 'new', sort: 'oldest', limit: 11 });
   });
 
-  it('review-nominations defaults to all/newest/25 when no options provided', async () => {
+  it('nomination-review defaults to all/newest/25 when no options provided', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
@@ -1247,7 +1247,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const interaction = {
       inGuild: () => true,
       locale: 'en-US',
@@ -1261,14 +1261,14 @@ describe('nominations commands', () => {
       },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     // No status filter when none is specified — preserves pre-existing behavior
     // limit is sent as limitValue + 1 to enable truncation detection without a COUNT query
     expect(getUnprocessedNominations).toHaveBeenCalledWith({ status: undefined, sort: 'newest', limit: 26 });
   });
 
-  it('review-nominations empty result includes filterContext so the active filter is visible', async () => {
+  it('nomination-review empty result includes filterContext so the active filter is visible', async () => {
     const getUnprocessedNominations = jest.fn(async () => []);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
@@ -1279,8 +1279,8 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } =
-      await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand, statusOptionName, sortOptionName, limitOptionName } =
+      await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1299,7 +1299,7 @@ describe('nominations commands', () => {
       },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('Filter: status=qualified | sort=oldest | limit=10');
@@ -1307,7 +1307,7 @@ describe('nominations commands', () => {
     expect(content).not.toContain('There are no unprocessed nominations.');
   });
 
-  it('review-nominations shows truncation hint when DB returns more than the limit', async () => {
+  it('nomination-review shows truncation hint when DB returns more than the limit', async () => {
     // Simulate DB returning limitValue + 1 items (the N+1 probe result)
     const nominations = Array.from({ length: 6 }, (_, i) => ({
       normalizedHandle: `pilot${i}`,
@@ -1331,7 +1331,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1346,13 +1346,13 @@ describe('nominations commands', () => {
       },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('results may be truncated');
   });
 
-  it('review-nominations omits truncation hint when DB returns at or below the limit', async () => {
+  it('nomination-review omits truncation hint when DB returns at or below the limit', async () => {
     // DB returns fewer items than limitValue + 1 — no truncation
     const nominations = Array.from({ length: 4 }, (_, i) => ({
       normalizedHandle: `pilot${i}`,
@@ -1376,7 +1376,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1391,13 +1391,13 @@ describe('nominations commands', () => {
       },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).not.toContain('results may be truncated');
   });
 
-  it('process-nomination rejects process-all when confirm-all is absent', async () => {
+  it('nomination-process rejects process-all when confirm-all is absent', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
@@ -1408,7 +1408,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1419,7 +1419,7 @@ describe('nominations commands', () => {
       reply,
     } as any;
 
-    await handleProcessNominationCommand(interaction);
+    await handleNominationProcessCommand(interaction);
 
     expect(markAllNominationsProcessed).not.toHaveBeenCalled();
     expect(reply).toHaveBeenCalledWith(
@@ -1430,7 +1430,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('process-nomination rejects process-all when confirm-all is false', async () => {
+  it('nomination-process rejects process-all when confirm-all is false', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
@@ -1441,7 +1441,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1452,7 +1452,7 @@ describe('nominations commands', () => {
       reply,
     } as any;
 
-    await handleProcessNominationCommand(interaction);
+    await handleNominationProcessCommand(interaction);
 
     expect(markAllNominationsProcessed).not.toHaveBeenCalled();
     expect(reply).toHaveBeenCalledWith(
@@ -1463,7 +1463,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('process-nomination single-handle path works without confirm-all', async () => {
+  it('nomination-process single-handle path works without confirm-all', async () => {
     const markNominationProcessedByHandle = jest.fn(async () => true);
     const markAllNominationsProcessed = jest.fn(async () => 0);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
@@ -1475,7 +1475,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1486,13 +1486,13 @@ describe('nominations commands', () => {
       reply,
     } as any;
 
-    await handleProcessNominationCommand(interaction);
+    await handleNominationProcessCommand(interaction);
 
     expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
     expect(markAllNominationsProcessed).not.toHaveBeenCalled();
   });
 
-  it('process-nomination single-handle path is unaffected when confirm-all is also true', async () => {
+  it('nomination-process single-handle path is unaffected when confirm-all is also true', async () => {
     const markNominationProcessedByHandle = jest.fn(async () => true);
     const markAllNominationsProcessed = jest.fn(async () => 0);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
@@ -1504,7 +1504,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed,
     }));
 
-    const { handleProcessNominationCommand, rsiHandleOptionName } = await import('../process-nomination.command.js');
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1515,14 +1515,14 @@ describe('nominations commands', () => {
       reply,
     } as any;
 
-    await handleProcessNominationCommand(interaction);
+    await handleNominationProcessCommand(interaction);
 
     // confirm-all is silently ignored when a handle is present; only the single handle is processed
     expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
     expect(markAllNominationsProcessed).not.toHaveBeenCalled();
   });
 
-  it('review-nominations response includes filter context reflecting the active filter values', async () => {
+  it('nomination-review response includes filter context reflecting the active filter values', async () => {
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(async () => [
@@ -1546,7 +1546,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand, statusOptionName, sortOptionName, limitOptionName } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1565,7 +1565,7 @@ describe('nominations commands', () => {
       },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('status=qualified');
@@ -1573,7 +1573,7 @@ describe('nominations commands', () => {
     expect(content).toContain('limit=10');
   });
 
-  it('review-nominations totalCount reflects the sliced display set, not the N+1 probe array', async () => {
+  it('nomination-review totalCount reflects the sliced display set, not the N+1 probe array', async () => {
     // DB returns limitValue + 1 = 6 items; totalCount in the reply should be 5, not 6
     const nominations = Array.from({ length: 6 }, (_, i) => ({
       normalizedHandle: `pilot${i}`,
@@ -1597,7 +1597,7 @@ describe('nominations commands', () => {
       markAllNominationsProcessed: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1609,14 +1609,14 @@ describe('nominations commands', () => {
       options: { getString: () => null, getInteger: () => 5 },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('Nominations shown: 5');
     expect(content).not.toContain('Nominations shown: 6');
   });
 
-  it('review-nominations shows "never" for lastRefreshedAt when no nominations have been org-checked', async () => {
+  it('nomination-review shows "never" for lastRefreshedAt when no nominations have been org-checked', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {
         normalizedHandle: 'pilotnominee',
@@ -1646,7 +1646,7 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1658,14 +1658,14 @@ describe('nominations commands', () => {
       options: { getString: () => null, getInteger: () => null },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('never');
     expect(content).not.toMatch(/\d{4}-\d{2}-\d{2}T/);
   });
 
-  it('review-nominations shows reason text in table when reason is provided', async () => {
+  it('nomination-review shows reason text in table when reason is provided', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {
         normalizedHandle: 'pilotnominee',
@@ -1695,7 +1695,7 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1707,13 +1707,13 @@ describe('nominations commands', () => {
       options: { getString: () => null, getInteger: () => null },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('Great pilot, helped us in ops');
   });
 
-  it('review-nominations truncates reason to 120 characters in table', async () => {
+  it('nomination-review truncates reason to 120 characters in table', async () => {
     const longReason = 'A'.repeat(130);
     const getUnprocessedNominations = jest.fn(async () => [
       {
@@ -1744,7 +1744,7 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleReviewNominationsCommand } = await import('../review-nominations.command.js');
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1756,7 +1756,7 @@ describe('nominations commands', () => {
       options: { getString: () => null, getInteger: () => null },
     } as any;
 
-    await handleReviewNominationsCommand(interaction);
+    await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).not.toContain(longReason);

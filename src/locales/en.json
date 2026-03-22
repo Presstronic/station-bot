@@ -55,8 +55,8 @@
         "unexpectedError": "Something went wrong while handling this command. Please try again."
       }
     },
-    "nominatePlayer": {
-      "name": "nominate-player",
+    "nominationSubmit": {
+      "name": "nomination-submit",
       "description": "Nominate a Star Citizen player for recruitment outreach.",
       "options": {
         "rsiHandle": {
@@ -79,8 +79,8 @@
         "citizenNotFound": "That handle doesn't appear to belong to a valid Citizen in the 'Verse. Please check the name and try again."
       }
     },
-    "reviewNominations": {
-      "name": "review-nominations",
+    "nominationReview": {
+      "name": "nomination-review",
       "description": "Review unprocessed player nominations (up to 25; filter, sort, or adjust via options).",
       "options": {
         "status": {
@@ -101,12 +101,12 @@
         "noneFiltered": "{filterContext}\nNo nominations match the current filter.",
         "filterContext": "Filter: status={status} | sort={sort} | limit={limit}",
         "truncatedHint": " — results may be truncated; increase the limit (up to 100) or narrow the filter to see more",
-        "summary": "{filterContext}\nUnprocessed nominations (persisted status):\n{table}\nNominations shown: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now.",
-        "summaryAttachment": "{filterContext}\nUnprocessed nominations are attached as a file.\nNominations shown: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /refresh-nomination-org-status to refresh statuses now."
+        "summary": "{filterContext}\nUnprocessed nominations (persisted status):\n{table}\nNominations shown: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /nomination-refresh to refresh statuses now.",
+        "summaryAttachment": "{filterContext}\nUnprocessed nominations are attached as a file.\nNominations shown: {totalCount}\nNew: {newCount}\nChecked (technical): {checkedCount}\nQualified (not in org): {qualifiedCount}\nDisqualified (in org): {disqualifiedCount}\nBusiness outcomes: {businessOutcomeCount}\nTechnical outcomes: {technicalOutcomeCount}\nIn org: {inOrgCount}\nNot in org: {notInOrgCount}\nHandle not found: {notFoundCount}\nHTTP timeout: {timeoutCount}\nRate limited: {rateLimitedCount}\nParse failed: {parseFailedCount}\nHTTP error: {httpErrorCount}\nUnclassified legacy: {unclassifiedCount}\nNever checked: {neverCheckedCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /nomination-refresh to refresh statuses now."
       }
     },
-    "refreshNominationOrgStatus": {
-      "name": "refresh-nomination-org-status",
+    "nominationRefresh": {
+      "name": "nomination-refresh",
       "description": "Queue org membership status refresh for unprocessed nominations.",
       "options": {
         "rsiHandle": {
@@ -118,11 +118,11 @@
         "invalidHandle": "Please provide a valid RSI handle.",
         "none": "There are no unprocessed nominations to queue.",
         "singleNotFound": "Could not find an unprocessed nomination for {rsiHandle}.",
-        "queued": "Refresh job queued.\nJob ID: {jobId}\nTargets: {targetCount}\nReused existing active job: {reused}\nUse /nomination-check-status to monitor progress."
+        "queued": "Refresh job queued.\nJob ID: {jobId}\nTargets: {targetCount}\nReused existing active job: {reused}\nUse /nomination-job-status to monitor progress."
       }
     },
-    "nominationCheckStatus": {
-      "name": "nomination-check-status",
+    "nominationJobStatus": {
+      "name": "nomination-job-status",
       "description": "Check status of nomination org-check background jobs.",
       "options": {
         "jobId": {
@@ -136,8 +136,8 @@
         "summary": "Nomination check job status:\nJob ID: {jobId}\nStatus: {status}\nScope: {scope}\nRequested handle: {requestedHandle}\nTotal: {totalCount}\nPending: {pendingCount}\nRunning: {runningCount}\nCompleted: {completedCount}\nFailed: {failedCount}\nCreated (UTC): {createdAt}\nStarted (UTC): {startedAt}\nFinished (UTC): {finishedAt}\nError summary: {errorSummary}"
       }
     },
-    "processNomination": {
-      "name": "process-nomination",
+    "nominationProcess": {
+      "name": "nomination-process",
       "description": "Mark one or all nominations as processed.",
       "options": {
         "rsiHandle": {
