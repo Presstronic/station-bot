@@ -1,11 +1,11 @@
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import type { OrgCheckResult, OrgCheckResultCode } from './types.js';
+import { getLogger } from '../../utils/logger.js';
+import { sanitizeForInlineText } from '../../utils/sanitize.js';
 
 /** Internal result of a single org-check HTTP attempt. Never stored or displayed. */
 type OrgCheckOutcome = Extract<OrgCheckResultCode, 'in_org' | 'not_in_org'> | 'undetermined';
-import { getLogger } from '../../utils/logger.js';
-import { sanitizeForInlineText } from '../../utils/sanitize.js';
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
 const defaultOrganizationsPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}/organizations';
