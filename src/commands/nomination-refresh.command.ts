@@ -16,27 +16,27 @@ import { sanitizeForInlineText } from '../utils/sanitize.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
-const rsiHandleKey = 'commands.refreshNominationOrgStatus.options.rsiHandle.name';
+const rsiHandleKey = 'commands.nominationRefresh.options.rsiHandle.name';
 
-export const REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME = 'refresh-nomination-org-status';
+export const NOMINATION_REFRESH_COMMAND_NAME = 'nomination-refresh';
 
-export const refreshNominationOrgStatusCommandBuilder = new SlashCommandBuilder()
-  .setName(REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME)
-  .setDescription(i18n.__({ phrase: 'commands.refreshNominationOrgStatus.description', locale: defaultLocale }))
+export const nominationRefreshCommandBuilder = new SlashCommandBuilder()
+  .setName(NOMINATION_REFRESH_COMMAND_NAME)
+  .setDescription(i18n.__({ phrase: 'commands.nominationRefresh.description', locale: defaultLocale }))
   .setDMPermission(false)
   .addStringOption((option) =>
     option
       .setName(i18n.__({ phrase: rsiHandleKey, locale: defaultLocale }))
       .setDescription(
         i18n.__({
-          phrase: 'commands.refreshNominationOrgStatus.options.rsiHandle.description',
+          phrase: 'commands.nominationRefresh.options.rsiHandle.description',
           locale: defaultLocale,
         })
       )
       .setRequired(false)
   );
 
-export async function handleRefreshNominationOrgStatusCommand(interaction: ChatInputCommandInteraction) {
+export async function handleNominationRefreshCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
 
   try {
@@ -51,7 +51,7 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     );
     if (rawRequestedHandle !== null && rawRequestedHandle.trim().length === 0) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.refreshNominationOrgStatus.responses.invalidHandle', locale }),
+        content: i18n.__({ phrase: 'commands.nominationRefresh.responses.invalidHandle', locale }),
         allowedMentions: { parse: [] },
       });
       return;
@@ -69,7 +69,7 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     if (requestedHandle && targets.length === 0) {
       await interaction.editReply({
         content: i18n.__mf(
-          { phrase: 'commands.refreshNominationOrgStatus.responses.singleNotFound', locale },
+          { phrase: 'commands.nominationRefresh.responses.singleNotFound', locale },
           { rsiHandle: sanitizeForInlineText(requestedHandle) }
         ),
         allowedMentions: { parse: [] },
@@ -79,7 +79,7 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
 
     if (targets.length === 0) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.refreshNominationOrgStatus.responses.none', locale }),
+        content: i18n.__({ phrase: 'commands.nominationRefresh.responses.none', locale }),
         allowedMentions: { parse: [] },
       });
       return;
@@ -118,7 +118,7 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     }
 
     const summaryContent = i18n.__mf(
-      { phrase: 'commands.refreshNominationOrgStatus.responses.queued', locale },
+      { phrase: 'commands.nominationRefresh.responses.queued', locale },
       {
         jobId: String(queueResult.job.id),
         targetCount: String(queueResult.job.totalCount),
@@ -131,7 +131,7 @@ export async function handleRefreshNominationOrgStatusCommand(interaction: ChatI
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`refresh-nomination-org-status command failed: ${errorMessage}`);
+    logger.error(`nomination-refresh command failed: ${errorMessage}`);
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';

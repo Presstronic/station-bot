@@ -25,25 +25,25 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
-      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
-      handleNominatePlayerCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
+      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
+      handleNominationSubmitCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
-      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
-      handleReviewNominationsCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
-      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
-      handleRefreshNominationOrgStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
-      NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
-      handleNominationCheckStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
-      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
-      handleProcessNominationCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
@@ -103,25 +103,25 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
-      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
-      handleNominatePlayerCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
+      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
+      handleNominationSubmitCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
-      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
-      handleReviewNominationsCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
-      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
-      handleRefreshNominationOrgStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
-      NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
-      handleNominationCheckStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
-      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
-      handleProcessNominationCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
@@ -182,25 +182,25 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
-      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
-      handleNominatePlayerCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
+      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
+      handleNominationSubmitCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
-      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
-      handleReviewNominationsCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
-      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
-      handleRefreshNominationOrgStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
-      NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
-      handleNominationCheckStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
-      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
-      handleProcessNominationCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
@@ -259,25 +259,25 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
-      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
-      handleNominatePlayerCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
+      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
+      handleNominationSubmitCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/review-nominations.command.js', () => ({
-      REVIEW_NOMINATIONS_COMMAND_NAME: 'review-nominations',
-      handleReviewNominationsCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/refresh-nomination-org-status.command.js', () => ({
-      REFRESH_NOMINATION_ORG_STATUS_COMMAND_NAME: 'refresh-nomination-org-status',
-      handleRefreshNominationOrgStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-check-status.command.js', () => ({
-      NOMINATION_CHECK_STATUS_COMMAND_NAME: 'nomination-check-status',
-      handleNominationCheckStatusCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/process-nomination.command.js', () => ({
-      PROCESS_NOMINATION_COMMAND_NAME: 'process-nomination',
-      handleProcessNominationCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
       NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',

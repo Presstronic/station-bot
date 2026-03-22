@@ -14,27 +14,27 @@ import { getLogger } from '../utils/logger.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
-const jobIdOptionKey = 'commands.nominationCheckStatus.options.jobId.name';
+const jobIdOptionKey = 'commands.nominationJobStatus.options.jobId.name';
 
-export const NOMINATION_CHECK_STATUS_COMMAND_NAME = 'nomination-check-status';
+export const NOMINATION_JOB_STATUS_COMMAND_NAME = 'nomination-job-status';
 
-export const nominationCheckStatusCommandBuilder = new SlashCommandBuilder()
-  .setName(NOMINATION_CHECK_STATUS_COMMAND_NAME)
-  .setDescription(i18n.__({ phrase: 'commands.nominationCheckStatus.description', locale: defaultLocale }))
+export const nominationJobStatusCommandBuilder = new SlashCommandBuilder()
+  .setName(NOMINATION_JOB_STATUS_COMMAND_NAME)
+  .setDescription(i18n.__({ phrase: 'commands.nominationJobStatus.description', locale: defaultLocale }))
   .setDMPermission(false)
   .addStringOption((option) =>
     option
       .setName(i18n.__({ phrase: jobIdOptionKey, locale: defaultLocale }))
       .setDescription(
         i18n.__({
-          phrase: 'commands.nominationCheckStatus.options.jobId.description',
+          phrase: 'commands.nominationJobStatus.options.jobId.description',
           locale: defaultLocale,
         })
       )
       .setRequired(false)
   );
 
-export async function handleNominationCheckStatusCommand(interaction: ChatInputCommandInteraction) {
+export async function handleNominationJobStatusCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   try {
     if (!(await ensureCanManageReviewProcessing(interaction))) {
@@ -48,7 +48,7 @@ export async function handleNominationCheckStatusCommand(interaction: ChatInputC
     );
     if (rawJobId !== null && rawJobId.trim().length === 0) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.nominationCheckStatus.responses.invalidJobId', locale }),
+        content: i18n.__({ phrase: 'commands.nominationJobStatus.responses.invalidJobId', locale }),
         allowedMentions: { parse: [] },
       });
       return;
@@ -57,7 +57,7 @@ export async function handleNominationCheckStatusCommand(interaction: ChatInputC
     const requestedJobId = rawJobId ? Number(rawJobId.trim()) : null;
     if (rawJobId && (!Number.isInteger(requestedJobId) || requestedJobId === null || requestedJobId <= 0)) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.nominationCheckStatus.responses.invalidJobId', locale }),
+        content: i18n.__({ phrase: 'commands.nominationJobStatus.responses.invalidJobId', locale }),
         allowedMentions: { parse: [] },
       });
       return;
@@ -69,7 +69,7 @@ export async function handleNominationCheckStatusCommand(interaction: ChatInputC
 
     if (!job) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.nominationCheckStatus.responses.none', locale }),
+        content: i18n.__({ phrase: 'commands.nominationJobStatus.responses.none', locale }),
         allowedMentions: { parse: [] },
       });
       return;
@@ -77,7 +77,7 @@ export async function handleNominationCheckStatusCommand(interaction: ChatInputC
 
     await interaction.editReply({
       content: i18n.__mf(
-        { phrase: 'commands.nominationCheckStatus.responses.summary', locale },
+        { phrase: 'commands.nominationJobStatus.responses.summary', locale },
         {
           jobId: String(job.id),
           status: job.status,
@@ -98,7 +98,7 @@ export async function handleNominationCheckStatusCommand(interaction: ChatInputC
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`nomination-check-status command failed: ${errorMessage}`);
+    logger.error(`nomination-job-status command failed: ${errorMessage}`);
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
