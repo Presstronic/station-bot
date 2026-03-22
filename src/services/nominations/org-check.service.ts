@@ -3,7 +3,7 @@ import * as cheerio from 'cheerio';
 import type { OrgCheckResult, OrgCheckResultCode } from './types.js';
 
 /** Internal result of a single org-check HTTP attempt. Never stored or displayed. */
-type OrgCheckOutcome = 'in_org' | 'not_in_org' | 'undetermined';
+type OrgCheckOutcome = Extract<OrgCheckResultCode, 'in_org' | 'not_in_org'> | 'undetermined';
 import { getLogger } from '../../utils/logger.js';
 import { sanitizeForInlineText } from '../../utils/sanitize.js';
 
@@ -214,7 +214,7 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   };
 }
 
-function parseOrgStatusFromOrganizationsPage(html: string): OrgCheckOutcome {
+function parseOrgOutcomeFromOrganizationsPage(html: string): OrgCheckOutcome {
   const $ = cheerio.load(html);
   const orgLink = $('a[href*="/orgs/"]').first().text().trim();
   if (orgLink.length > 0) {
@@ -291,7 +291,7 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
     );
   }
 
-  const outcome = parseOrgStatusFromOrganizationsPage(organizationsPage.html);
+  const outcome = parseOrgOutcomeFromOrganizationsPage(organizationsPage.html);
   if (outcome === 'undetermined') {
     return createTechnicalResult(
       'parse_failed',
