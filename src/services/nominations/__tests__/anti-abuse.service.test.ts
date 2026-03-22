@@ -164,6 +164,42 @@ describe('checkNominationAntiAbuse', () => {
     expect(result).toEqual({ kind: 'cooldown', secondsRemaining: 30 });
   });
 
+  it('returns null when reset time is 0 and re-check shows window has rolled over', async () => {
+    let callCount = 0;
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => {
+        callCount++;
+        return callCount === 1 ? 5 : 4; // first call over cap, re-check under cap
+      }),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
+    const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
+      ...DISABLED_POLICY,
+      userMaxPerDay: 5,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('returns userDailyLimit when reset time is 0 but re-check still shows cap exceeded', async () => {
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 5),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
+    const result = await checkNominationAntiAbuse('u1', 'pilot', 'Pilot', {
+      ...DISABLED_POLICY,
+      userMaxPerDay: 5,
+    });
+    expect(result).toEqual({ kind: 'userDailyLimit', secondsUntilReset: 0 });
+  });
+
   it('target cap takes priority over user cap', async () => {
     jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
