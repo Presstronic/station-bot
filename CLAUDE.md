@@ -4,6 +4,7 @@
 - Never include `Co-Authored-By` trailers or any AI attribution in commit messages.
 - Before committing any code, always run `npm run quality` locally and confirm it passes.
 - Before committing, perform an objective self-review of all changed code from the perspective of a senior principal engineer: check for SOLID principles, single responsibility, clean abstractions, naming clarity, test coverage, and any code smells or over-engineering. Surface any concerns before the code is committed.
+- When changing or removing a feature, grep the test file for tests that reference the old behaviour (option names, response strings, function signatures) and remove or update them before running the quality gate. Stale tests referencing removed code are a common source of preventable failures.
 
 ## Workflow
 - All changes go through: issue → feature branch → PR. No direct commits to main.
