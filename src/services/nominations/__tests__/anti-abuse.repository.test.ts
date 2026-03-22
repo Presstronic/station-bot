@@ -142,7 +142,7 @@ describe('getSecondsUntilUserWindowResets', () => {
     expect(await getSecondsUntilUserWindowResets('user-1', 86400, 5)).toBe(3600);
   });
 
-  it('passes userId and windowSeconds as query parameters', async () => {
+  it('passes userId, windowSeconds, and cap as query parameters', async () => {
     const query = jest.fn(async () => ({ rows: [] }));
     const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
     jest.unstable_mockModule('../db.js', () => ({

@@ -41,7 +41,9 @@ describe('formatDuration', () => {
   });
 
   it('returns "2 minutes" for 61–119 (rounds up to avoid understating wait)', () => {
+    expect(formatDuration(61)).toBe('2 minutes');
     expect(formatDuration(90)).toBe('2 minutes');
+    expect(formatDuration(119)).toBe('2 minutes');
   });
 
   it('returns "12 minutes" for 720', () => {

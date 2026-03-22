@@ -534,6 +534,7 @@ export async function getSecondsUntilUserWindowResets(
           AND created_at >= NOW() - ($2 * INTERVAL '1 second')
       ) ranked
       WHERE rn = GREATEST(total - $3::int + 1, 1)
+        AND total >= $3::int
       `,
       [userId, windowSeconds, cap]
     )
