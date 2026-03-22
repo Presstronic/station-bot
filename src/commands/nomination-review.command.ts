@@ -151,6 +151,7 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const checkedCount = displayNominations.filter((n) => n.lifecycleState === 'checked').length;
     const qualifiedCount = displayNominations.filter((n) => n.lifecycleState === 'qualified').length;
     const disqualifiedCount = displayNominations.filter((n) => n.lifecycleState === 'disqualified_in_org').length;
+    const needsAttentionCount = checkedCount + technicalOutcomeCount;
 
     const table = formatNominationsAsTable(displayNominations);
     const summary = i18n.__mf(
@@ -172,9 +173,9 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
         neverCheckedCount: String(neverCheckedCount),
         lastRefreshedAt,
         newCount: String(newCount),
-        checkedCount: String(checkedCount),
         qualifiedCount: String(qualifiedCount),
         disqualifiedCount: String(disqualifiedCount),
+        needsAttentionCount: String(needsAttentionCount),
       }
     );
 
@@ -205,9 +206,9 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
           neverCheckedCount: String(neverCheckedCount),
           lastRefreshedAt,
           newCount: String(newCount),
-          checkedCount: String(checkedCount),
           qualifiedCount: String(qualifiedCount),
           disqualifiedCount: String(disqualifiedCount),
+          needsAttentionCount: String(needsAttentionCount),
         }
       ),
       allowedMentions: { parse: [] },
