@@ -16,9 +16,9 @@ When a member nominates someone, the nomination moves through the following stat
 | `disqualified_in_org` | Checked and found to be in another org — probably not a fit |
 | `processed` | You've actioned it — done |
 
-> **`checked` / Needs Re-check** means the org check ran but couldn't produce a definitive answer (e.g. RSI returned an unrecognised page layout, the request timed out, or the result was ambiguous). The nomination is still visible and unprocessed. Run `/nomination-refresh rsi-handle: <handle>` to queue a fresh check, then review again once the status updates.
+> **`checked` / Needs Re-check** means the org check ran but couldn't produce a definitive answer (e.g. RSI returned an unrecognised page layout, the request timed out, or the result was ambiguous). The nomination is still visible and unprocessed. Run `/nomination-refresh rsi-handle: <handle>` to queue a fresh check, then review again once the status updates. In the `/nomination-review` summary this state is counted under **Needs Attention**.
 >
-> In the `/nomination-review` summary this state is grouped with other technical failures under **Needs Attention**.
+> **`unknown` org check status** (shown in the Org column of the review list) means the system checked but could not determine org membership. These nominations remain visible until you manually action them or re-run the org check with `/nomination-refresh`.
 
 ---
 
