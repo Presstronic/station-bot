@@ -8,6 +8,7 @@ import {
 } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import {
+  getUnprocessedNominationByHandle,
   getUnprocessedNominations,
   markAllNominationsProcessed,
   markNominationProcessedByHandle,
@@ -24,7 +25,14 @@ const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 export const rsiHandleOptionName = i18n.__({ phrase: 'commands.nominationProcess.options.rsiHandle.name', locale: defaultLocale });
 const logger = getLogger();
 
-const BULK_CONFIRM_TIMEOUT_MS = 60_000;
+const CONFIRM_TIMEOUT_MS = 60_000;
+
+const LIFECYCLE_STATE_LABELS: Record<string, string> = {
+  new: 'New',
+  checked: 'Checked (Needs Re-check)',
+  qualified: 'Qualified',
+  disqualified_in_org: 'Disqualified (In Org)',
+};
 
 export const NOMINATION_PROCESS_COMMAND_NAME = 'nomination-process';
 
@@ -51,15 +59,110 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     const handle = interaction.options.getString(rsiHandleOptionName)?.trim() || null;
 
     if (handle) {
-      let updated = false;
+      const nomination = await getUnprocessedNominationByHandle(handle);
+
+      if (!nomination) {
+        await interaction.reply({
+          content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleNotFound', locale }, { rsiHandle: handle }),
+          ephemeral: true,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+
+      const { displayHandle } = nomination;
+
+      if (nomination.lifecycleState === 'qualified') {
+        // Qualified — process immediately without confirmation dialog
+        try {
+          await markNominationProcessedByHandle(handle, interaction.user.id);
+          recordAuditEvent({
+            eventType: 'nomination_processed_single',
+            actorUserId: interaction.user.id,
+            actorUserTag: interaction.user.tag,
+            targetHandle: handle,
+            payloadJson: { found: true },
+            result: 'success',
+          }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
+        } catch (err) {
+          recordAuditEvent({
+            eventType: 'nomination_processed_single',
+            actorUserId: interaction.user.id,
+            actorUserTag: interaction.user.tag,
+            targetHandle: handle,
+            result: 'failure',
+            errorMessage: err instanceof Error ? err.message : String(err),
+          }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
+          throw err;
+        }
+        await interaction.reply({
+          content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle }),
+          ephemeral: true,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+
+      // Non-qualified — show warning with confirmation buttons
+      const lifecycleLabel = LIFECYCLE_STATE_LABELS[nomination.lifecycleState] ?? nomination.lifecycleState;
+      const processAnywayId = `process-anyway-${interaction.id}`;
+      const cancelId = `cancel-single-${interaction.id}`;
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(processAnywayId)
+          .setLabel(i18n.__({ phrase: 'commands.nominationProcess.buttons.processAnyway', locale }))
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(cancelId)
+          .setLabel(i18n.__({ phrase: 'commands.nominationProcess.buttons.cancel', locale }))
+          .setStyle(ButtonStyle.Secondary),
+      );
+
+      const singleResponse = await interaction.reply({
+        content: i18n.__mf(
+          { phrase: 'commands.nominationProcess.responses.singleNonQualifiedPrompt', locale },
+          { displayHandle, lifecycleLabel }
+        ),
+        components: [row],
+        ephemeral: true,
+        allowedMentions: { parse: [] },
+        fetchReply: true,
+      });
+
+      let singleConfirmation: Awaited<ReturnType<typeof singleResponse.awaitMessageComponent>>;
       try {
-        updated = await markNominationProcessedByHandle(handle, interaction.user.id);
+        singleConfirmation = await singleResponse.awaitMessageComponent({
+          componentType: ComponentType.Button,
+          filter: (i) => i.user.id === interaction.user.id,
+          time: CONFIRM_TIMEOUT_MS,
+        });
+      } catch {
+        await interaction.editReply({
+          content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleTimeout', locale }, { displayHandle }),
+          components: [],
+        });
+        return;
+      }
+
+      if (singleConfirmation.customId === cancelId) {
+        await singleConfirmation.update({
+          content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessCancelled', locale }, { displayHandle }),
+          components: [],
+        });
+        return;
+      }
+
+      // Process Anyway confirmed
+      await singleConfirmation.deferUpdate();
+      try {
+        await markNominationProcessedByHandle(handle, interaction.user.id);
         recordAuditEvent({
           eventType: 'nomination_processed_single',
           actorUserId: interaction.user.id,
           actorUserTag: interaction.user.tag,
           targetHandle: handle,
-          payloadJson: { found: updated },
+          payloadJson: { found: true, forcedFromState: nomination.lifecycleState },
           result: 'success',
         }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
       } catch (err) {
@@ -71,13 +174,17 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
           result: 'failure',
           errorMessage: err instanceof Error ? err.message : String(err),
         }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
-        throw err;
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        logger.error(`nomination-process single forced failed: ${errorMessage}`);
+        const phrase = isNominationConfigurationError(err)
+          ? 'commands.nominationCommon.responses.configurationError'
+          : 'commands.nominationCommon.responses.unexpectedError';
+        await interaction.editReply({ content: i18n.__({ phrase, locale }), components: [] });
+        return;
       }
-      await interaction.reply({
-        content: updated
-          ? i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: handle })
-          : i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleNotFound', locale }, { rsiHandle: handle }),
-        ephemeral: true,
+      await interaction.editReply({
+        content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle }),
+        components: [],
         allowedMentions: { parse: [] },
       });
       return;
@@ -124,7 +231,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
       confirmation = await response.awaitMessageComponent({
         componentType: ComponentType.Button,
         filter: (i) => i.user.id === interaction.user.id,
-        time: BULK_CONFIRM_TIMEOUT_MS,
+        time: CONFIRM_TIMEOUT_MS,
       });
     } catch {
       await interaction.editReply({
