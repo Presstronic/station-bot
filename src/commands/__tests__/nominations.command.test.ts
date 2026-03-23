@@ -476,6 +476,48 @@ describe('nominations commands', () => {
     );
   });
 
+  it('bulk process: shows error and clears components when markAllNominationsProcessed throws after Confirm', async () => {
+    const markAllNominationsProcessed = jest.fn(async () => { throw new Error('DB write failed'); });
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(async () => false),
+      markAllNominationsProcessed,
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
+    const confirmButton = {
+      customId: 'confirm-bulk-iid-8',
+      user: { id: 'admin-1' },
+      deferUpdate: jest.fn(async () => undefined),
+    };
+    const mockResponse = { awaitMessageComponent: jest.fn(async () => confirmButton) };
+    const editReply = jest.fn(async () => undefined);
+    const interaction: any = {
+      id: 'iid-8', inGuild: () => true, locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => null },
+      replied: false, deferred: false,
+      editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationProcessCommand(interaction);
+
+    expect(markAllNominationsProcessed).toHaveBeenCalledWith('admin-1');
+    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('went wrong'),
+      components: [],
+    }));
+    // Must not show a success message
+    const content: string = (editReply.mock.calls as any[])[0]?.[0]?.content ?? '';
+    expect(content).not.toContain('Marked');
+  });
+
   it('returns configuration guidance when delegated access check cannot read role config', async () => {
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
