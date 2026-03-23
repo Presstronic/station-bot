@@ -38,7 +38,7 @@ Disqualified: 3
 Needs Attention: 4
 New: 2
 Total: 14
-Last refresh (UTC): 2026-03-20 01:43
+Last refresh (UTC): 2026-03-20
 ```
 
 **Optional filters:**
