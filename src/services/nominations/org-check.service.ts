@@ -234,7 +234,16 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   };
 }
 
-function parseOrgOutcomeFromOrganizationsPage(html: string): OrgCheckOutcome {
+// Yields to the event loop before running synchronous CPU work (cheerio HTML
+// parsing). Without this, concurrent worker tasks can queue multiple back-to-back
+// cheerio.load() calls that block the event loop long enough for incoming Discord
+// interaction tokens to expire (3-second window), causing 10062 errors.
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function parseOrgOutcomeFromOrganizationsPage(html: string): Promise<OrgCheckOutcome> {
+  await yieldToEventLoop();
   const $ = cheerio.load(html);
   const orgLink = $('a[href*="/orgs/"]').first().text().trim();
   if (orgLink.length > 0) {
@@ -258,7 +267,8 @@ export type CitizenExistsResult =
   | { status: 'not_found' }
   | { status: 'unavailable' };
 
-function parseCanonicalHandle(html: string, fallback: string): string {
+async function parseCanonicalHandle(html: string, fallback: string): Promise<string> {
+  await yieldToEventLoop();
   const $ = cheerio.load(html);
   const nick = $('span.nick').first().text().trim();
   return nick.length > 0 ? nick : fallback;
@@ -280,7 +290,7 @@ export async function checkCitizenExists(rsiHandle: string): Promise<CitizenExis
     );
     return { status: 'unavailable' };
   }
-  return { status: 'found', canonicalHandle: parseCanonicalHandle(result.html, rsiHandle) };
+  return { status: 'found', canonicalHandle: await parseCanonicalHandle(result.html, rsiHandle) };
 }
 
 export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckResult> {
@@ -311,7 +321,7 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
     );
   }
 
-  const outcome = parseOrgOutcomeFromOrganizationsPage(organizationsPage.html);
+  const outcome = await parseOrgOutcomeFromOrganizationsPage(organizationsPage.html);
   if (outcome === 'undetermined') {
     return createTechnicalResult(
       'parse_failed',
