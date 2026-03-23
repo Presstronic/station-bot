@@ -1,5 +1,9 @@
 import {
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
   ChatInputCommandInteraction,
+  ComponentType,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
@@ -20,6 +24,7 @@ import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
+const CONFIRM_TIMEOUT_MS = 60_000;
 
 const accessActionNameKey = 'commands.nominationAccess.options.action.name';
 const accessRoleNameKey = 'commands.nominationAccess.options.role.name';
@@ -166,6 +171,74 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
     }
 
     if (action === 'reset') {
+      const currentRoleIds = await getReviewProcessRoleIds();
+
+      if (currentRoleIds.length === 0) {
+        await interaction.reply({
+          content: i18n.__({ phrase: 'commands.nominationAccess.responses.resetNoRoles', locale }),
+          ephemeral: true,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+
+      const roleMentions = currentRoleIds.map((id) => `<@&${id}>`).join(', ');
+      const confirmResetId = `confirm-reset-${interaction.id}`;
+      const cancelId = `cancel-reset-${interaction.id}`;
+
+      const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(confirmResetId)
+          .setLabel(i18n.__({ phrase: 'commands.nominationAccess.buttons.confirmReset', locale }))
+          .setStyle(ButtonStyle.Danger),
+        new ButtonBuilder()
+          .setCustomId(cancelId)
+          .setLabel(i18n.__({ phrase: 'commands.nominationAccess.buttons.cancel', locale }))
+          .setStyle(ButtonStyle.Secondary),
+      );
+
+      const resetResponse = await interaction.reply({
+        content: i18n.__mf(
+          { phrase: 'commands.nominationAccess.responses.resetConfirmPrompt', locale },
+          { count: String(currentRoleIds.length), roles: roleMentions }
+        ),
+        components: [row],
+        ephemeral: true,
+        allowedMentions: { roles: currentRoleIds },
+        fetchReply: true,
+      });
+
+      let resetConfirmation: Awaited<ReturnType<typeof resetResponse.awaitMessageComponent>>;
+      try {
+        resetConfirmation = await resetResponse.awaitMessageComponent({
+          componentType: ComponentType.Button,
+          filter: (i) => i.user.id === interaction.user.id,
+          time: CONFIRM_TIMEOUT_MS,
+        });
+      } catch (err) {
+        logger.error(`awaitMessageComponent failed for reset confirmation: ${String(err)}`);
+        const isTimeout = err instanceof Error && /reason:\s*time/i.test(err.message);
+        await interaction.editReply({
+          content: isTimeout
+            ? i18n.__({ phrase: 'commands.nominationAccess.responses.resetTimeout', locale })
+            : i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
+          components: [],
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+
+      if (resetConfirmation.customId === cancelId) {
+        await resetConfirmation.update({
+          content: i18n.__({ phrase: 'commands.nominationAccess.responses.resetCancelled', locale }),
+          components: [],
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+
+      // Confirmed — perform reset
+      await resetConfirmation.deferUpdate();
       try {
         await resetReviewProcessRoleIds();
         recordAuditEvent({
@@ -182,11 +255,15 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
           result: 'failure',
           errorMessage: err instanceof Error ? err.message : String(err),
         }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
-        throw err;
+        const phrase = isNominationConfigurationError(err)
+          ? 'commands.nominationCommon.responses.configurationError'
+          : 'commands.nominationCommon.responses.unexpectedError';
+        await interaction.editReply({ content: i18n.__({ phrase, locale }), components: [], allowedMentions: { parse: [] } });
+        return;
       }
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominationAccess.responses.reset', locale }),
-        ephemeral: true,
+        components: [],
         allowedMentions: { parse: [] },
       });
       return;
