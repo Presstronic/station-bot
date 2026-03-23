@@ -234,10 +234,12 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   };
 }
 
-// Yields to the event loop before running synchronous CPU work (cheerio HTML
-// parsing). Without this, concurrent worker tasks can queue multiple back-to-back
-// cheerio.load() calls that block the event loop long enough for incoming Discord
-// interaction tokens to expire (3-second window), causing 10062 errors.
+// Yield to the event loop once before running synchronous CPU work (cheerio HTML
+// parsing). This gives already-pending I/O (including Discord interaction handling)
+// a chance to run before starting a new parse, reducing the risk that long batches
+// of cheerio.load() calls block the event loop and cause interaction tokens to expire.
+// Note: multiple concurrent calls to this function may still run back-to-back in the
+// same event-loop "check" phase; this is not a full parse queue or throttle.
 function yieldToEventLoop(): Promise<void> {
   return new Promise((resolve) => setImmediate(resolve));
 }
