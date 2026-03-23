@@ -91,6 +91,10 @@ Once you've reviewed and acted on a nomination (reached out, decided to pass, et
 /nomination-process rsi-handle: Glup_Shiddo
 ```
 
+If the nomination is **Qualified**, it is marked processed immediately with no additional prompt.
+
+If the nomination is in any other state (e.g., **Disqualified (In Org)**, **New**, or **Checked**), the bot will show the current state and ask you to confirm before proceeding. Click **Process Anyway** to continue, or **Cancel** to abort. The prompt expires after 60 seconds.
+
 **Process all unprocessed nominations at once** (use with care):
 ```
 /nomination-process

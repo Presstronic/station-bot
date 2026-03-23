@@ -1673,35 +1673,274 @@ describe('nominations commands', () => {
     expect(content).not.toContain('results may be truncated');
   });
 
-  it('nomination-process single-handle path processes the named handle', async () => {
+  it('nomination-process single-handle path: qualified nomination processes immediately without dialog', async () => {
     const markNominationProcessedByHandle = jest.fn(async () => true);
-    const markAllNominationsProcessed = jest.fn(async () => 0);
+    const getUnprocessedNominationByHandle = jest.fn(async () => ({
+      normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
+      lifecycleState: 'qualified', processedByUserId: null, processedAt: null,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      lastOrgCheckStatus: null, lastOrgCheckAt: null, events: [],
+    }));
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
       getUnprocessedNominations: jest.fn(),
-      getUnprocessedNominationByHandle: jest.fn(),
+      getUnprocessedNominationByHandle,
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle,
-      markAllNominationsProcessed,
+      markAllNominationsProcessed: jest.fn(async () => 0),
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
     const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
     const reply = jest.fn(async () => undefined);
     const interaction = {
-      inGuild: () => true,
-      locale: 'en-US',
+      inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
-      replied: false, deferred: false,
-      reply,
+      replied: false, deferred: false, reply,
     } as any;
 
     await handleNominationProcessCommand(interaction);
 
+    expect(getUnprocessedNominationByHandle).toHaveBeenCalledWith('SomePilot');
     expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
-    expect(markAllNominationsProcessed).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('SomePilot'),
+      ephemeral: true,
+    }));
+  });
+
+  it('nomination-process single-handle path: not found returns singleNotFound reply', async () => {
+    const markNominationProcessedByHandle = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(async () => null),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true, locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'UnknownPilot' : null) },
+      replied: false, deferred: false, reply,
+    } as any;
+
+    await handleNominationProcessCommand(interaction);
+
+    expect(markNominationProcessedByHandle).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('UnknownPilot'),
+      ephemeral: true,
+    }));
+  });
+
+  it('nomination-process single-handle path: non-qualified shows warning and Process Anyway completes', async () => {
+    const markNominationProcessedByHandle = jest.fn(async () => true);
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(async () => ({
+        normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
+        lifecycleState: 'disqualified_in_org', processedByUserId: null, processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null, lastOrgCheckAt: null, events: [],
+      })),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
+    const processAnywayButton = {
+      customId: 'process-anyway-iid-s1',
+      user: { id: 'admin-1' },
+      deferUpdate: jest.fn(async () => undefined),
+    };
+    const mockResponse = { awaitMessageComponent: jest.fn(async () => processAnywayButton) };
+    const editReply = jest.fn(async () => undefined);
+    const interaction: any = {
+      id: 'iid-s1', inGuild: () => true, locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
+      replied: false, deferred: false, editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationProcessCommand(interaction);
+
+    expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
+    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('SomePilot'),
+      components: [],
+    }));
+  });
+
+  it('nomination-process single-handle path: non-qualified Cancel skips processing', async () => {
+    const markNominationProcessedByHandle = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(async () => ({
+        normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
+        lifecycleState: 'new', processedByUserId: null, processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null, lastOrgCheckAt: null, events: [],
+      })),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
+    const cancelButton = {
+      customId: 'cancel-single-iid-s2',
+      user: { id: 'admin-1' },
+      update: jest.fn(async () => undefined),
+    };
+    const mockResponse = { awaitMessageComponent: jest.fn(async () => cancelButton) };
+    const interaction: any = {
+      id: 'iid-s2', inGuild: () => true, locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
+      replied: false, deferred: false,
+      editReply: jest.fn(async () => undefined),
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationProcessCommand(interaction);
+
+    expect(markNominationProcessedByHandle).not.toHaveBeenCalled();
+    expect(cancelButton.update).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('Cancelled'),
+      components: [],
+    }));
+  });
+
+  it('nomination-process single-handle path: qualified race — markProcessed returns false shows singleNotFound', async () => {
+    const markNominationProcessedByHandle = jest.fn(async () => false); // concurrently processed
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(async () => ({
+        normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
+        lifecycleState: 'qualified', processedByUserId: null, processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null, lastOrgCheckAt: null, events: [],
+      })),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true, locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
+      replied: false, deferred: false, reply,
+    } as any;
+
+    await handleNominationProcessCommand(interaction);
+
+    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('Could not find'),
+      ephemeral: true,
+    }));
+  });
+
+  it('nomination-process single-handle path: Process Anyway race — markProcessed returns false shows singleNotFound', async () => {
+    const markNominationProcessedByHandle = jest.fn(async () => false); // concurrently processed
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(async () => ({
+        normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
+        lifecycleState: 'disqualified_in_org', processedByUserId: null, processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null, lastOrgCheckAt: null, events: [],
+      })),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
+    const processAnywayButton = {
+      customId: 'process-anyway-iid-s4',
+      user: { id: 'admin-1' },
+      deferUpdate: jest.fn(async () => undefined),
+    };
+    const mockResponse = { awaitMessageComponent: jest.fn(async () => processAnywayButton) };
+    const editReply = jest.fn(async () => undefined);
+    const interaction: any = {
+      id: 'iid-s4', inGuild: () => true, locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
+      replied: false, deferred: false, editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationProcessCommand(interaction);
+
+    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('Could not find'),
+      components: [],
+    }));
+  });
+
+  it('nomination-process single-handle path: non-qualified timeout skips processing', async () => {
+    const markNominationProcessedByHandle = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(async () => ({
+        normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
+        lifecycleState: 'checked', processedByUserId: null, processedAt: null,
+        createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+        lastOrgCheckStatus: null, lastOrgCheckAt: null, events: [],
+      })),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle,
+      markAllNominationsProcessed: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
+    const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('Collector received no interactions before ending with reason: time'); }) };
+    const editReply = jest.fn(async () => undefined);
+    const interaction: any = {
+      id: 'iid-s3', inGuild: () => true, locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
+      replied: false, deferred: false, editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationProcessCommand(interaction);
+
+    expect(markNominationProcessedByHandle).not.toHaveBeenCalled();
+    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+      content: expect.stringContaining('timed out'),
+      components: [],
+    }));
   });
 
   it('nomination-review response includes filter context reflecting the active filter values', async () => {
