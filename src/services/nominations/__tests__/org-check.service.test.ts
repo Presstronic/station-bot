@@ -116,7 +116,7 @@ describe('checkHasAnyOrgMembership', () => {
     expect(result.status).toBe('unknown');
   });
 
-  it('returns http_timeout when request times out', async () => {
+  it('returns http_timeout when request times out (ECONNABORTED)', async () => {
     const timeoutError = Object.assign(new Error('timeout'), { code: 'ECONNABORTED' });
     const get = jest.fn<() => Promise<any>>().mockRejectedValueOnce(timeoutError);
 
@@ -127,6 +127,22 @@ describe('checkHasAnyOrgMembership', () => {
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
     const result = await checkHasAnyOrgMembership('TimeoutPilot');
+
+    expect(result.code).toBe('http_timeout');
+    expect(result.status).toBe('unknown');
+  });
+
+  it('returns http_timeout when AbortSignal cancels the request (ERR_CANCELED)', async () => {
+    const canceledError = Object.assign(new Error('canceled'), { code: 'ERR_CANCELED' });
+    const get = jest.fn<() => Promise<any>>().mockRejectedValueOnce(canceledError);
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+    }));
+
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
+    const result = await checkHasAnyOrgMembership('CanceledPilot');
 
     expect(result.code).toBe('http_timeout');
     expect(result.status).toBe('unknown');
