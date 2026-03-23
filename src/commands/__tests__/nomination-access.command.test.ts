@@ -49,7 +49,6 @@ describe('nomination-access command', () => {
     }));
 
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
-    const reply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-r1',
       inGuild: () => true,
@@ -59,12 +58,12 @@ describe('nomination-access command', () => {
       options: { getString: () => 'reset', getRole: () => null },
       replied: false,
       deferred: false,
-      reply,
     };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; });
 
     await handleNominationAccessCommand(interaction);
 
-    expect(reply).toHaveBeenCalledWith(
+    expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('No custom roles are configured'),
         ephemeral: true,
@@ -222,6 +221,48 @@ describe('nomination-access command', () => {
     expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('timed out'),
+        components: [],
+      })
+    );
+  });
+
+  it('reset shows error message and clears buttons when resetReviewProcessRoleIds throws', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => ['role-1']),
+      resetReviewProcessRoleIds: jest.fn(async () => { throw new Error('DB write failed'); }),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const deferUpdate = jest.fn(async () => undefined);
+    const mockResponse = {
+      awaitMessageComponent: jest.fn(async () => ({
+        customId: 'confirm-reset-iid-r6',
+        deferUpdate,
+        update: jest.fn(async () => undefined),
+      })),
+    };
+    const interaction: any = {
+      id: 'iid-r6',
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => 'reset', getRole: () => null },
+      replied: false,
+      deferred: false,
+      editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(deferUpdate).toHaveBeenCalledTimes(1);
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('went wrong'),
         components: [],
       })
     );
