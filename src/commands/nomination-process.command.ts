@@ -74,14 +74,15 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
 
       if (nomination.lifecycleState === 'qualified') {
         // Qualified — process immediately without confirmation dialog
+        let updated = false;
         try {
-          await markNominationProcessedByHandle(handle, interaction.user.id);
+          updated = await markNominationProcessedByHandle(handle, interaction.user.id);
           recordAuditEvent({
             eventType: 'nomination_processed_single',
             actorUserId: interaction.user.id,
             actorUserTag: interaction.user.tag,
             targetHandle: handle,
-            payloadJson: { found: true },
+            payloadJson: { found: updated },
             result: 'success',
           }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
         } catch (err) {
@@ -96,7 +97,9 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
           throw err;
         }
         await interaction.reply({
-          content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle }),
+          content: updated
+            ? i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle })
+            : i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleNotFound', locale }, { rsiHandle: displayHandle }),
           ephemeral: true,
           allowedMentions: { parse: [] },
         });
@@ -141,6 +144,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         await interaction.editReply({
           content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleTimeout', locale }, { displayHandle }),
           components: [],
+          allowedMentions: { parse: [] },
         });
         return;
       }
@@ -149,20 +153,22 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         await singleConfirmation.update({
           content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessCancelled', locale }, { displayHandle }),
           components: [],
+          allowedMentions: { parse: [] },
         });
         return;
       }
 
       // Process Anyway confirmed
       await singleConfirmation.deferUpdate();
+      let forcedUpdated = false;
       try {
-        await markNominationProcessedByHandle(handle, interaction.user.id);
+        forcedUpdated = await markNominationProcessedByHandle(handle, interaction.user.id);
         recordAuditEvent({
           eventType: 'nomination_processed_single',
           actorUserId: interaction.user.id,
           actorUserTag: interaction.user.tag,
           targetHandle: handle,
-          payloadJson: { found: true, forcedFromState: nomination.lifecycleState },
+          payloadJson: { found: forcedUpdated, forcedFromState: nomination.lifecycleState },
           result: 'success',
         }).catch((err) => logger.error(`audit write failed: ${String(err)}`));
       } catch (err) {
@@ -179,11 +185,13 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         const phrase = isNominationConfigurationError(err)
           ? 'commands.nominationCommon.responses.configurationError'
           : 'commands.nominationCommon.responses.unexpectedError';
-        await interaction.editReply({ content: i18n.__({ phrase, locale }), components: [] });
+        await interaction.editReply({ content: i18n.__({ phrase, locale }), components: [], allowedMentions: { parse: [] } });
         return;
       }
       await interaction.editReply({
-        content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle }),
+        content: forcedUpdated
+          ? i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle })
+          : i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleNotFound', locale }, { rsiHandle: displayHandle }),
         components: [],
         allowedMentions: { parse: [] },
       });
