@@ -166,6 +166,9 @@ describe('enqueueNominationCheckJob', () => {
     const existenceIdx = calls.findIndex((sql) => /SELECT id.*FROM nomination_check_jobs/si.test(sql));
     expect(lockIdx).toBeGreaterThanOrEqual(0);
     expect(existenceIdx).toBeGreaterThan(lockIdx);
+    // Regression: $2 must be cast to ::text so PostgreSQL can infer the type
+    // when requestedHandle is NULL — without this the query fails at runtime.
+    expect(calls[lockIdx]).toMatch(/\$2::text/);
   });
 });
 
