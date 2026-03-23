@@ -147,25 +147,28 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   let attempt = 0;
   while (attempt <= maxRetries) {
     try {
-      // AbortController with a manually-managed timer so the timeout is cleared
-      // as soon as the request completes. AbortSignal.timeout() would leave a
-      // pending timer for the full requestTimeoutMs even on fast responses,
-      // accumulating unnecessary work over many requests.
-      const controller = new AbortController();
-      const abortTimer = setTimeout(() => controller.abort(), requestTimeoutMs);
-      // unref so the timer does not prevent the process from exiting cleanly
-      abortTimer.unref();
-      const response = await withRateLimit(async () =>
-        axios.get<string>(url, {
-          timeout: requestTimeoutMs,
-          signal: controller.signal,
-          httpsAgent: rsiHttpsAgent,
-          validateStatus: () => true,
-          headers: {
-            'User-Agent': 'station-bot/1.0 (+discord nomination review)',
-          },
-        })
-      ).finally(() => clearTimeout(abortTimer));
+      // AbortController is created inside the withRateLimit task so the timeout
+      // measures the actual network attempt, not queue wait time. The timer is
+      // cleared in a finally block as soon as the request completes, and unref'd
+      // so it does not prevent clean process exit.
+      const response = await withRateLimit(async () => {
+        const controller = new AbortController();
+        const abortTimer = setTimeout(() => controller.abort(), requestTimeoutMs);
+        abortTimer.unref();
+        try {
+          return await axios.get<string>(url, {
+            timeout: requestTimeoutMs,
+            signal: controller.signal,
+            httpsAgent: rsiHttpsAgent,
+            validateStatus: () => true,
+            headers: {
+              'User-Agent': 'station-bot/1.0 (+discord nomination review)',
+            },
+          });
+        } finally {
+          clearTimeout(abortTimer);
+        }
+      });
 
       if (response.status === 200 && response.data) {
         return { ok: true, html: response.data };
