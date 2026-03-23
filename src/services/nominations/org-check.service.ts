@@ -1,3 +1,4 @@
+import https from 'https';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import type { OrgCheckResult, OrgCheckResultCode } from './types.js';
@@ -34,6 +35,12 @@ const maxConcurrency = Math.max(
   parseEnvInt('RSI_HTTP_MAX_CONCURRENCY', defaultMaxConcurrency)
 );
 const minIntervalMs = Math.max(0, parseEnvInt('RSI_HTTP_MIN_INTERVAL_MS', defaultMinIntervalMs));
+
+// keepAlive: false ensures RSI connections are closed after each use rather than pooled.
+// Pooled connections become zombies when RSI drops them server-side without FIN/RST,
+// leaking file descriptors until the process cannot open new sockets (including those
+// needed by the Discord REST client).
+const rsiHttpsAgent = new https.Agent({ keepAlive: false });
 
 let activeRequests = 0;
 let lastStartedAt = 0;
@@ -140,15 +147,28 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   let attempt = 0;
   while (attempt <= maxRetries) {
     try {
-      const response = await withRateLimit(async () =>
-        axios.get<string>(url, {
-          timeout: requestTimeoutMs,
-          validateStatus: () => true,
-          headers: {
-            'User-Agent': 'station-bot/1.0 (+discord nomination review)',
-          },
-        })
-      );
+      // AbortController is created inside the withRateLimit task so the timeout
+      // measures the actual network attempt, not queue wait time. The timer is
+      // cleared in a finally block as soon as the request completes, and unref'd
+      // so it does not prevent clean process exit.
+      const response = await withRateLimit(async () => {
+        const controller = new AbortController();
+        const abortTimer = setTimeout(() => controller.abort(), requestTimeoutMs);
+        abortTimer.unref();
+        try {
+          return await axios.get<string>(url, {
+            timeout: requestTimeoutMs,
+            signal: controller.signal,
+            httpsAgent: rsiHttpsAgent,
+            validateStatus: () => true,
+            headers: {
+              'User-Agent': 'station-bot/1.0 (+discord nomination review)',
+            },
+          });
+        } finally {
+          clearTimeout(abortTimer);
+        }
+      });
 
       if (response.status === 200 && response.data) {
         return { ok: true, html: response.data };
@@ -182,11 +202,11 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
         message: `Unexpected RSI response ${response.status} for URL ${url}`,
       };
     } catch (error) {
-      const timeoutCode =
-        typeof error === 'object' &&
-        error &&
-        'code' in error &&
-        (error as { code?: string }).code === 'ECONNABORTED';
+      // ECONNABORTED: axios socket timeout; ERR_CANCELED: AbortSignal cancellation
+      const errorCode = typeof error === 'object' && error && 'code' in error
+        ? (error as { code?: string }).code
+        : undefined;
+      const timeoutCode = errorCode === 'ECONNABORTED' || errorCode === 'ERR_CANCELED';
 
       if (attempt >= maxRetries) {
         if (timeoutCode) {
