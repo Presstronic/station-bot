@@ -12,6 +12,7 @@ import type {
 } from '../services/nominations/types.js';
 import { getReviewProcessRoleIds } from '../services/nominations/access-control.repository.js';
 import { sanitizeForInlineText } from '../utils/sanitize.js';
+import { technicalResultCodes } from '../services/nominations/reason-codes.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const organizationMemberRoleName = process.env.ORGANIZATION_MEMBER_ROLE_NAME || 'Organization Member';
@@ -180,14 +181,17 @@ export function resolveNominationOrgResultCode(nomination: {
   return null;
 }
 
-export function formatNominationsAsTable(records: NominationRecord[]): string {
+export function formatNominationsAsTable(records: NominationRecord[], detail = true): string {
   const headers = ['Handle', 'Count', 'State', 'Org', 'Last Nomination', 'Nominators', 'Reason'];
   const rows = records.map((record) => {
     const latestEvent = record.events[record.events.length - 1];
     const nominators = sanitizeForInlineText(
       [...new Set(record.events.map((e) => e.nominatorUserTag))].slice(0, 3).join(', ')
     );
-    const orgLabel = resolveNominationOrgResultCode(record) ?? 'unknown';
+    const rawCode = resolveNominationOrgResultCode(record);
+    const orgLabel = !detail && rawCode && technicalResultCodes.includes(rawCode)
+      ? 'needs_attention'
+      : (rawCode ?? 'unknown');
     const rawReason = sanitizeForInlineText(latestEvent?.reason ?? '');
     const reason = rawReason.length > 120 ? `${rawReason.slice(0, 117)}...` : rawReason || '—';
 

@@ -30,6 +30,17 @@ When a member nominates someone, the nomination moves through the following stat
 
 Shows up to 25 unprocessed nominations by default with a summary breakdown. Only you can see the result.
 
+The summary shows the counts you need to act on:
+
+```
+Qualified: 5
+Disqualified: 3
+Needs Attention: 4
+New: 2
+Nominations shown: 14
+Last refresh (UTC): 2026-03-20
+```
+
 **Optional filters:**
 
 | Option | What it does |

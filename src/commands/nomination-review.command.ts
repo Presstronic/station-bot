@@ -31,6 +31,7 @@ const maxDiscordMessageLength = 1800;
 export const statusOptionName = i18n.__({ phrase: 'commands.nominationReview.options.status.name', locale: defaultLocale });
 export const sortOptionName   = i18n.__({ phrase: 'commands.nominationReview.options.sort.name',   locale: defaultLocale });
 export const limitOptionName  = i18n.__({ phrase: 'commands.nominationReview.options.limit.name',  locale: defaultLocale });
+export const detailOptionName = i18n.__({ phrase: 'commands.nominationReview.options.detail.name', locale: defaultLocale });
 
 export const NOMINATION_REVIEW_COMMAND_NAME = 'nomination-review';
 
@@ -65,6 +66,11 @@ export const nominationReviewCommandBuilder = new SlashCommandBuilder()
      .setRequired(false)
      .setMinValue(1)
      .setMaxValue(100)
+  )
+  .addBooleanOption((o) =>
+    o.setName(detailOptionName)
+     .setDescription(i18n.__({ phrase: 'commands.nominationReview.options.detail.description', locale: defaultLocale }))
+     .setRequired(false)
   );
 
 function getLastRefreshedAtUtc(lastCheckTimes: Array<string | null>): string {
@@ -96,6 +102,7 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const statusFilter = interaction.options.getString(statusOptionName) as NominationStatusFilter | null;
     const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
     const limitValue   =  interaction.options.getInteger(limitOptionName) ?? 25;
+    const showDetail   =  interaction.options.getBoolean(detailOptionName) ?? false;
 
     // Fetch one extra to detect truncation without a COUNT query
     const nominations = await getUnprocessedNominations({
@@ -153,30 +160,40 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const disqualifiedCount = displayNominations.filter((n) => n.lifecycleState === 'disqualified_in_org').length;
     const needsAttentionCount = checkedCount;
 
-    const table = formatNominationsAsTable(displayNominations);
+    const table = formatNominationsAsTable(displayNominations, showDetail);
+    const commonCounts = {
+      totalCount: String(displayNominations.length),
+      newCount: String(newCount),
+      qualifiedCount: String(qualifiedCount),
+      disqualifiedCount: String(disqualifiedCount),
+      needsAttentionCount: String(needsAttentionCount),
+      lastRefreshedAt,
+    };
+
+    const summaryPhrase = showDetail
+      ? 'commands.nominationReview.responses.summary'
+      : 'commands.nominationReview.responses.summaryBusiness';
+    const attachmentPhrase = showDetail
+      ? 'commands.nominationReview.responses.summaryAttachment'
+      : 'commands.nominationReview.responses.summaryBusinessAttachment';
+
+    const detailCounts = showDetail ? {
+      businessOutcomeCount: String(businessOutcomeCount),
+      technicalOutcomeCount: String(technicalOutcomeCount),
+      inOrgCount: String(reasonCounts.in_org),
+      notInOrgCount: String(reasonCounts.not_in_org),
+      notFoundCount: String(reasonCounts.not_found),
+      timeoutCount: String(reasonCounts.http_timeout),
+      rateLimitedCount: String(reasonCounts.rate_limited),
+      parseFailedCount: String(reasonCounts.parse_failed),
+      httpErrorCount: String(reasonCounts.http_error),
+      unclassifiedCount: String(unclassifiedCount),
+      neverCheckedCount: String(neverCheckedCount),
+    } : {};
+
     const summary = i18n.__mf(
-      { phrase: 'commands.nominationReview.responses.summary', locale },
-      {
-        filterContext,
-        table: `\`\`\`\n${table}\n\`\`\``,
-        totalCount: String(displayNominations.length),
-        businessOutcomeCount: String(businessOutcomeCount),
-        technicalOutcomeCount: String(technicalOutcomeCount),
-        inOrgCount: String(reasonCounts.in_org),
-        notInOrgCount: String(reasonCounts.not_in_org),
-        notFoundCount: String(reasonCounts.not_found),
-        timeoutCount: String(reasonCounts.http_timeout),
-        rateLimitedCount: String(reasonCounts.rate_limited),
-        parseFailedCount: String(reasonCounts.parse_failed),
-        httpErrorCount: String(reasonCounts.http_error),
-        unclassifiedCount: String(unclassifiedCount),
-        neverCheckedCount: String(neverCheckedCount),
-        lastRefreshedAt,
-        newCount: String(newCount),
-        qualifiedCount: String(qualifiedCount),
-        disqualifiedCount: String(disqualifiedCount),
-        needsAttentionCount: String(needsAttentionCount),
-      }
+      { phrase: summaryPhrase, locale },
+      { filterContext, table: `\`\`\`\n${table}\n\`\`\``, ...commonCounts, ...detailCounts }
     );
 
     if (summary.length <= maxDiscordMessageLength) {
@@ -189,27 +206,8 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     });
     await interaction.editReply({
       content: i18n.__mf(
-        { phrase: 'commands.nominationReview.responses.summaryAttachment', locale },
-        {
-          filterContext,
-          totalCount: String(displayNominations.length),
-          businessOutcomeCount: String(businessOutcomeCount),
-          technicalOutcomeCount: String(technicalOutcomeCount),
-          inOrgCount: String(reasonCounts.in_org),
-          notInOrgCount: String(reasonCounts.not_in_org),
-          notFoundCount: String(reasonCounts.not_found),
-          timeoutCount: String(reasonCounts.http_timeout),
-          rateLimitedCount: String(reasonCounts.rate_limited),
-          parseFailedCount: String(reasonCounts.parse_failed),
-          httpErrorCount: String(reasonCounts.http_error),
-          unclassifiedCount: String(unclassifiedCount),
-          neverCheckedCount: String(neverCheckedCount),
-          lastRefreshedAt,
-          newCount: String(newCount),
-          qualifiedCount: String(qualifiedCount),
-          disqualifiedCount: String(disqualifiedCount),
-          needsAttentionCount: String(needsAttentionCount),
-        }
+        { phrase: attachmentPhrase, locale },
+        { filterContext, ...commonCounts, ...detailCounts }
       ),
       allowedMentions: { parse: [] },
       files: [attachment],
