@@ -40,6 +40,8 @@ Reset all custom access back to admin-only:
 /nomination-access action: reset
 ```
 
+The bot will show you the roles that will lose access and ask you to confirm. Click **Confirm Reset** to proceed, or **Cancel** to abort. The prompt expires after 60 seconds. If no custom roles are configured, the bot replies immediately with no buttons.
+
 > All access changes are recorded in the audit log.
 
 ---

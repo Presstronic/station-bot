@@ -208,11 +208,19 @@
           "description": "Role to add/remove from nomination review/process access"
         }
       },
+      "buttons": {
+        "confirmReset": "Confirm Reset",
+        "cancel": "Cancel"
+      },
       "responses": {
         "roleRequired": "You must provide a role for add/remove actions.",
         "added": "Role {roleMention} add request processed (changed: {changed}). Current allowed roles: {roles}.",
         "removed": "Role {roleMention} remove request processed (changed: {changed}). Current allowed roles: {roles}.",
         "list": "Current allowed roles for review/process: {roles}.",
+        "resetNoRoles": "No custom roles are configured. Nothing to reset.",
+        "resetConfirmPrompt": "This will remove access for **{count}** role(s): {roles}. Only admins will retain access. Are you sure?",
+        "resetCancelled": "Reset cancelled. No changes were made.",
+        "resetTimeout": "Confirmation timed out. No changes were made.",
         "reset": "Review/process role access has been reset. Only admins are currently allowed."
       }
     }

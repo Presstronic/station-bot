@@ -40,4 +40,191 @@ describe('nomination-access command', () => {
       })
     );
   });
+
+  it('reset replies immediately when no custom roles are configured', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => []),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const reply = jest.fn(async () => undefined);
+    const interaction: any = {
+      id: 'iid-r1',
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => 'reset', getRole: () => null },
+      replied: false,
+      deferred: false,
+      reply,
+    };
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('No custom roles are configured'),
+        ephemeral: true,
+      })
+    );
+  });
+
+  it('reset shows confirmation prompt with role count and mentions', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => ['role-1', 'role-2']),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('never resolves'); }) };
+    const interaction: any = {
+      id: 'iid-r2',
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => 'reset', getRole: () => null },
+      replied: false,
+      deferred: false,
+      editReply: jest.fn(async () => undefined),
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationAccessCommand(interaction);
+
+    const replyArg = (interaction.reply as jest.Mock).mock.calls[0]?.[0] as any;
+    expect(replyArg.content).toContain('2');
+    expect(replyArg.content).toContain('<@&role-1>');
+    expect(replyArg.content).toContain('<@&role-2>');
+    expect(replyArg.fetchReply).toBe(true);
+    expect(replyArg.components).toHaveLength(1);
+  });
+
+  it('reset confirms and performs reset when Confirm Reset is clicked', async () => {
+    const resetReviewProcessRoleIds = jest.fn(async () => undefined);
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => ['role-1']),
+      resetReviewProcessRoleIds,
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const deferUpdate = jest.fn(async () => undefined);
+    const mockResponse = {
+      awaitMessageComponent: jest.fn(async () => ({
+        customId: 'confirm-reset-iid-r3',
+        deferUpdate,
+        update: jest.fn(async () => undefined),
+      })),
+    };
+    const interaction: any = {
+      id: 'iid-r3',
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => 'reset', getRole: () => null },
+      replied: false,
+      deferred: false,
+      editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(resetReviewProcessRoleIds).toHaveBeenCalledTimes(1);
+    expect(deferUpdate).toHaveBeenCalledTimes(1);
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('has been reset'),
+        components: [],
+      })
+    );
+  });
+
+  it('reset cancels without performing reset when Cancel is clicked', async () => {
+    const resetReviewProcessRoleIds = jest.fn(async () => undefined);
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => ['role-1']),
+      resetReviewProcessRoleIds,
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const update = jest.fn(async () => undefined);
+    const mockResponse = {
+      awaitMessageComponent: jest.fn(async () => ({
+        customId: 'cancel-reset-iid-r4',
+        deferUpdate: jest.fn(async () => undefined),
+        update,
+      })),
+    };
+    const interaction: any = {
+      id: 'iid-r4',
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => 'reset', getRole: () => null },
+      replied: false,
+      deferred: false,
+      editReply: jest.fn(async () => undefined),
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(resetReviewProcessRoleIds).not.toHaveBeenCalled();
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('cancelled'),
+        components: [],
+      })
+    );
+  });
+
+  it('reset shows timeout message when confirmation expires', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => ['role-1']),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const mockResponse = {
+      awaitMessageComponent: jest.fn(async () => { throw new Error('timeout'); }),
+    };
+    const interaction: any = {
+      id: 'iid-r5',
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: { getString: () => 'reset', getRole: () => null },
+      replied: false,
+      deferred: false,
+      editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('timed out'),
+        components: [],
+      })
+    );
+  });
 });
