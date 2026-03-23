@@ -241,20 +241,19 @@ describe('nominations commands', () => {
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('timeout'); }) };
-    const reply = jest.fn(async () => mockResponse);
-    const editReply = jest.fn(async () => undefined);
-    const interaction = {
+    const interaction: any = {
       id: 'iid-1', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      reply, editReply,
-    } as any;
+      editReply: jest.fn(async () => undefined),
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
-    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.reply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('2'),
       components: expect.any(Array),
       ephemeral: true,
@@ -280,16 +279,16 @@ describe('nominations commands', () => {
       deferUpdate: jest.fn(async () => undefined),
     };
     const mockResponse = { awaitMessageComponent: jest.fn(async () => confirmButton) };
-    const reply = jest.fn(async () => mockResponse);
     const editReply = jest.fn(async () => undefined);
-    const interaction = {
+    const interaction: any = {
       id: 'iid-2', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      reply, editReply,
-    } as any;
+      editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
@@ -319,15 +318,15 @@ describe('nominations commands', () => {
       update: jest.fn(async () => undefined),
     };
     const mockResponse = { awaitMessageComponent: jest.fn(async () => cancelButton) };
-    const reply = jest.fn(async () => mockResponse);
-    const interaction = {
+    const interaction: any = {
       id: 'iid-3', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      reply, editReply: jest.fn(async () => undefined),
-    } as any;
+      editReply: jest.fn(async () => undefined),
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
@@ -352,16 +351,16 @@ describe('nominations commands', () => {
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('Collector timeout'); }) };
-    const reply = jest.fn(async () => mockResponse);
     const editReply = jest.fn(async () => undefined);
-    const interaction = {
+    const interaction: any = {
       id: 'iid-4', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      reply, editReply,
-    } as any;
+      editReply,
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
@@ -427,20 +426,18 @@ describe('nominations commands', () => {
       deferUpdate: jest.fn(async () => undefined),
     };
     const mockResponse = { awaitMessageComponent: jest.fn(async () => confirmButton) };
-    const reply = jest.fn(async () => mockResponse);
-    const editReply = jest.fn(async () => undefined);
     const processInteraction = createNominationInteraction({
       id: 'iid-6',
       user: { id: 'role-user', tag: 'role#0001' },
       memberPermissions: { has: () => false },
       options: { getString: () => null },
-      reply, editReply,
+      reply: jest.fn(async () => { processInteraction.replied = true; return mockResponse; }),
     });
 
     await handleNominationProcessCommand(processInteraction);
 
     expect(markAllNominationsProcessed).toHaveBeenCalledWith('role-user');
-    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(processInteraction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('Marked 1 nomination(s) as processed.'),
     }));
   });

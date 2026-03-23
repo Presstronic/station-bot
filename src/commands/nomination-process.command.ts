@@ -116,6 +116,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
       components: [row],
       ephemeral: true,
       allowedMentions: { parse: [] },
+      fetchReply: true,
     });
 
     let confirmation: Awaited<ReturnType<typeof response.awaitMessageComponent>>;
