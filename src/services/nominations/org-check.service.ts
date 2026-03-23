@@ -234,7 +234,18 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   };
 }
 
-function parseOrgOutcomeFromOrganizationsPage(html: string): OrgCheckOutcome {
+// Yield to the event loop once before running synchronous CPU work (cheerio HTML
+// parsing). This gives already-pending I/O (including Discord interaction handling)
+// a chance to run before starting a new parse, reducing the risk that long batches
+// of cheerio.load() calls block the event loop and cause interaction tokens to expire.
+// Note: multiple concurrent calls to this function may still run back-to-back in the
+// same event-loop "check" phase; this is not a full parse queue or throttle.
+function yieldToEventLoop(): Promise<void> {
+  return new Promise((resolve) => setImmediate(resolve));
+}
+
+async function parseOrgOutcomeFromOrganizationsPage(html: string): Promise<OrgCheckOutcome> {
+  await yieldToEventLoop();
   const $ = cheerio.load(html);
   const orgLink = $('a[href*="/orgs/"]').first().text().trim();
   if (orgLink.length > 0) {
@@ -258,7 +269,8 @@ export type CitizenExistsResult =
   | { status: 'not_found' }
   | { status: 'unavailable' };
 
-function parseCanonicalHandle(html: string, fallback: string): string {
+async function parseCanonicalHandle(html: string, fallback: string): Promise<string> {
+  await yieldToEventLoop();
   const $ = cheerio.load(html);
   const nick = $('span.nick').first().text().trim();
   return nick.length > 0 ? nick : fallback;
@@ -280,7 +292,7 @@ export async function checkCitizenExists(rsiHandle: string): Promise<CitizenExis
     );
     return { status: 'unavailable' };
   }
-  return { status: 'found', canonicalHandle: parseCanonicalHandle(result.html, rsiHandle) };
+  return { status: 'found', canonicalHandle: await parseCanonicalHandle(result.html, rsiHandle) };
 }
 
 export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCheckResult> {
@@ -311,7 +323,7 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
     );
   }
 
-  const outcome = parseOrgOutcomeFromOrganizationsPage(organizationsPage.html);
+  const outcome = await parseOrgOutcomeFromOrganizationsPage(organizationsPage.html);
   if (outcome === 'undetermined') {
     return createTechnicalResult(
       'parse_failed',
