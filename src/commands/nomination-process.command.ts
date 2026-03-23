@@ -12,6 +12,7 @@ import {
   getUnprocessedNominations,
   markAllNominationsProcessed,
   markNominationProcessedByHandle,
+  type NominationLifecycleState,
 } from '../services/nominations/nominations.repository.js';
 import {
   ensureCanManageReviewProcessing,
@@ -27,12 +28,9 @@ const logger = getLogger();
 
 const CONFIRM_TIMEOUT_MS = 60_000;
 
-const LIFECYCLE_STATE_LABELS: Record<string, string> = {
-  new: 'New',
-  checked: 'Checked (Needs Re-check)',
-  qualified: 'Qualified',
-  disqualified_in_org: 'Disqualified (In Org)',
-};
+function getLifecycleLabel(state: NominationLifecycleState, locale: string): string {
+  return i18n.__({ phrase: `commands.nominationProcess.lifecycleStateLabels.${state}`, locale });
+}
 
 export const NOMINATION_PROCESS_COMMAND_NAME = 'nomination-process';
 
@@ -107,7 +105,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
       }
 
       // Non-qualified — show warning with confirmation buttons
-      const lifecycleLabel = LIFECYCLE_STATE_LABELS[nomination.lifecycleState] ?? nomination.lifecycleState;
+      const lifecycleLabel = getLifecycleLabel(nomination.lifecycleState, locale);
       const processAnywayId = `process-anyway-${interaction.id}`;
       const cancelId = `cancel-single-${interaction.id}`;
 
