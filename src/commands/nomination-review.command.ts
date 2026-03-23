@@ -160,7 +160,7 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const disqualifiedCount = displayNominations.filter((n) => n.lifecycleState === 'disqualified_in_org').length;
     const needsAttentionCount = checkedCount;
 
-    const table = formatNominationsAsTable(displayNominations);
+    const table = formatNominationsAsTable(displayNominations, showDetail);
     const commonCounts = {
       totalCount: String(displayNominations.length),
       newCount: String(newCount),
