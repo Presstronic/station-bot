@@ -204,7 +204,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         ),
         components: [row],
         ephemeral: true,
-        allowedMentions: { parse: [] },
+        allowedMentions: { roles: currentRoleIds },
         fetchReply: true,
       });
 
