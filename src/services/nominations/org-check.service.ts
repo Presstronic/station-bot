@@ -147,19 +147,25 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   let attempt = 0;
   while (attempt <= maxRetries) {
     try {
+      // AbortController with a manually-managed timer so the timeout is cleared
+      // as soon as the request completes. AbortSignal.timeout() would leave a
+      // pending timer for the full requestTimeoutMs even on fast responses,
+      // accumulating unnecessary work over many requests.
+      const controller = new AbortController();
+      const abortTimer = setTimeout(() => controller.abort(), requestTimeoutMs);
+      // unref so the timer does not prevent the process from exiting cleanly
+      abortTimer.unref();
       const response = await withRateLimit(async () =>
         axios.get<string>(url, {
           timeout: requestTimeoutMs,
-          // AbortSignal covers the full request lifecycle (including TCP connect),
-          // where the socket timeout alone may not fire if the SYN never gets a response.
-          signal: AbortSignal.timeout(requestTimeoutMs),
+          signal: controller.signal,
           httpsAgent: rsiHttpsAgent,
           validateStatus: () => true,
           headers: {
             'User-Agent': 'station-bot/1.0 (+discord nomination review)',
           },
         })
-      );
+      ).finally(() => clearTimeout(abortTimer));
 
       if (response.status === 200 && response.data) {
         return { ok: true, html: response.data };
