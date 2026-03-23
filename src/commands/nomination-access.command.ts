@@ -215,9 +215,13 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
           filter: (i) => i.user.id === interaction.user.id,
           time: CONFIRM_TIMEOUT_MS,
         });
-      } catch {
+      } catch (err) {
+        logger.error(`awaitMessageComponent failed for reset confirmation: ${String(err)}`);
+        const isTimeout = err instanceof Error && /reason:\s*time/i.test(err.message);
         await interaction.editReply({
-          content: i18n.__({ phrase: 'commands.nominationAccess.responses.resetTimeout', locale }),
+          content: isTimeout
+            ? i18n.__({ phrase: 'commands.nominationAccess.responses.resetTimeout', locale })
+            : i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
           components: [],
           allowedMentions: { parse: [] },
         });

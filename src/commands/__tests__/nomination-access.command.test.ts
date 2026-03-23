@@ -202,7 +202,7 @@ describe('nomination-access command', () => {
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
     const editReply = jest.fn(async () => undefined);
     const mockResponse = {
-      awaitMessageComponent: jest.fn(async () => { throw new Error('timeout'); }),
+      awaitMessageComponent: jest.fn(async () => { throw new Error('Collector received no interactions before ending with reason: time'); }),
     };
     const interaction: any = {
       id: 'iid-r5',
