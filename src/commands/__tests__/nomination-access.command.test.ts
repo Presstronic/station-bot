@@ -16,8 +16,7 @@ describe('nomination-access command', () => {
     }));
 
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
-    const reply = jest.fn(async () => undefined);
-    const interaction = {
+    const interaction: any = {
       inGuild: () => true,
       locale: 'en-US',
       user: { id: 'u1', tag: 'admin#0001' },
@@ -26,14 +25,14 @@ describe('nomination-access command', () => {
         getString: () => 'add',
         getRole: () => ({ id: 'role-1', name: 'TestRole' }),
       },
-      reply,
       replied: false,
       deferred: false,
-    } as any;
+    };
+    interaction.reply = jest.fn(async () => { interaction.replied = true; });
 
     await handleNominationAccessCommand(interaction);
 
-    expect(reply).toHaveBeenCalledWith(
+    expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('not configured correctly'),
         ephemeral: true,
