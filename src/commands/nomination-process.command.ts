@@ -29,6 +29,9 @@ const logger = getLogger();
 const CONFIRM_TIMEOUT_MS = 60_000;
 
 function getLifecycleLabel(state: NominationLifecycleState, locale: string): string {
+  if (state === 'processed') {
+    throw new Error(`Unexpected lifecycle state "processed" passed to getLifecycleLabel — processed nominations should be filtered out before this point.`);
+  }
   return i18n.__({ phrase: `commands.nominationProcess.lifecycleStateLabels.${state}`, locale });
 }
 
@@ -138,9 +141,13 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
           filter: (i) => i.user.id === interaction.user.id,
           time: CONFIRM_TIMEOUT_MS,
         });
-      } catch {
+      } catch (err) {
+        logger.error(`awaitMessageComponent failed for single nomination prompt: ${String(err)}`);
+        const isTimeout = err instanceof Error && /reason:\s*time/i.test(err.message);
         await interaction.editReply({
-          content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleTimeout', locale }, { displayHandle }),
+          content: isTimeout
+            ? i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleTimeout', locale }, { displayHandle })
+            : i18n.__({ phrase: 'commands.nominationCommon.responses.unexpectedError', locale }),
           components: [],
           allowedMentions: { parse: [] },
         });

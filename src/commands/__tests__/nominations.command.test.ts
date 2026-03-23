@@ -1923,7 +1923,7 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
-    const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('Collector timeout'); }) };
+    const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('Collector received no interactions before ending with reason: time'); }) };
     const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-s3', inGuild: () => true, locale: 'en-US',
