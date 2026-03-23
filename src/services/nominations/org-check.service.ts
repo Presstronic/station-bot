@@ -1,3 +1,4 @@
+import https from 'https';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import type { OrgCheckResult, OrgCheckResultCode } from './types.js';
@@ -34,6 +35,12 @@ const maxConcurrency = Math.max(
   parseEnvInt('RSI_HTTP_MAX_CONCURRENCY', defaultMaxConcurrency)
 );
 const minIntervalMs = Math.max(0, parseEnvInt('RSI_HTTP_MIN_INTERVAL_MS', defaultMinIntervalMs));
+
+// keepAlive: false ensures RSI connections are closed after each use rather than pooled.
+// Pooled connections become zombies when RSI drops them server-side without FIN/RST,
+// leaking file descriptors until the process cannot open new sockets (including those
+// needed by the Discord REST client).
+const rsiHttpsAgent = new https.Agent({ keepAlive: false });
 
 let activeRequests = 0;
 let lastStartedAt = 0;
@@ -143,6 +150,10 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
       const response = await withRateLimit(async () =>
         axios.get<string>(url, {
           timeout: requestTimeoutMs,
+          // AbortSignal covers the full request lifecycle (including TCP connect),
+          // where the socket timeout alone may not fire if the SYN never gets a response.
+          signal: AbortSignal.timeout(requestTimeoutMs),
+          httpsAgent: rsiHttpsAgent,
           validateStatus: () => true,
           headers: {
             'User-Agent': 'station-bot/1.0 (+discord nomination review)',
@@ -182,11 +193,11 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
         message: `Unexpected RSI response ${response.status} for URL ${url}`,
       };
     } catch (error) {
-      const timeoutCode =
-        typeof error === 'object' &&
-        error &&
-        'code' in error &&
-        (error as { code?: string }).code === 'ECONNABORTED';
+      // ECONNABORTED: axios socket timeout; ERR_CANCELED: AbortSignal cancellation
+      const errorCode = typeof error === 'object' && error && 'code' in error
+        ? (error as { code?: string }).code
+        : undefined;
+      const timeoutCode = errorCode === 'ECONNABORTED' || errorCode === 'ERR_CANCELED';
 
       if (attempt >= maxRetries) {
         if (timeoutCode) {
