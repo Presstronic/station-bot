@@ -102,6 +102,9 @@ export async function enqueueNominationCheckJob(
       // NULL distinctly, matching the IS NOT DISTINCT FROM predicate used
       // in the existence check. Hash collision risk is negligible given the
       // small set of distinct (scope, handle) values in practice.
+      // $2 must be cast to ::text explicitly — without it PostgreSQL cannot
+      // determine the parameter type when requestedHandle is NULL, causing a
+      // "could not determine data type of parameter $2" error at runtime.
       await client.query(
         `SELECT pg_advisory_xact_lock(
           ('x' || left(md5(CASE WHEN $2::text IS NULL THEN $1 || ':null' ELSE $1 || ':handle:' || $2::text END), 16))::bit(64)::bigint
