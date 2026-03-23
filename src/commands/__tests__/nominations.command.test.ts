@@ -960,7 +960,7 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply,
       editReply,
-      options: { getString: () => null, getInteger: () => null },
+      options: { getString: () => null, getInteger: () => null, getBoolean: () => null },
     } as any;
 
     await handleNominationReviewCommand(interaction);
@@ -1044,7 +1044,7 @@ describe('nominations commands', () => {
       })),
     }));
 
-    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
+    const { handleNominationReviewCommand, detailOptionName } = await import('../nomination-review.command.js');
     const editReply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true,
@@ -1053,7 +1053,11 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply: jest.fn(async () => undefined),
       editReply,
-      options: { getString: () => null, getInteger: () => null },
+      options: {
+        getString: () => null,
+        getInteger: () => null,
+        getBoolean: (name: string) => (name === detailOptionName ? true : null),
+      },
     } as any;
 
     await handleNominationReviewCommand(interaction);
@@ -1134,13 +1138,13 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply: jest.fn(async () => undefined),
       editReply,
-      options: { getString: () => null, getInteger: () => null },
+      options: { getString: () => null, getInteger: () => null, getBoolean: () => null },
     } as any;
 
     await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
-    expect(content).toContain('Needs Attention (re-check required): 2');
+    expect(content).toContain('Needs Attention: 2');
     expect(content).not.toContain('Checked (technical)');
   });
 
@@ -1503,6 +1507,7 @@ describe('nominations commands', () => {
           if (name === limitOptionName) return 10;
           return null;
         },
+        getBoolean: () => null,
       },
     } as any;
 
@@ -1534,6 +1539,7 @@ describe('nominations commands', () => {
       options: {
         getString: () => null,
         getInteger: () => null,
+        getBoolean: () => null,
       },
     } as any;
 
@@ -1572,6 +1578,7 @@ describe('nominations commands', () => {
           return null;
         },
         getInteger: (name: string) => (name === limitOptionName ? 10 : null),
+        getBoolean: () => null,
       },
     } as any;
 
@@ -1619,6 +1626,7 @@ describe('nominations commands', () => {
       options: {
         getString: () => null,
         getInteger: () => 5,
+        getBoolean: () => null,
       },
     } as any;
 
@@ -1664,6 +1672,7 @@ describe('nominations commands', () => {
       options: {
         getString: () => null,
         getInteger: () => 5,
+        getBoolean: () => null,
       },
     } as any;
 
@@ -1983,6 +1992,7 @@ describe('nominations commands', () => {
           return null;
         },
         getInteger: (name: string) => (name === limitOptionName ? 10 : null),
+        getBoolean: () => null,
       },
     } as any;
 
@@ -2027,14 +2037,14 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply: jest.fn(async () => undefined),
       editReply,
-      options: { getString: () => null, getInteger: () => 5 },
+      options: { getString: () => null, getInteger: () => 5, getBoolean: () => null },
     } as any;
 
     await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
-    expect(content).toContain('Nominations shown: 5');
-    expect(content).not.toContain('Nominations shown: 6');
+    expect(content).toContain('Total: 5');
+    expect(content).not.toContain('Total: 6');
   });
 
   it('nomination-review shows "never" for lastRefreshedAt when no nominations have been org-checked', async () => {
@@ -2076,7 +2086,7 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply: jest.fn(async () => undefined),
       editReply,
-      options: { getString: () => null, getInteger: () => null },
+      options: { getString: () => null, getInteger: () => null, getBoolean: () => null },
     } as any;
 
     await handleNominationReviewCommand(interaction);
@@ -2125,7 +2135,7 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply: jest.fn(async () => undefined),
       editReply,
-      options: { getString: () => null, getInteger: () => null },
+      options: { getString: () => null, getInteger: () => null, getBoolean: () => null },
     } as any;
 
     await handleNominationReviewCommand(interaction);
@@ -2174,7 +2184,7 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       deferReply: jest.fn(async () => undefined),
       editReply,
-      options: { getString: () => null, getInteger: () => null },
+      options: { getString: () => null, getInteger: () => null, getBoolean: () => null },
     } as any;
 
     await handleNominationReviewCommand(interaction);
@@ -2183,5 +2193,123 @@ describe('nominations commands', () => {
     expect(content).not.toContain(longReason);
     expect(content).toContain('...');
     expect(content).toContain('A'.repeat(117));
+  });
+
+  it('nomination-review default view shows only business-relevant counts without technical breakdown', async () => {
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(async () => [
+        {
+          normalizedHandle: 'qualifiedpilot',
+          displayHandle: 'QualifiedPilot',
+          nominationCount: 2,
+          lifecycleState: 'qualified',
+          processedByUserId: null,
+          processedAt: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          lastOrgCheckStatus: 'not_in_org',
+          lastOrgCheckAt: '2026-01-02T00:00:00.000Z',
+          lastOrgCheckResultCode: 'not_in_org',
+          events: [{ nominatorUserId: 'u1', nominatorUserTag: 'tester#0001', reason: null, createdAt: '2026-01-01T00:00:00.000Z' }],
+        },
+        {
+          normalizedHandle: 'checkedpilot',
+          displayHandle: 'CheckedPilot',
+          nominationCount: 1,
+          lifecycleState: 'checked',
+          processedByUserId: null,
+          processedAt: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          lastOrgCheckStatus: 'unknown',
+          lastOrgCheckAt: '2026-01-02T00:00:00.000Z',
+          lastOrgCheckResultCode: 'http_timeout',
+          events: [{ nominatorUserId: 'u2', nominatorUserTag: 'tester#0002', reason: null, createdAt: '2026-01-01T00:00:00.000Z' }],
+        },
+      ]),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationReviewCommand } = await import('../nomination-review.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: { getString: () => null, getInteger: () => null, getBoolean: () => null },
+    } as any;
+
+    await handleNominationReviewCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('Qualified: 1');
+    expect(content).toContain('Needs Attention: 1');
+    expect(content).toContain('Total: 2');
+    // Technical fields must not appear in default view
+    expect(content).not.toContain('HTTP timeout');
+    expect(content).not.toContain('Rate limited');
+    expect(content).not.toContain('Parse failed');
+    expect(content).not.toContain('Business outcomes');
+    expect(content).not.toContain('Technical outcomes');
+  });
+
+  it('nomination-review detail: true shows full technical breakdown', async () => {
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(async () => [
+        {
+          normalizedHandle: 'qualifiedpilot',
+          displayHandle: 'QualifiedPilot',
+          nominationCount: 1,
+          lifecycleState: 'qualified',
+          processedByUserId: null,
+          processedAt: null,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          lastOrgCheckStatus: 'not_in_org',
+          lastOrgCheckAt: '2026-01-02T00:00:00.000Z',
+          lastOrgCheckResultCode: 'not_in_org',
+          events: [{ nominatorUserId: 'u1', nominatorUserTag: 'tester#0001', reason: null, createdAt: '2026-01-01T00:00:00.000Z' }],
+        },
+      ]),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationReviewCommand, detailOptionName } = await import('../nomination-review.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: {
+        getString: () => null,
+        getInteger: () => null,
+        getBoolean: (name: string) => (name === detailOptionName ? true : null),
+      },
+    } as any;
+
+    await handleNominationReviewCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('Business outcomes');
+    expect(content).toContain('Technical outcomes');
+    expect(content).toContain('HTTP timeout');
+    expect(content).toContain('Rate limited');
+    expect(content).toContain('Nominations shown: 1');
   });
 });

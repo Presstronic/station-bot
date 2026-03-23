@@ -102,6 +102,12 @@ Returns a quick status snapshot: bot tag, current UTC time, read-only mode statu
 
 Admins have full access to all review and processing commands. See the [HR guide](hr-nomination-processing.md) for full details on those workflows.
 
+To see the full technical breakdown (HTTP timeouts, rate limits, parse failures, etc.) alongside the standard summary, pass `detail: true`:
+
+```
+/nomination-review detail: true
+```
+
 ---
 
 ## Read-only mode
