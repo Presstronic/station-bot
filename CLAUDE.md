@@ -5,6 +5,8 @@
 - Before committing any code, always run `npm run quality` locally and confirm it passes.
 - Before committing, perform an objective self-review of all changed code from the perspective of a senior principal engineer: check for SOLID principles, single responsibility, clean abstractions, naming clarity, test coverage, and any code smells or over-engineering. Surface any concerns before the code is committed.
 - When changing or removing a feature, grep the test file for tests that reference the old behaviour (option names, response strings, function signatures) and remove or update them before running the quality gate. Stale tests referencing removed code are a common source of preventable failures.
+- When writing or updating tests that mock external modules (e.g. `jest.unstable_mockModule`), verify that every named export present in the real module is included in the mock object — missing exports cause ESM validation errors at runtime.
+- When writing discord.js interaction test stubs: ensure `reply` mutates `interaction.replied = true` and `deferReply` mutates `interaction.deferred = true`, matching real interaction state. Use `createNominationInteraction()` where it exists rather than building inline objects from scratch.
 
 ## Workflow
 - All changes go through: issue → feature branch → PR. No direct commits to main.
@@ -58,3 +60,6 @@ Before opening a PR, verify:
 - [ ] `docker-compose` config tested if infra changed
 - [ ] For releases: version bumped in `package.json`
 - [ ] Documentation is consistent with the final implementation: inline comments, PR title/body/test-plan, and any referenced GitHub issues all reflect what was actually built — not an earlier draft or superseded approach
+- [ ] When touching discord.js command handlers: do test stubs faithfully replicate real interaction state mutations (`replied`, `deferred`)? Is `fetchReply: true` set when `awaitMessageComponent` is needed on the response?
+- [ ] When replacing a feature: grepped test file for old option names, response strings, and function signatures — none remain?
+- [ ] All mocked modules include every named export from the real module?
