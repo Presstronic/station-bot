@@ -104,7 +104,7 @@ export async function enqueueNominationCheckJob(
       // small set of distinct (scope, handle) values in practice.
       await client.query(
         `SELECT pg_advisory_xact_lock(
-          ('x' || left(md5(CASE WHEN $2 IS NULL THEN $1 || ':null' ELSE $1 || ':handle:' || $2 END), 16))::bit(64)::bigint
+          ('x' || left(md5(CASE WHEN $2::text IS NULL THEN $1 || ':null' ELSE $1 || ':handle:' || $2::text END), 16))::bit(64)::bigint
         )`,
         [requestedScope, requestedHandle]
       );
