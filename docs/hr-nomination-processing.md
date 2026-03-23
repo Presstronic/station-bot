@@ -93,8 +93,9 @@ Once you've reviewed and acted on a nomination (reached out, decided to pass, et
 
 **Process all unprocessed nominations at once** (use with care):
 ```
-/nomination-process confirm-all: true
+/nomination-process
 ```
+The bot will show you how many nominations are pending and ask you to confirm before proceeding. Click **Confirm** to process all, or **Cancel** to abort. The prompt expires after 60 seconds.
 
 > Processed nominations are removed from the review queue but remain in the database for audit purposes.
 
