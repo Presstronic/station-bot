@@ -2043,8 +2043,8 @@ describe('nominations commands', () => {
     await handleNominationReviewCommand(interaction);
 
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
-    expect(content).toContain('Total: 5');
-    expect(content).not.toContain('Total: 6');
+    expect(content).toContain('Nominations shown: 5');
+    expect(content).not.toContain('Nominations shown: 6');
   });
 
   it('nomination-review shows "never" for lastRefreshedAt when no nominations have been org-checked', async () => {
@@ -2252,7 +2252,7 @@ describe('nominations commands', () => {
     const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
     expect(content).toContain('Qualified: 1');
     expect(content).toContain('Needs Attention: 1');
-    expect(content).toContain('Total: 2');
+    expect(content).toContain('Nominations shown: 2');
     // Technical fields must not appear in default view
     expect(content).not.toContain('HTTP timeout');
     expect(content).not.toContain('Rate limited');
