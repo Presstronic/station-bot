@@ -59,7 +59,7 @@ describe('runNominationCheckWorkerCycle', () => {
     // exactly 5 batches (batchNumber reaches 5) and then breaks with a warning.
     const warnSpy = jest.fn();
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ info: jest.fn(), warn: warnSpy, error: jest.fn() }),
+      getLogger: () => ({ info: jest.fn(), warn: warnSpy, error: jest.fn(), debug: jest.fn() }),
     }));
 
     const claimNextRunnableNominationCheckJob = jest.fn(async () => ({
@@ -152,6 +152,9 @@ describe('runNominationCheckWorkerCycle', () => {
     process.env.NOMINATION_WORKER_MAX_ATTEMPTS = '3';
 
     try {
+      jest.unstable_mockModule('../../../utils/logger.js', () => ({
+        getLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }),
+      }));
       jest.unstable_mockModule('../job-queue.repository.js', () => ({
         claimNextRunnableNominationCheckJob,
         claimNominationCheckJobItems,
