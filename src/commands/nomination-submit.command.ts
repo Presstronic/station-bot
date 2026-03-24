@@ -1,6 +1,7 @@
 import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import { recordNomination } from '../services/nominations/nominations.repository.js';
+import { enqueueNominationCheckJob } from '../services/nominations/job-queue.repository.js';
 import { NominationTargetCapExceededError } from '../services/nominations/types.js';
 import {
   getCommandLocale,
@@ -159,6 +160,22 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
         ),
         allowedMentions: { parse: [] },
       });
+
+      // Fire-and-forget: enqueue a single-scope org-check job immediately so the
+      // worker picks up the new nomination without requiring a manual /nomination-refresh.
+      // Failure is non-fatal — the admin can always trigger a refresh manually.
+      const normalizedHandle = rsiHandle.toLowerCase();
+      void enqueueNominationCheckJob(interaction.user.id, 'single', [normalizedHandle], normalizedHandle).catch(
+        (err) => {
+          if (err instanceof Error) {
+            logger.warn(`Auto-enqueue org-check failed for "${sanitizeForInlineText(rsiHandle)}"`, { err });
+          } else {
+            logger.warn(
+              `Auto-enqueue org-check failed for "${sanitizeForInlineText(rsiHandle)}": ${String(err)}`
+            );
+          }
+        }
+      );
     } finally {
       nominationsInProgress.delete(interaction.user.id);
     }
