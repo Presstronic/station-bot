@@ -62,6 +62,16 @@ function trimHandle(handle: string): string {
 
 export async function handleNominationSubmitCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
+  // Age of the interaction token when processing begins. Discord gives 3 seconds to
+  // acknowledge; if this is already high (>1000ms) before deferReply, event-loop
+  // pressure may be the cause of sporadic 10062 errors.
+  const interactionAgeMs = Date.now() - interaction.createdTimestamp;
+  const t0 = Date.now();
+
+  logger.debug(
+    `nomination-submit: received (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms)`
+  );
+
   try {
     if (!interaction.inGuild()) {
       await interaction.reply({
@@ -72,9 +82,17 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
     }
 
     // Defer immediately — async work (role lookup, DB queries) can exceed Discord's 3-second window.
+    logger.debug(
+      `nomination-submit: calling deferReply (interactionAge=${Date.now() - interaction.createdTimestamp}ms)`
+    );
     await interaction.deferReply({ ephemeral: true });
+    logger.debug(`nomination-submit: deferReply acknowledged (elapsed=${Date.now() - t0}ms)`);
 
+    logger.debug(`nomination-submit: checking member role (user=${interaction.user.id})`);
     const allowed = await hasOrganizationMemberOrHigher(interaction);
+    logger.debug(
+      `nomination-submit: role check done (allowed=${allowed}, elapsed=${Date.now() - t0}ms)`
+    );
     if (!allowed) {
       await interaction.editReply({
         content: i18n.__mf(
@@ -109,12 +127,18 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
 
     nominationsInProgress.add(interaction.user.id);
     try {
+      logger.debug(
+        `nomination-submit: running anti-abuse check (handle="${sanitizeForInlineText(rsiHandle)}", elapsed=${Date.now() - t0}ms)`
+      );
       const policy = getNominationRatePolicy();
       const violation = await checkNominationAntiAbuse(
         interaction.user.id,
         rsiHandle.toLowerCase(),
         rsiHandle,
         policy
+      );
+      logger.debug(
+        `nomination-submit: anti-abuse check done (violation=${violation?.kind ?? 'none'}, elapsed=${Date.now() - t0}ms)`
       );
       if (violation !== null) {
         let content: string;
@@ -138,7 +162,13 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
         return;
       }
 
+      logger.debug(
+        `nomination-submit: checking RSI citizen "${sanitizeForInlineText(rsiHandle)}" (elapsed=${Date.now() - t0}ms)`
+      );
       const citizenCheck = await checkCitizenExists(rsiHandle);
+      logger.debug(
+        `nomination-submit: citizen check done (result=${citizenCheck.status}, elapsed=${Date.now() - t0}ms)`
+      );
       if (citizenCheck.status === 'not_found') {
         await interaction.editReply({
           content: i18n.__({ phrase: 'commands.nominationSubmit.responses.citizenNotFound', locale }),
@@ -152,7 +182,13 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
 
       // Use RSI's canonical handle casing when available; fall back to user-submitted handle.
       const displayHandle = citizenCheck.status === 'found' ? citizenCheck.canonicalHandle : rsiHandle;
+      logger.debug(
+        `nomination-submit: recording nomination for "${sanitizeForInlineText(displayHandle)}" (elapsed=${Date.now() - t0}ms)`
+      );
       const updated = await recordNomination(displayHandle, interaction.user.id, interaction.user.tag, reason, policy.targetMaxPerDay);
+      logger.debug(
+        `nomination-submit: complete for "${sanitizeForInlineText(updated.displayHandle)}" (total=${Date.now() - t0}ms, interactionAge=${interactionAgeMs}ms at receipt)`
+      );
       await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominationSubmit.responses.created', locale },
@@ -180,6 +216,10 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       nominationsInProgress.delete(interaction.user.id);
     }
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(
+      `nomination-submit command failed (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms at receipt, elapsed=${Date.now() - t0}ms): ${errorMessage}`
+    );
     if (error instanceof NominationTargetCapExceededError) {
       await interaction.editReply({
         content: i18n.__mf(
@@ -190,15 +230,13 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       });
       return;
     }
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`nomination-submit command failed: ${errorMessage}`);
     const isConfigurationError = isNominationConfigurationError(error);
     const isHandleValidationError = errorMessage.includes('RSI handle is required for nomination');
     const responsePhrase = isConfigurationError
       ? 'commands.nominationCommon.responses.configurationError'
       : isHandleValidationError
         ? 'commands.nominationSubmit.responses.invalidHandle'
-      : 'commands.nominationCommon.responses.unexpectedError';
+        : 'commands.nominationCommon.responses.unexpectedError';
 
     if (interaction.replied || interaction.deferred) {
       await interaction.editReply({

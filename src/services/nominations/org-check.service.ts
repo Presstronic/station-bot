@@ -151,6 +151,8 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
       // measures the actual network attempt, not queue wait time. The timer is
       // cleared in a finally block as soon as the request completes, and unref'd
       // so it does not prevent clean process exit.
+      const fetchStart = Date.now();
+      logger.debug(`org-check: HTTP GET ${url} (attempt=${attempt})`);
       const response = await withRateLimit(async () => {
         const controller = new AbortController();
         const abortTimer = setTimeout(() => controller.abort(), requestTimeoutMs);
@@ -169,6 +171,9 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
           clearTimeout(abortTimer);
         }
       });
+      logger.debug(
+        `org-check: HTTP GET ${url} → ${response.status} (${Date.now() - fetchStart}ms)`
+      );
 
       if (response.status === 200 && response.data) {
         return { ok: true, html: response.data };
@@ -246,7 +251,9 @@ function yieldToEventLoop(): Promise<void> {
 
 async function parseOrgOutcomeFromOrganizationsPage(html: string): Promise<OrgCheckOutcome> {
   await yieldToEventLoop();
+  const parseStart = Date.now();
   const $ = cheerio.load(html);
+  logger.debug(`org-check: cheerio.load organizations page (${Date.now() - parseStart}ms)`);
   const orgLink = $('a[href*="/orgs/"]').first().text().trim();
   if (orgLink.length > 0) {
     return 'in_org';
@@ -271,7 +278,9 @@ export type CitizenExistsResult =
 
 async function parseCanonicalHandle(html: string, fallback: string): Promise<string> {
   await yieldToEventLoop();
+  const parseStart = Date.now();
   const $ = cheerio.load(html);
+  logger.debug(`org-check: cheerio.load citizen page (${Date.now() - parseStart}ms)`);
   const nick = $('span.nick').first().text().trim();
   return nick.length > 0 ? nick : fallback;
 }

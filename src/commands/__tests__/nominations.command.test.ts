@@ -1032,7 +1032,7 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');

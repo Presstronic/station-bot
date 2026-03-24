@@ -63,6 +63,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 
   const job = await claimNextRunnableNominationCheckJob(staleLockMs);
   if (!job) {
+    logger.debug('worker: poll — no runnable job found');
     return false;
   }
 
@@ -93,15 +94,23 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
     batchNumber++;
 
     const items = await claimNominationCheckJobItems(job.id, batchSize, staleLockMs);
+    logger.debug(`worker: batch ${batchNumber}/${maxBatches} claimed ${items.length} items (jobId=${job.id})`);
     if (items.length === 0) {
       break;
     }
 
     await mapWithConcurrency(items, workerConcurrency, async (item) => {
+      const itemStart = Date.now();
+      logger.debug(
+        `worker: checking "${sanitizeForInlineText(item.normalizedHandle)}" (jobId=${job.id}, itemId=${item.id}, attempt=${item.attemptCount})`
+      );
       try {
         const result = await checkHasAnyOrgMembership(item.normalizedHandle);
         await updateOrgCheckResult(item.normalizedHandle, result);
         await completeNominationCheckJobItem(item.id);
+        logger.debug(
+          `worker: item done (jobId=${job.id}, itemId=${item.id}, handle="${sanitizeForInlineText(item.normalizedHandle)}", result=${result.code}, elapsed=${Date.now() - itemStart}ms)`
+        );
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         logger.error(
