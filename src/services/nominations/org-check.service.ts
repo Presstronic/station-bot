@@ -151,14 +151,14 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
       // measures the actual network attempt, not queue wait time. The timer is
       // cleared in a finally block as soon as the request completes, and unref'd
       // so it does not prevent clean process exit.
-      const fetchStart = Date.now();
       logger.debug(`org-check: HTTP GET ${url} (attempt=${attempt})`);
       const response = await withRateLimit(async () => {
         const controller = new AbortController();
         const abortTimer = setTimeout(() => controller.abort(), requestTimeoutMs);
         abortTimer.unref();
+        const fetchStart = Date.now();
         try {
-          return await axios.get<string>(url, {
+          const res = await axios.get<string>(url, {
             timeout: requestTimeoutMs,
             signal: controller.signal,
             httpsAgent: rsiHttpsAgent,
@@ -167,13 +167,12 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
               'User-Agent': 'station-bot/1.0 (+discord nomination review)',
             },
           });
+          logger.debug(`org-check: HTTP GET ${url} → ${res.status} (${Date.now() - fetchStart}ms)`);
+          return res;
         } finally {
           clearTimeout(abortTimer);
         }
       });
-      logger.debug(
-        `org-check: HTTP GET ${url} → ${response.status} (${Date.now() - fetchStart}ms)`
-      );
 
       if (response.status === 200 && response.data) {
         return { ok: true, html: response.data };

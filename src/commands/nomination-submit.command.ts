@@ -216,10 +216,6 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       nominationsInProgress.delete(interaction.user.id);
     }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(
-      `nomination-submit command failed (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms at receipt, elapsed=${Date.now() - t0}ms): ${errorMessage}`
-    );
     if (error instanceof NominationTargetCapExceededError) {
       await interaction.editReply({
         content: i18n.__mf(
@@ -230,6 +226,10 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       });
       return;
     }
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error(
+      `nomination-submit command failed (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms at receipt, elapsed=${Date.now() - t0}ms): ${errorMessage}`
+    );
     const isConfigurationError = isNominationConfigurationError(error);
     const isHandleValidationError = errorMessage.includes('RSI handle is required for nomination');
     const responsePhrase = isConfigurationError
