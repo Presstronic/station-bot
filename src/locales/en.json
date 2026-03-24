@@ -55,8 +55,8 @@
         "unexpectedError": "Something went wrong while handling this command. Please try again."
       }
     },
-    "nominationSubmit": {
-      "name": "nomination-submit",
+    "nominatePlayer": {
+      "name": "nominate-player",
       "description": "Nominate a Star Citizen player for recruitment outreach.",
       "options": {
         "rsiHandle": {

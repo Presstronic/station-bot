@@ -1,7 +1,7 @@
 import { Routes } from 'discord-api-types/v10';
 import { discordRestClient } from '../utils/discord-rest-client.js';
 import { getLogger } from '../utils/logger.js';
-import { nominationSubmitCommandBuilder } from './nomination-submit.command.js';
+import { nominatePlayerCommandBuilder } from './nominate-player.command.js';
 import { nominationReviewCommandBuilder } from './nomination-review.command.js';
 import { nominationRefreshCommandBuilder } from './nomination-refresh.command.js';
 import { nominationProcessCommandBuilder } from './nomination-process.command.js';
@@ -16,7 +16,7 @@ const logger = getLogger();
 const allCommands = [
   verifyCommandBuilder,
   healthcheckCommandBuilder,
-  nominationSubmitCommandBuilder,
+  nominatePlayerCommandBuilder,
   nominationReviewCommandBuilder,
   nominationRefreshCommandBuilder,
   nominationJobStatusCommandBuilder,

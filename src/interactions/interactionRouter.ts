@@ -6,9 +6,9 @@ import {
   HEALTHCHECK_COMMAND_NAME,
 } from '../commands/verify.js';
 import {
-  handleNominationSubmitCommand,
-  NOMINATION_SUBMIT_COMMAND_NAME,
-} from '../commands/nomination-submit.command.js';
+  handleNominatePlayerCommand,
+  NOMINATE_PLAYER_COMMAND_NAME,
+} from '../commands/nominate-player.command.js';
 import {
   handleNominationReviewCommand,
   NOMINATION_REVIEW_COMMAND_NAME,
@@ -70,8 +70,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleVerifyCommand(interaction);
         } else if (interaction.commandName === HEALTHCHECK_COMMAND_NAME) {
           await handleHealthcheckCommand(interaction);
-        } else if (interaction.commandName === NOMINATION_SUBMIT_COMMAND_NAME) {
-          await handleNominationSubmitCommand(interaction);
+        } else if (interaction.commandName === NOMINATE_PLAYER_COMMAND_NAME) {
+          await handleNominatePlayerCommand(interaction);
         } else if (interaction.commandName === NOMINATION_REVIEW_COMMAND_NAME) {
           await handleNominationReviewCommand(interaction);
         } else if (interaction.commandName === NOMINATION_REFRESH_COMMAND_NAME) {
