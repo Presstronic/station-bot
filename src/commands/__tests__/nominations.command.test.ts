@@ -1051,7 +1051,7 @@ describe('nominations commands', () => {
   it('nomination-submit exits cleanly when deferReply throws a 10062 Unknown Interaction error', async () => {
     const warn = jest.fn();
     jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
