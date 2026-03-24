@@ -167,9 +167,13 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       const normalizedHandle = rsiHandle.toLowerCase();
       void enqueueNominationCheckJob(interaction.user.id, 'single', [normalizedHandle], normalizedHandle).catch(
         (err) => {
-          logger.warn(
-            `Auto-enqueue org-check failed for "${sanitizeForInlineText(rsiHandle)}": ${String(err)}`
-          );
+          if (err instanceof Error) {
+            logger.warn(`Auto-enqueue org-check failed for "${sanitizeForInlineText(rsiHandle)}"`, { err });
+          } else {
+            logger.warn(
+              `Auto-enqueue org-check failed for "${sanitizeForInlineText(rsiHandle)}": ${String(err)}`
+            );
+          }
         }
       );
     } finally {

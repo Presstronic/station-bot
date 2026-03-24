@@ -1001,6 +1001,53 @@ describe('nominations commands', () => {
     expect(enqueueNominationCheckJob).not.toHaveBeenCalled();
   });
 
+  it('nomination-submit logs a warning and keeps submission successful when enqueue rejects', async () => {
+    const enqueueNominationCheckJob = jest.fn(async () => { throw new Error('DB connection refused'); });
+    const warn = jest.fn();
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
+      enqueueNominationCheckJob,
+      getNominationCheckJobById: jest.fn(),
+      getLatestNominationCheckJob: jest.fn(),
+      claimNextRunnableNominationCheckJob: jest.fn(),
+      claimNominationCheckJobItems: jest.fn(),
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 })),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn() }),
+    }));
+
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const interaction = createNominationInteraction();
+    await handleNominationSubmitCommand(interaction);
+
+    // User sees a successful submission reply
+    expect(interaction.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('Your nomination for') })
+    );
+    // Flush microtasks so the fire-and-forget .catch() runs before asserting warn
+    await Promise.resolve();
+    expect(warn).toHaveBeenCalled();
+  });
+
   it('reviews nominations using persisted status without outbound org checks', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {
