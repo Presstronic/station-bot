@@ -4,6 +4,19 @@ const originalOrganizationRoleId = process.env.ORGANIZATION_MEMBER_ROLE_ID;
 
 beforeEach(() => {
   jest.resetModules();
+  // Default: enqueue resolves silently. Tests that verify enqueue behaviour
+  // override this with their own jest.unstable_mockModule call before importing.
+  jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
+    enqueueNominationCheckJob: jest.fn(async () => ({ job: { id: 1, totalCount: 1 }, reused: false })),
+    getNominationCheckJobById: jest.fn(),
+    getLatestNominationCheckJob: jest.fn(),
+    claimNextRunnableNominationCheckJob: jest.fn(),
+    claimNominationCheckJobItems: jest.fn(),
+    completeNominationCheckJobItem: jest.fn(),
+    requeueNominationCheckJobItem: jest.fn(),
+    failNominationCheckJobItem: jest.fn(),
+    refreshNominationCheckJobProgress: jest.fn(),
+  }));
 });
 
 afterEach(() => {
@@ -906,6 +919,86 @@ describe('nominations commands', () => {
         allowedMentions: { parse: [] },
       })
     );
+  });
+
+  it('nomination-submit auto-enqueues a single-scope org-check job after successful nomination', async () => {
+    const enqueueNominationCheckJob = jest.fn(async () => ({ job: { id: 99, totalCount: 1 }, reused: false }));
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
+      enqueueNominationCheckJob,
+      getNominationCheckJobById: jest.fn(),
+      getLatestNominationCheckJob: jest.fn(),
+      claimNextRunnableNominationCheckJob: jest.fn(),
+      claimNominationCheckJobItems: jest.fn(),
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 })),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const interaction = createNominationInteraction();
+    await handleNominationSubmitCommand(interaction);
+
+    expect(enqueueNominationCheckJob).toHaveBeenCalledWith(
+      'u1',
+      'single',
+      ['pilotnominee'],
+      'pilotnominee'
+    );
+  });
+
+  it('nomination-submit does not enqueue org-check job when nomination validation fails', async () => {
+    const enqueueNominationCheckJob = jest.fn(async () => ({ job: { id: 99, totalCount: 1 }, reused: false }));
+    jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
+      enqueueNominationCheckJob,
+      getNominationCheckJobById: jest.fn(),
+      getLatestNominationCheckJob: jest.fn(),
+      claimNextRunnableNominationCheckJob: jest.fn(),
+      claimNominationCheckJobItems: jest.fn(),
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
+      checkCitizenExists: jest.fn(async () => ({ status: 'not_found' })),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    // Submit a nomination for a citizen that does not exist — nomination is rejected
+    const interaction = createNominationInteraction();
+    await handleNominationSubmitCommand(interaction);
+
+    expect(enqueueNominationCheckJob).not.toHaveBeenCalled();
   });
 
   it('reviews nominations using persisted status without outbound org checks', async () => {
