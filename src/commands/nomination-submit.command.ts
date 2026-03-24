@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, DiscordAPIError, RESTJSONErrorCodes, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import { recordNomination } from '../services/nominations/nominations.repository.js';
 import { enqueueNominationCheckJob } from '../services/nominations/job-queue.repository.js';
@@ -180,16 +180,30 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       nominationsInProgress.delete(interaction.user.id);
     }
   } catch (error) {
-    if (error instanceof NominationTargetCapExceededError) {
-      await interaction.editReply({
-        content: i18n.__mf(
-          { phrase: 'commands.nominationSubmit.responses.targetDailyLimitReached', locale },
-          { rsiHandle: error.displayHandle }
-        ),
-        allowedMentions: { parse: [] },
-      });
+    // Interaction token expired — Discord will show "application did not respond".
+    // Nothing we can do to reply; log at warn (not error) and exit cleanly.
+    if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownInteraction) {
+      logger.warn(
+        `nomination-submit: interaction token expired for user ${interaction.user.id} — ${error.message}`
+      );
       return;
     }
+
+    if (error instanceof NominationTargetCapExceededError) {
+      try {
+        await interaction.editReply({
+          content: i18n.__mf(
+            { phrase: 'commands.nominationSubmit.responses.targetDailyLimitReached', locale },
+            { rsiHandle: error.displayHandle }
+          ),
+          allowedMentions: { parse: [] },
+        });
+      } catch (responseError) {
+        logger.warn(`nomination-submit: failed to deliver cap-exceeded response: ${String(responseError)}`);
+      }
+      return;
+    }
+
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`nomination-submit command failed: ${errorMessage}`);
     const isConfigurationError = isNominationConfigurationError(error);
@@ -198,19 +212,23 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       ? 'commands.nominationCommon.responses.configurationError'
       : isHandleValidationError
         ? 'commands.nominationSubmit.responses.invalidHandle'
-      : 'commands.nominationCommon.responses.unexpectedError';
+        : 'commands.nominationCommon.responses.unexpectedError';
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.editReply({
-        content: i18n.__({ phrase: responsePhrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    } else {
-      await interaction.reply({
-        content: i18n.__({ phrase: responsePhrase, locale }),
-        ephemeral: true,
-        allowedMentions: { parse: [] },
-      });
+    try {
+      if (interaction.replied || interaction.deferred) {
+        await interaction.editReply({
+          content: i18n.__({ phrase: responsePhrase, locale }),
+          allowedMentions: { parse: [] },
+        });
+      } else {
+        await interaction.reply({
+          content: i18n.__({ phrase: responsePhrase, locale }),
+          ephemeral: true,
+          allowedMentions: { parse: [] },
+        });
+      }
+    } catch (responseError) {
+      logger.warn(`nomination-submit: failed to deliver error response: ${String(responseError)}`);
     }
   }
 }

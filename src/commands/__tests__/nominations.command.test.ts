@@ -1048,6 +1048,78 @@ describe('nominations commands', () => {
     expect(warn).toHaveBeenCalled();
   });
 
+  it('nomination-submit exits cleanly when deferReply throws a 10062 Unknown Interaction error', async () => {
+    const warn = jest.fn();
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn() }),
+    }));
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { DiscordAPIError, RESTJSONErrorCodes } = await import('discord.js');
+
+    const tokenExpiredError = Object.assign(
+      new DiscordAPIError(
+        { code: RESTJSONErrorCodes.UnknownInteraction, message: 'Unknown interaction' } as any,
+        RESTJSONErrorCodes.UnknownInteraction,
+        404,
+        'POST',
+        '',
+        {}
+      ),
+      { code: RESTJSONErrorCodes.UnknownInteraction }
+    );
+
+    const interaction = createNominationInteraction({
+      deferReply: jest.fn(async () => { throw tokenExpiredError; }),
+    });
+
+    // Should not throw — handler must exit cleanly
+    await expect(handleNominationSubmitCommand(interaction)).resolves.toBeUndefined();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('interaction token expired'));
+    // Must not attempt a follow-up reply after the token is gone
+    expect(interaction.editReply).not.toHaveBeenCalled();
+    expect(interaction.reply).not.toHaveBeenCalled();
+  });
+
+  it('nomination-submit swallows secondary errors when the error response itself fails', async () => {
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(async () => { throw new Error('DB connection lost'); }),
+      getUnprocessedNominations: jest.fn(),
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow: jest.fn(async () => 0),
+      countNominationsByUserInWindow: jest.fn(async () => 0),
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+    jest.unstable_mockModule('../../services/nominations/org-check.service.js', () => ({
+      checkCitizenExists: jest.fn(async () => ({ status: 'found', canonicalHandle: 'PilotNominee' })),
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+
+    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const interaction = createNominationInteraction({
+      editReply: jest.fn(async () => { throw new Error('edit reply also failed'); }),
+    });
+
+    // Should not throw even though both recordNomination and editReply fail
+    await expect(handleNominationSubmitCommand(interaction)).resolves.toBeUndefined();
+  });
+
   it('reviews nominations using persisted status without outbound org checks', async () => {
     const getUnprocessedNominations = jest.fn(async () => [
       {
