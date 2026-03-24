@@ -1067,11 +1067,18 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
-    const { DiscordAPIError } = await import('discord.js');
+    const { DiscordAPIError, RESTJSONErrorCodes } = await import('discord.js');
 
     const tokenExpiredError = Object.assign(
-      new DiscordAPIError({ code: 10062, message: 'Unknown interaction' } as any, 10062, 404, 'POST', '', {}),
-      { code: 10062 }
+      new DiscordAPIError(
+        { code: RESTJSONErrorCodes.UnknownInteraction, message: 'Unknown interaction' } as any,
+        RESTJSONErrorCodes.UnknownInteraction,
+        404,
+        'POST',
+        '',
+        {}
+      ),
+      { code: RESTJSONErrorCodes.UnknownInteraction }
     );
 
     const interaction = createNominationInteraction({
