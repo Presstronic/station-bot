@@ -36,7 +36,8 @@
 ## Release Process
 1. Cut a `release/v{x.y.z}` branch from `main`
 2. Bump the version in `package.json` — this is the canonical source of truth and what the Docker publish workflow validates against
-3. Run `npm run quality` — must pass before opening the PR
+3. Run `npm install` — this syncs the version into `package-lock.json` (no packages are changed; `package-lock.json` must always match `package.json`)
+4. Run `npm run quality` — must pass before opening the PR
 4. Open a PR titled `release: v{x.y.z} — <short description>`; body should summarize what's in the release
 5. Squash-merge into `main`
 6. Tag the merge commit on `main`: `git tag v{x.y.z} && git push origin v{x.y.z}` — never tag the release branch itself
@@ -58,7 +59,7 @@ Before opening a PR, verify:
 - [ ] No hardcoded secrets, tokens, or environment-specific values
 - [ ] Migration included if schema changed
 - [ ] `docker-compose` config tested if infra changed
-- [ ] For releases: version bumped in `package.json`
+- [ ] For releases: version bumped in `package.json` and `npm install` run to sync `package-lock.json`
 - [ ] Documentation is consistent with the final implementation: inline comments, PR title/body/test-plan, and any referenced GitHub issues all reflect what was actually built — not an earlier draft or superseded approach
 - [ ] When touching discord.js command handlers: do test stubs faithfully replicate real interaction state mutations (`replied`, `deferred`)? Is `fetchReply: true` set when `awaitMessageComponent` is needed on the response?
 - [ ] When replacing a feature: grepped test file for old option names, response strings, and function signatures — none remain?
