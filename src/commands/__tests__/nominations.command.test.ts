@@ -1090,6 +1090,7 @@ describe('nominations commands', () => {
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('interaction token expired'));
     // Must not attempt a follow-up reply after the token is gone
     expect(interaction.editReply).not.toHaveBeenCalled();
+    expect(interaction.reply).not.toHaveBeenCalled();
   });
 
   it('nomination-submit swallows secondary errors when the error response itself fails', async () => {
