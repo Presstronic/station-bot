@@ -151,12 +151,14 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
       // measures the actual network attempt, not queue wait time. The timer is
       // cleared in a finally block as soon as the request completes, and unref'd
       // so it does not prevent clean process exit.
+      logger.debug(`org-check: HTTP GET ${url} (attempt=${attempt})`);
       const response = await withRateLimit(async () => {
         const controller = new AbortController();
         const abortTimer = setTimeout(() => controller.abort(), requestTimeoutMs);
         abortTimer.unref();
+        const fetchStart = Date.now();
         try {
-          return await axios.get<string>(url, {
+          const res = await axios.get<string>(url, {
             timeout: requestTimeoutMs,
             signal: controller.signal,
             httpsAgent: rsiHttpsAgent,
@@ -165,6 +167,8 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
               'User-Agent': 'station-bot/1.0 (+discord nomination review)',
             },
           });
+          logger.debug(`org-check: HTTP GET ${url} → ${res.status} (${Date.now() - fetchStart}ms)`);
+          return res;
         } finally {
           clearTimeout(abortTimer);
         }
@@ -246,7 +250,9 @@ function yieldToEventLoop(): Promise<void> {
 
 async function parseOrgOutcomeFromOrganizationsPage(html: string): Promise<OrgCheckOutcome> {
   await yieldToEventLoop();
+  const parseStart = Date.now();
   const $ = cheerio.load(html);
+  logger.debug(`org-check: cheerio.load organizations page (${Date.now() - parseStart}ms)`);
   const orgLink = $('a[href*="/orgs/"]').first().text().trim();
   if (orgLink.length > 0) {
     return 'in_org';
@@ -271,7 +277,9 @@ export type CitizenExistsResult =
 
 async function parseCanonicalHandle(html: string, fallback: string): Promise<string> {
   await yieldToEventLoop();
+  const parseStart = Date.now();
   const $ = cheerio.load(html);
+  logger.debug(`org-check: cheerio.load citizen page (${Date.now() - parseStart}ms)`);
   const nick = $('span.nick').first().text().trim();
   return nick.length > 0 ? nick : fallback;
 }

@@ -29,7 +29,7 @@ describe('checkHasAnyOrgMembership', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
@@ -51,7 +51,7 @@ describe('checkHasAnyOrgMembership', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
@@ -73,7 +73,7 @@ describe('checkHasAnyOrgMembership', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
@@ -88,7 +88,7 @@ describe('checkHasAnyOrgMembership', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
@@ -106,7 +106,7 @@ describe('checkHasAnyOrgMembership', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
@@ -122,7 +122,7 @@ describe('checkHasAnyOrgMembership', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
@@ -138,7 +138,7 @@ describe('checkHasAnyOrgMembership', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
@@ -159,7 +159,7 @@ describe('checkCitizenExists', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkCitizenExists } = await import('../org-check.service.js');
@@ -180,7 +180,7 @@ describe('checkCitizenExists', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkCitizenExists } = await import('../org-check.service.js');
@@ -197,7 +197,7 @@ describe('checkCitizenExists', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkCitizenExists } = await import('../org-check.service.js');
@@ -212,7 +212,7 @@ describe('checkCitizenExists', () => {
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
     const { checkCitizenExists } = await import('../org-check.service.js');
