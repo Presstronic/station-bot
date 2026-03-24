@@ -13,7 +13,7 @@ A nomination is you saying "hey, this person is worth reaching out to." It's not
 Type this in any channel where the bot is active:
 
 ```
-/nomination-submit
+/nominate-player
 ```
 
 You'll see two fields pop up:
@@ -31,13 +31,13 @@ Fill in the handle, optionally add a reason, and hit Enter. The bot will reply o
 
 **Example 1 — Quick nomination, no reason:**
 ```
-/nomination-submit rsi-handle: Glup_Shiddo
+/nominate-player rsi-handle: Glup_Shiddo
 ```
 > Your nomination for Glup_Shiddo has been logged. Every nomination is a meaningful step in growing and strengthening Dreadnought Industries — we appreciate your support. Fly safe o7
 
 **Example 2 — Nomination with a reason:**
 ```
-/nomination-submit rsi-handle: Glup_Shiddo reason: Met them in a bounty mission, great pilot and good comms
+/nominate-player rsi-handle: Glup_Shiddo reason: Met them in a bounty mission, great pilot and good comms
 ```
 > Your nomination for Glup_Shiddo has been logged. Every nomination is a meaningful step in growing and strengthening Dreadnought Industries — we appreciate your support. Fly safe o7
 

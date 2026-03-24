@@ -8,7 +8,7 @@ Full reference for all admin-level bot features.
 
 | Command | Who can use it |
 |---|---|
-| `/nomination-submit` | Org member role or higher |
+| `/nominate-player` | Org member role or higher |
 | `/nomination-review` | Org member role or higher (or roles granted via `/nomination-access`) |
 | `/nomination-refresh` | Org member role or higher (or roles granted via `/nomination-access`) |
 | `/nomination-job-status` | Org member role or higher (or roles granted via `/nomination-access`) |

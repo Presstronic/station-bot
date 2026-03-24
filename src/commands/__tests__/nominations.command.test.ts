@@ -106,9 +106,9 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
@@ -138,7 +138,7 @@ describe('nominations commands', () => {
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction({
       options: {
         getString: (name: string, required?: boolean) => {
@@ -150,7 +150,7 @@ describe('nominations commands', () => {
       },
     });
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -182,9 +182,9 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(interaction.editReply).toHaveBeenCalledWith(
@@ -208,7 +208,7 @@ describe('nominations commands', () => {
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction({
       guild: {
         roles: {
@@ -230,7 +230,7 @@ describe('nominations commands', () => {
       },
     });
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(interaction.editReply).toHaveBeenCalledWith(
@@ -594,7 +594,7 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction({
       guild: {
         roles: {
@@ -621,12 +621,12 @@ describe('nominations commands', () => {
       },
     });
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(rolesFetch).not.toHaveBeenCalled();
   });
 
-  it('nomination-submit allows submission when anti-abuse check passes', async () => {
+  it('nominate-player allows submission when anti-abuse check passes', async () => {
     const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -648,10 +648,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
@@ -662,7 +662,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit blocks submission and does not write when cooldown is active', async () => {
+  it('nominate-player blocks submission and does not write when cooldown is active', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -680,10 +680,10 @@ describe('nominations commands', () => {
       checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'cooldown', secondsRemaining: 42 })),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -694,7 +694,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit blocks submission and does not write when target daily limit is reached', async () => {
+  it('nominate-player blocks submission and does not write when target daily limit is reached', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -715,10 +715,10 @@ describe('nominations commands', () => {
       })),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -734,7 +734,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit shows target daily limit message when recordNomination throws NominationTargetCapExceededError', async () => {
+  it('nominate-player shows target daily limit message when recordNomination throws NominationTargetCapExceededError', async () => {
     // Import the real error class from types.ts (never mocked) so that the
     // command's instanceof check and the thrown instance share the same class.
     const { NominationTargetCapExceededError } = await import('../../services/nominations/types.js');
@@ -759,10 +759,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -777,7 +777,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit blocks submission and does not write when user daily limit is reached', async () => {
+  it('nominate-player blocks submission and does not write when user daily limit is reached', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -795,10 +795,10 @@ describe('nominations commands', () => {
       checkNominationAntiAbuse: jest.fn(async () => ({ kind: 'userDailyLimit', secondsUntilReset: 3600 })),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -809,7 +809,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit rejects a concurrent submission from the same user', async () => {
+  it('nominate-player rejects a concurrent submission from the same user', async () => {
     const recordNomination = jest.fn(async () => new Promise(() => {})); // never resolves
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -831,16 +831,16 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const firstInteraction = createNominationInteraction();
     const secondEditReply = jest.fn(async () => undefined);
     const secondInteraction = createNominationInteraction({ editReply: secondEditReply });
 
     // Start first request but don't await — it blocks on recordNomination
-    const firstRequest = handleNominationSubmitCommand(firstInteraction);
+    const firstRequest = handleNominatePlayerCommand(firstInteraction);
 
     // Second request from the same user arrives while first is in-flight
-    await handleNominationSubmitCommand(secondInteraction);
+    await handleNominatePlayerCommand(secondInteraction);
 
     expect(secondInteraction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(secondEditReply).toHaveBeenCalledWith(
@@ -853,7 +853,7 @@ describe('nominations commands', () => {
     firstRequest.catch(() => {});
   });
 
-  it('nomination-submit rejects nomination when RSI citizen is not found', async () => {
+  it('nominate-player rejects nomination when RSI citizen is not found', async () => {
     const recordNomination = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -872,10 +872,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).not.toHaveBeenCalled();
@@ -887,7 +887,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit proceeds with nomination when RSI citizen check is unavailable', async () => {
+  it('nominate-player proceeds with nomination when RSI citizen check is unavailable', async () => {
     const recordNomination = jest.fn(async () => ({ displayHandle: 'PilotNominee', nominationCount: 1 }));
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination,
@@ -906,10 +906,10 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
 
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
     expect(recordNomination).toHaveBeenCalledTimes(1);
@@ -921,7 +921,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit auto-enqueues a single-scope org-check job after successful nomination', async () => {
+  it('nominate-player auto-enqueues a single-scope org-check job after successful nomination', async () => {
     const enqueueNominationCheckJob = jest.fn(async () => ({ job: { id: 99, totalCount: 1 }, reused: false }));
     jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob,
@@ -951,9 +951,9 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(enqueueNominationCheckJob).toHaveBeenCalledWith(
       'u1',
@@ -963,7 +963,7 @@ describe('nominations commands', () => {
     );
   });
 
-  it('nomination-submit does not enqueue org-check job when nomination validation fails', async () => {
+  it('nominate-player does not enqueue org-check job when nomination validation fails', async () => {
     const enqueueNominationCheckJob = jest.fn(async () => ({ job: { id: 99, totalCount: 1 }, reused: false }));
     jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
       enqueueNominationCheckJob,
@@ -993,15 +993,15 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     // Submit a nomination for a citizen that does not exist — nomination is rejected
     const interaction = createNominationInteraction();
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     expect(enqueueNominationCheckJob).not.toHaveBeenCalled();
   });
 
-  it('nomination-submit logs a warning and keeps submission successful when enqueue rejects', async () => {
+  it('nominate-player logs a warning and keeps submission successful when enqueue rejects', async () => {
     const enqueueNominationCheckJob = jest.fn(async () => { throw new Error('DB connection refused'); });
     const warn = jest.fn();
     jest.unstable_mockModule('../../services/nominations/job-queue.repository.js', () => ({
@@ -1035,9 +1035,9 @@ describe('nominations commands', () => {
       getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction();
-    await handleNominationSubmitCommand(interaction);
+    await handleNominatePlayerCommand(interaction);
 
     // User sees a successful submission reply
     expect(interaction.editReply).toHaveBeenCalledWith(
@@ -1048,7 +1048,7 @@ describe('nominations commands', () => {
     expect(warn).toHaveBeenCalled();
   });
 
-  it('nomination-submit exits cleanly when deferReply throws a 10062 Unknown Interaction error', async () => {
+  it('nominate-player exits cleanly when deferReply throws a 10062 Unknown Interaction error', async () => {
     const warn = jest.fn();
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
@@ -1066,7 +1066,7 @@ describe('nominations commands', () => {
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const { DiscordAPIError, RESTJSONErrorCodes } = await import('discord.js');
 
     const tokenExpiredError = Object.assign(
@@ -1086,14 +1086,14 @@ describe('nominations commands', () => {
     });
 
     // Should not throw — handler must exit cleanly
-    await expect(handleNominationSubmitCommand(interaction)).resolves.toBeUndefined();
+    await expect(handleNominatePlayerCommand(interaction)).resolves.toBeUndefined();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('interaction token expired'));
     // Must not attempt a follow-up reply after the token is gone
     expect(interaction.editReply).not.toHaveBeenCalled();
     expect(interaction.reply).not.toHaveBeenCalled();
   });
 
-  it('nomination-submit swallows secondary errors when the error response itself fails', async () => {
+  it('nominate-player swallows secondary errors when the error response itself fails', async () => {
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(async () => { throw new Error('DB connection lost'); }),
       getUnprocessedNominations: jest.fn(),
@@ -1111,13 +1111,13 @@ describe('nominations commands', () => {
       checkHasAnyOrgMembership: jest.fn(),
     }));
 
-    const { handleNominationSubmitCommand } = await import('../nomination-submit.command.js');
+    const { handleNominatePlayerCommand } = await import('../nominate-player.command.js');
     const interaction = createNominationInteraction({
       editReply: jest.fn(async () => { throw new Error('edit reply also failed'); }),
     });
 
     // Should not throw even though both recordNomination and editReply fail
-    await expect(handleNominationSubmitCommand(interaction)).resolves.toBeUndefined();
+    await expect(handleNominatePlayerCommand(interaction)).resolves.toBeUndefined();
   });
 
   it('reviews nominations using persisted status without outbound org checks', async () => {

@@ -25,9 +25,9 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
-      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
-      handleNominationSubmitCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
       NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
@@ -103,9 +103,9 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
-      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
-      handleNominationSubmitCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
       NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
@@ -182,9 +182,9 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
-      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
-      handleNominationSubmitCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
       NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
@@ -259,9 +259,9 @@ describe('handleInteraction in read-only mode', () => {
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
     }));
-    jest.unstable_mockModule('../../commands/nomination-submit.command.js', () => ({
-      NOMINATION_SUBMIT_COMMAND_NAME: 'nomination-submit',
-      handleNominationSubmitCommand: jest.fn(),
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
       NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',

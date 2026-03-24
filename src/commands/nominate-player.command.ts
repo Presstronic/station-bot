@@ -24,21 +24,21 @@ const logger = getLogger();
 // Effective for single-instance deployments; for multi-instance, use a DB advisory lock.
 const nominationsInProgress = new Set<string>();
 
-export const NOMINATION_SUBMIT_COMMAND_NAME = 'nomination-submit';
+export const NOMINATE_PLAYER_COMMAND_NAME = 'nominate-player';
 
-const rsiHandleNameKey = 'commands.nominationSubmit.options.rsiHandle.name';
-const reasonNameKey = 'commands.nominationSubmit.options.reason.name';
+const rsiHandleNameKey = 'commands.nominatePlayer.options.rsiHandle.name';
+const reasonNameKey = 'commands.nominatePlayer.options.reason.name';
 
-export const nominationSubmitCommandBuilder = new SlashCommandBuilder()
-  .setName(NOMINATION_SUBMIT_COMMAND_NAME)
-  .setDescription(i18n.__({ phrase: 'commands.nominationSubmit.description', locale: defaultLocale }))
+export const nominatePlayerCommandBuilder = new SlashCommandBuilder()
+  .setName(NOMINATE_PLAYER_COMMAND_NAME)
+  .setDescription(i18n.__({ phrase: 'commands.nominatePlayer.description', locale: defaultLocale }))
   .setDMPermission(false)
   .addStringOption((option) =>
     option
       .setName(i18n.__({ phrase: rsiHandleNameKey, locale: defaultLocale }))
       .setDescription(
         i18n.__({
-          phrase: 'commands.nominationSubmit.options.rsiHandle.description',
+          phrase: 'commands.nominatePlayer.options.rsiHandle.description',
           locale: defaultLocale,
         })
       )
@@ -49,7 +49,7 @@ export const nominationSubmitCommandBuilder = new SlashCommandBuilder()
       .setName(i18n.__({ phrase: reasonNameKey, locale: defaultLocale }))
       .setDescription(
         i18n.__({
-          phrase: 'commands.nominationSubmit.options.reason.description',
+          phrase: 'commands.nominatePlayer.options.reason.description',
           locale: defaultLocale,
         })
       )
@@ -60,7 +60,7 @@ function trimHandle(handle: string): string {
   return handle.trim();
 }
 
-export async function handleNominationSubmitCommand(interaction: ChatInputCommandInteraction) {
+export async function handleNominatePlayerCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   // Age of the interaction token when processing begins. Discord gives 3 seconds to
   // acknowledge; if this is already high (>1000ms) before deferReply, event-loop
@@ -69,7 +69,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
   const t0 = Date.now();
 
   logger.debug(
-    `nomination-submit: received (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms)`
+    `nominate-player: received (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms)`
   );
 
   try {
@@ -83,20 +83,20 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
 
     // Defer immediately — async work (role lookup, DB queries) can exceed Discord's 3-second window.
     logger.debug(
-      `nomination-submit: calling deferReply (interactionAge=${Date.now() - interaction.createdTimestamp}ms)`
+      `nominate-player: calling deferReply (interactionAge=${Date.now() - interaction.createdTimestamp}ms)`
     );
     await interaction.deferReply({ ephemeral: true });
-    logger.debug(`nomination-submit: deferReply acknowledged (elapsed=${Date.now() - t0}ms)`);
+    logger.debug(`nominate-player: deferReply acknowledged (elapsed=${Date.now() - t0}ms)`);
 
-    logger.debug(`nomination-submit: checking member role (user=${interaction.user.id})`);
+    logger.debug(`nominate-player: checking member role (user=${interaction.user.id})`);
     const allowed = await hasOrganizationMemberOrHigher(interaction);
     logger.debug(
-      `nomination-submit: role check done (allowed=${allowed}, elapsed=${Date.now() - t0}ms)`
+      `nominate-player: role check done (allowed=${allowed}, elapsed=${Date.now() - t0}ms)`
     );
     if (!allowed) {
       await interaction.editReply({
         content: i18n.__mf(
-          { phrase: 'commands.nominationSubmit.responses.roleRequired', locale },
+          { phrase: 'commands.nominatePlayer.responses.roleRequired', locale },
           { roleName: getOrganizationMemberRoleName() }
         ),
         allowedMentions: { parse: [] },
@@ -109,7 +109,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
     );
     if (!rsiHandle) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.nominationSubmit.responses.invalidHandle', locale }),
+        content: i18n.__({ phrase: 'commands.nominatePlayer.responses.invalidHandle', locale }),
         allowedMentions: { parse: [] },
       });
       return;
@@ -119,7 +119,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
 
     if (nominationsInProgress.has(interaction.user.id)) {
       await interaction.editReply({
-        content: i18n.__({ phrase: 'commands.nominationSubmit.responses.submissionInProgress', locale }),
+        content: i18n.__({ phrase: 'commands.nominatePlayer.responses.submissionInProgress', locale }),
         allowedMentions: { parse: [] },
       });
       return;
@@ -128,7 +128,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
     nominationsInProgress.add(interaction.user.id);
     try {
       logger.debug(
-        `nomination-submit: running anti-abuse check (handle="${sanitizeForInlineText(rsiHandle)}", elapsed=${Date.now() - t0}ms)`
+        `nominate-player: running anti-abuse check (handle="${sanitizeForInlineText(rsiHandle)}", elapsed=${Date.now() - t0}ms)`
       );
       const policy = getNominationRatePolicy();
       const violation = await checkNominationAntiAbuse(
@@ -138,23 +138,23 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
         policy
       );
       logger.debug(
-        `nomination-submit: anti-abuse check done (violation=${violation?.kind ?? 'none'}, elapsed=${Date.now() - t0}ms)`
+        `nominate-player: anti-abuse check done (violation=${violation?.kind ?? 'none'}, elapsed=${Date.now() - t0}ms)`
       );
       if (violation !== null) {
         let content: string;
         if (violation.kind === 'cooldown') {
           content = i18n.__mf(
-            { phrase: 'commands.nominationSubmit.responses.cooldownActive', locale },
+            { phrase: 'commands.nominatePlayer.responses.cooldownActive', locale },
             { formattedWait: formatDuration(violation.secondsRemaining) }
           );
         } else if (violation.kind === 'targetDailyLimit') {
           content = i18n.__mf(
-            { phrase: 'commands.nominationSubmit.responses.targetDailyLimitReached', locale },
+            { phrase: 'commands.nominatePlayer.responses.targetDailyLimitReached', locale },
             { rsiHandle: violation.displayHandle }
           );
         } else {
           content = i18n.__mf(
-            { phrase: 'commands.nominationSubmit.responses.userDailyLimitReached', locale },
+            { phrase: 'commands.nominatePlayer.responses.userDailyLimitReached', locale },
             { resetsIn: formatDuration(violation.secondsUntilReset) }
           );
         }
@@ -163,15 +163,15 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       }
 
       logger.debug(
-        `nomination-submit: checking RSI citizen "${sanitizeForInlineText(rsiHandle)}" (elapsed=${Date.now() - t0}ms)`
+        `nominate-player: checking RSI citizen "${sanitizeForInlineText(rsiHandle)}" (elapsed=${Date.now() - t0}ms)`
       );
       const citizenCheck = await checkCitizenExists(rsiHandle);
       logger.debug(
-        `nomination-submit: citizen check done (result=${citizenCheck.status}, elapsed=${Date.now() - t0}ms)`
+        `nominate-player: citizen check done (result=${citizenCheck.status}, elapsed=${Date.now() - t0}ms)`
       );
       if (citizenCheck.status === 'not_found') {
         await interaction.editReply({
-          content: i18n.__({ phrase: 'commands.nominationSubmit.responses.citizenNotFound', locale }),
+          content: i18n.__({ phrase: 'commands.nominatePlayer.responses.citizenNotFound', locale }),
           allowedMentions: { parse: [] },
         });
         return;
@@ -183,15 +183,15 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       // Use RSI's canonical handle casing when available; fall back to user-submitted handle.
       const displayHandle = citizenCheck.status === 'found' ? citizenCheck.canonicalHandle : rsiHandle;
       logger.debug(
-        `nomination-submit: recording nomination for "${sanitizeForInlineText(displayHandle)}" (elapsed=${Date.now() - t0}ms)`
+        `nominate-player: recording nomination for "${sanitizeForInlineText(displayHandle)}" (elapsed=${Date.now() - t0}ms)`
       );
       const updated = await recordNomination(displayHandle, interaction.user.id, interaction.user.tag, reason, policy.targetMaxPerDay);
       logger.debug(
-        `nomination-submit: complete for "${sanitizeForInlineText(updated.displayHandle)}" (total=${Date.now() - t0}ms, interactionAge=${interactionAgeMs}ms at receipt)`
+        `nominate-player: complete for "${sanitizeForInlineText(updated.displayHandle)}" (total=${Date.now() - t0}ms, interactionAge=${interactionAgeMs}ms at receipt)`
       );
       await interaction.editReply({
         content: i18n.__mf(
-          { phrase: 'commands.nominationSubmit.responses.created', locale },
+          { phrase: 'commands.nominatePlayer.responses.created', locale },
           { rsiHandle: updated.displayHandle }
         ),
         allowedMentions: { parse: [] },
@@ -220,7 +220,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
     // Nothing we can do to reply; log at warn (not error) and exit cleanly.
     if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownInteraction) {
       logger.warn(
-        `nomination-submit: interaction token expired for user ${interaction.user.id} — ${error.message}`
+        `nominate-player: interaction token expired for user ${interaction.user.id} — ${error.message}`
       );
       return;
     }
@@ -229,27 +229,27 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
       try {
         await interaction.editReply({
           content: i18n.__mf(
-            { phrase: 'commands.nominationSubmit.responses.targetDailyLimitReached', locale },
+            { phrase: 'commands.nominatePlayer.responses.targetDailyLimitReached', locale },
             { rsiHandle: error.displayHandle }
           ),
           allowedMentions: { parse: [] },
         });
       } catch (responseError) {
-        logger.warn(`nomination-submit: failed to deliver cap-exceeded response: ${String(responseError)}`);
+        logger.warn(`nominate-player: failed to deliver cap-exceeded response: ${String(responseError)}`);
       }
       return;
     }
 
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(
-      `nomination-submit command failed (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms at receipt, elapsed=${Date.now() - t0}ms): ${errorMessage}`
+      `nominate-player command failed (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms at receipt, elapsed=${Date.now() - t0}ms): ${errorMessage}`
     );
     const isConfigurationError = isNominationConfigurationError(error);
     const isHandleValidationError = errorMessage.includes('RSI handle is required for nomination');
     const responsePhrase = isConfigurationError
       ? 'commands.nominationCommon.responses.configurationError'
       : isHandleValidationError
-        ? 'commands.nominationSubmit.responses.invalidHandle'
+        ? 'commands.nominatePlayer.responses.invalidHandle'
         : 'commands.nominationCommon.responses.unexpectedError';
 
     try {
@@ -266,7 +266,7 @@ export async function handleNominationSubmitCommand(interaction: ChatInputComman
         });
       }
     } catch (responseError) {
-      logger.warn(`nomination-submit: failed to deliver error response: ${String(responseError)}`);
+      logger.warn(`nominate-player: failed to deliver error response: ${String(responseError)}`);
     }
   }
 }
