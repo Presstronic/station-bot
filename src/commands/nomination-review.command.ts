@@ -153,10 +153,7 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
 
     const qualifiedCount     = reasonCounts['not_in_org'];
     const disqualifiedCount  = reasonCounts['in_org'];
-    const needsAttentionCount = displayNominations.filter((n) => {
-      const code = resolveNominationOrgResultCode(n);
-      return code && technicalResultCodes.includes(code as any);
-    }).length;
+    const needsAttentionCount = displayNominations.filter((n) => n.lifecycleState === 'checked').length;
     const newCount           = displayNominations.filter((n) => n.lifecycleState === 'new').length;
     const businessOutcomeCount = displayNominations.filter((n) => {
       const code = resolveNominationOrgResultCode(n);
