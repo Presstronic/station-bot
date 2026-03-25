@@ -1076,9 +1076,9 @@ describe('nominations commands', () => {
       deferReply: jest.fn(async () => { throw tokenExpiredError; }),
     });
 
-    // Should not throw — handler must exit cleanly even when deferReply fails
-    await expect(handleNominatePlayerCommand(interaction)).resolves.toBeUndefined();
-    // deferReply threw so interaction was never deferred — editReply must not be called
+    // deferReply is now outside the try block so 10062 propagates to the router,
+    // which is the centralized handler for expired tokens.
+    await expect(handleNominatePlayerCommand(interaction)).rejects.toThrow(tokenExpiredError);
     expect(interaction.editReply).not.toHaveBeenCalled();
   });
 

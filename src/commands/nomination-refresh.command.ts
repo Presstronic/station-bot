@@ -39,9 +39,11 @@ export const nominationRefreshCommandBuilder = new SlashCommandBuilder()
 export async function handleNominationRefreshCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
 
+  // Defer immediately — permission checks below involve async Discord/DB work.
+  // Placed before try so a 10062 (expired token) bubbles to the router rather than
+  // being swallowed and logged at ERROR here.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    // Defer immediately — permission checks below involve async Discord/DB work.
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (!(await ensureCanManageReviewProcessing(interaction))) {
       return;
@@ -137,11 +139,9 @@ export async function handleNominationRefreshCommand(interaction: ChatInputComma
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
 
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({
-        content: i18n.__({ phrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    }
+    await interaction.editReply({
+      content: i18n.__({ phrase, locale }),
+      allowedMentions: { parse: [] },
+    });
   }
 }

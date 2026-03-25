@@ -75,9 +75,11 @@ function formatRoleIds(roleIds: string[]): string {
 export async function handleNominationAccessCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
 
+  // Defer immediately — ensureAdmin and subsequent DB work happen after acknowledgment.
+  // Placed before try so a 10062 (expired token) bubbles to the router rather than
+  // being swallowed and logged at ERROR here.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
-    // Defer immediately — ensureAdmin and subsequent DB work happen after acknowledgment.
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     if (!(await ensureAdmin(interaction))) {
       return;
@@ -282,11 +284,9 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({
-        content: i18n.__({ phrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    }
+    await interaction.editReply({
+      content: i18n.__({ phrase, locale }),
+      allowedMentions: { parse: [] },
+    });
   }
 }
