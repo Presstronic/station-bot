@@ -248,158 +248,6 @@ describe('handleInteraction in read-only mode', () => {
     expect(handleVerifyCommand).toHaveBeenCalledTimes(1);
   });
 
-  it('resolves without rethrowing when deferReply throws a ConnectTimeoutError (transport failure)', async () => {
-    // Models the real failure mode: the Discord REST API is unreachable and
-    // deferReply itself rejects with a ConnectTimeoutError from undici.
-    const networkError = Object.assign(new Error('Connect Timeout Error'), { name: 'ConnectTimeoutError' });
-    const warnSpy = jest.fn();
-    const errorSpy = jest.fn();
-
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
-      VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
-      handleVerifyCommand: jest.fn(),
-      handleHealthcheckCommand: jest.fn(),
-      getUserVerificationData: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
-      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
-      // Handler calls deferReply and does not catch it — error propagates to router.
-      handleNominatePlayerCommand: jest.fn(async (interaction: any) => {
-        await interaction.deferReply({ flags: 64 }); // MessageFlags.Ephemeral
-      }),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
-      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
-      handleNominationReviewCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
-      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
-      handleNominationRefreshCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
-      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
-      handleNominationJobStatusCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
-      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
-      handleNominationProcessCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
-      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
-      handleNominationAccessCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
-      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
-      handleNominationAuditCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),
-    }));
-    jest.unstable_mockModule('../../services/role.services.js', () => ({
-      assignVerifiedRole: jest.fn(),
-      removeVerifiedRole: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
-      verifyRSIProfile: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
-      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
-    }));
-
-    const { handleInteraction } = await import('../interactionRouter.js');
-    process.env.BOT_READ_ONLY_MODE = 'false';
-    const interaction = {
-      id: 'cid-net',
-      isChatInputCommand: () => true,
-      isButton: () => false,
-      commandName: 'nominate-player',
-      replied: false,
-      deferred: false,
-      locale: 'en',
-      deferReply: jest.fn(async () => { throw networkError; }),
-    } as any;
-
-    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[cid:cid-net]'));
-    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('connectivity error'));
-    expect(errorSpy).not.toHaveBeenCalled();
-  });
-
-  it('resolves without rethrowing when a handler throws a genuine bug (TypeError), logged at error', async () => {
-    // A real code bug (not a transport failure) must be classified at ERROR with
-    // a correlation ID — not silently downgraded to WARN.
-    const handlerBug = new TypeError('Cannot read properties of undefined');
-    const warnSpy = jest.fn();
-    const errorSpy = jest.fn();
-
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
-      VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
-      handleVerifyCommand: jest.fn(),
-      handleHealthcheckCommand: jest.fn(),
-      getUserVerificationData: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
-      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
-      handleNominatePlayerCommand: jest.fn(async () => { throw handlerBug; }),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
-      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
-      handleNominationReviewCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
-      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
-      handleNominationRefreshCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
-      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
-      handleNominationJobStatusCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
-      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
-      handleNominationProcessCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
-      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
-      handleNominationAccessCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
-      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
-      handleNominationAuditCommand: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),
-    }));
-    jest.unstable_mockModule('../../services/role.services.js', () => ({
-      assignVerifiedRole: jest.fn(),
-      removeVerifiedRole: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
-      verifyRSIProfile: jest.fn(),
-    }));
-    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
-      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
-    }));
-
-    const { handleInteraction } = await import('../interactionRouter.js');
-    process.env.BOT_READ_ONLY_MODE = 'false';
-    const interaction = {
-      id: 'cid-bug',
-      isChatInputCommand: () => true,
-      isButton: () => false,
-      commandName: 'nominate-player',
-      replied: false,
-      deferred: false,
-      locale: 'en',
-    } as any;
-
-    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[cid:cid-bug]'));
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot read properties of undefined'));
-    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('connectivity error'));
-  });
-
   it('allows /healthcheck in read-only mode', async () => {
     const handleVerifyCommand = jest.fn();
     const handleHealthcheckCommand = jest.fn(async () => undefined);
@@ -473,5 +321,172 @@ describe('handleInteraction in read-only mode', () => {
     expect(reply).not.toHaveBeenCalled();
     expect(handleVerifyCommand).not.toHaveBeenCalled();
     expect(handleHealthcheckCommand).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('handleInteraction error handling', () => {
+  it('resolves without rethrowing when deferReply throws a ConnectTimeoutError (transport failure), no fallback reply', async () => {
+    // Models the real failure mode: the Discord REST API is unreachable and
+    // deferReply itself rejects with a ConnectTimeoutError from undici.
+    // No fallback reply should be attempted — Discord is unreachable.
+    const networkError = Object.assign(new Error('Connect Timeout Error'), { name: 'ConnectTimeoutError' });
+    const warnSpy = jest.fn();
+    const errorSpy = jest.fn();
+
+    jest.unstable_mockModule('../../commands/verify.js', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleVerifyCommand: jest.fn(),
+      handleHealthcheckCommand: jest.fn(),
+      getUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      // Handler calls deferReply and does not catch it — error propagates to router.
+      handleNominatePlayerCommand: jest.fn(async (interaction: any) => {
+        await interaction.deferReply({ flags: 64 }); // MessageFlags.Ephemeral
+      }),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),
+    }));
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
+      assignVerifiedRole: jest.fn(),
+      removeVerifiedRole: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
+      verifyRSIProfile: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
+    }));
+
+    const { handleInteraction } = await import('../interactionRouter.js');
+    process.env.BOT_READ_ONLY_MODE = 'false';
+    const replySpy = jest.fn(async () => undefined);
+    const interaction = {
+      id: 'cid-net',
+      isChatInputCommand: () => true,
+      isButton: () => false,
+      commandName: 'nominate-player',
+      replied: false,
+      deferred: false,
+      locale: 'en',
+      isRepliable: () => true,
+      reply: replySpy,
+      deferReply: jest.fn(async () => { throw networkError; }),
+    } as any;
+
+    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('[cid:cid-net]'));
+    expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('connectivity error'));
+    expect(errorSpy).not.toHaveBeenCalled();
+    // Transport path must not attempt a fallback reply — Discord is unreachable.
+    expect(replySpy).not.toHaveBeenCalled();
+  });
+
+  it('resolves without rethrowing when a handler throws a genuine bug (TypeError), logs at error and sends fallback reply', async () => {
+    // A real code bug must be classified at ERROR (not downgraded to WARN) and
+    // a fallback reply must be sent so the user is not left without a response.
+    const handlerBug = new TypeError('Cannot read properties of undefined');
+    const warnSpy = jest.fn();
+    const errorSpy = jest.fn();
+
+    jest.unstable_mockModule('../../commands/verify.js', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleVerifyCommand: jest.fn(),
+      handleHealthcheckCommand: jest.fn(),
+      getUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(async () => { throw handlerBug; }),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),
+    }));
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
+      assignVerifiedRole: jest.fn(),
+      removeVerifiedRole: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
+      verifyRSIProfile: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
+    }));
+
+    const { handleInteraction } = await import('../interactionRouter.js');
+    process.env.BOT_READ_ONLY_MODE = 'false';
+    const replySpy = jest.fn(async () => undefined);
+    const interaction = {
+      id: 'cid-bug',
+      isChatInputCommand: () => true,
+      isButton: () => false,
+      commandName: 'nominate-player',
+      replied: false,
+      deferred: false,
+      locale: 'en',
+      isRepliable: () => true,
+      reply: replySpy,
+    } as any;
+
+    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('[cid:cid-bug]'));
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('Cannot read properties of undefined'));
+    expect(warnSpy).not.toHaveBeenCalledWith(expect.stringContaining('connectivity error'));
+    // Fallback reply must be sent so the user receives a response.
+    expect(replySpy).toHaveBeenCalledWith(expect.objectContaining({
+      content: 'An unexpected error occurred while processing your request.',
+    }));
   });
 });

@@ -55,6 +55,21 @@ const TRANSPORT_ERROR_NAMES = new Set([
   'AbortError',
 ]);
 
+const FALLBACK_ERROR_CONTENT = 'An unexpected error occurred while processing your request.';
+
+async function attemptFallbackReply(interaction: Interaction, correlationId: string): Promise<void> {
+  if (!interaction.isRepliable() || interaction.replied) return;
+  if (interaction.deferred) {
+    await interaction
+      .editReply({ content: FALLBACK_ERROR_CONTENT, allowedMentions: { parse: [] } })
+      .catch(() => logger.debug(`[cid:${correlationId}] Failed to send fallback editReply`));
+  } else {
+    await interaction
+      .reply({ content: FALLBACK_ERROR_CONTENT, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } })
+      .catch(() => logger.debug(`[cid:${correlationId}] Failed to send fallback reply`));
+  }
+}
+
 export async function handleInteraction(interaction: Interaction, _client: Client) {
   const correlationId = interaction.id;
   return runWithCorrelationId(correlationId, async () => {
@@ -120,16 +135,20 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
         return;
       }
       // Unexpected non-DiscordAPIError (e.g. TypeError, unhandled handler bug) — log
-      // at error with stack so it is visible; do not rethrow to avoid double-logging.
+      // at error with stack and attempt a fallback reply so the user is not left
+      // with "application did not respond". Do not rethrow to avoid double-logging.
       if (!(error instanceof DiscordAPIError)) {
         const msg = error instanceof Error ? error.message : String(error);
         const stackText = error instanceof Error && error.stack ? `\n${error.stack}` : '';
         logger.error(`[cid:${correlationId}] Unhandled error in interaction handler: ${msg}${stackText}`);
+        await attemptFallbackReply(interaction, correlationId);
         return;
       }
-      // Unexpected DiscordAPIError — log at error for visibility; do not rethrow.
+      // Unexpected DiscordAPIError — log at error and attempt a fallback reply;
+      // do not rethrow to avoid double-logging.
       const stackText = error.stack ? `\n${error.stack}` : '';
       logger.error(`[cid:${correlationId}] Error while handling interaction in router: ${error.message}${stackText}`);
+      await attemptFallbackReply(interaction, correlationId);
     }
   });
 }
