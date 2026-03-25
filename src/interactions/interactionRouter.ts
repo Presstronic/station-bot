@@ -42,6 +42,17 @@ import { getLogger } from '../utils/logger.js';
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
 
+// Undici transport error names that indicate Discord REST was unreachable.
+// These are infrastructure failures; a fallback reply attempt would also fail.
+const TRANSPORT_ERROR_NAMES = new Set([
+  'ConnectTimeoutError',
+  'HeadersTimeoutError',
+  'BodyTimeoutError',
+  'SocketError',
+  'UndiciError',
+  'RequestAbortedError',
+]);
+
 export async function handleInteraction(interaction: Interaction, _client: Client) {
   const correlationId = interaction.id;
   return runWithCorrelationId(correlationId, async () => {
@@ -98,23 +109,25 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
         logger.warn(`[cid:${correlationId}] Interaction token expired: ${error.message}`);
         return;
       }
-      // Network/connectivity error — the Discord REST API was unreachable (e.g. a
-      // ConnectTimeoutError from deferReply). Attempting a fallback reply would also
-      // fail and waste another timeout. Log at warn (infrastructure failure, not a
-      // code bug) and return; do not rethrow to index.ts.
-      if (!(error instanceof DiscordAPIError)) {
-        const msg = error instanceof Error ? error.message : String(error);
-        logger.warn(`[cid:${correlationId}] Interaction failed due to connectivity error: ${msg}`);
+      // Transport/connectivity error — the Discord REST API was unreachable (e.g. a
+      // ConnectTimeoutError from undici when deferReply times out). A fallback reply
+      // would also fail, so log at warn (infrastructure failure, not a code bug) and
+      // return; do not rethrow to index.ts.
+      if (error instanceof Error && TRANSPORT_ERROR_NAMES.has(error.name)) {
+        logger.warn(`[cid:${correlationId}] Interaction failed due to connectivity error: ${error.message}`);
         return;
       }
-      // Unexpected Discord API error — log at error for visibility but do not rethrow;
-      // the router is the top-level handler and rethrowing only causes double-logging.
-      if (error instanceof Error) {
-        const stackText = error.stack ? `\n${error.stack}` : '';
-        logger.error(`Error while handling interaction in router: ${error.message}${stackText}`);
-      } else {
-        logger.error(`Error while handling interaction in router: ${String(error)}`);
+      // Unexpected non-DiscordAPIError (e.g. TypeError, unhandled handler bug) — log
+      // at error with stack so it is visible; do not rethrow to avoid double-logging.
+      if (!(error instanceof DiscordAPIError)) {
+        const msg = error instanceof Error ? error.message : String(error);
+        const stackText = error instanceof Error && error.stack ? `\n${error.stack}` : '';
+        logger.error(`[cid:${correlationId}] Unhandled error in interaction handler: ${msg}${stackText}`);
+        return;
       }
+      // Unexpected DiscordAPIError — log at error for visibility; do not rethrow.
+      const stackText = error.stack ? `\n${error.stack}` : '';
+      logger.error(`[cid:${correlationId}] Error while handling interaction in router: ${error.message}${stackText}`);
     }
   });
 }
