@@ -365,10 +365,16 @@ describe('startup wiring with read-only mode', () => {
     delete process.env.PURGE_JOBS_ENABLED;
   });
 
-  it('logs the startup banner via logger.info after startup completes', async () => {
+  it('logs the startup banner via logger.info after "Startup tasks completed."', async () => {
     const { buildStartupBanner, logger } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'true' });
 
     expect(buildStartupBanner).toHaveBeenCalledTimes(1);
-    expect(logger.info).toHaveBeenCalledWith('[startup banner]');
+
+    const infoCalls = (logger.info as jest.Mock).mock.calls.map((c: unknown[]) => c[0]);
+    const startupTasksIdx = infoCalls.indexOf('Startup tasks completed.');
+    const bannerIdx = infoCalls.indexOf('[startup banner]');
+
+    expect(startupTasksIdx).toBeGreaterThanOrEqual(0);
+    expect(bannerIdx).toBeGreaterThan(startupTasksIdx);
   });
 });

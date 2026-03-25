@@ -14,6 +14,15 @@ export interface StartupBannerOptions {
 
 const INNER_WIDTH = 54;
 
+function cpLength(s: string): number {
+  return [...s].length;
+}
+
+function cpPadEnd(s: string, width: number): string {
+  const len = cpLength(s);
+  return len >= width ? s : s + ' '.repeat(width - len);
+}
+
 function truncateToInner(text: string): string {
   const codepoints = [...text];
   if (codepoints.length <= INNER_WIDTH) return text;
@@ -22,14 +31,14 @@ function truncateToInner(text: string): string {
 
 function row(label: string, value: string): string {
   const content = `  ${label.padEnd(17)}: ${value}`;
-  return `║${truncateToInner(content).padEnd(INNER_WIDTH)}║`;
+  return `║${cpPadEnd(truncateToInner(content), INNER_WIDTH)}║`;
 }
 
 function centered(text: string): string {
   const safe = truncateToInner(text);
-  const totalPadding = INNER_WIDTH - [...safe].length;
+  const totalPadding = INNER_WIDTH - cpLength(safe);
   const left = Math.floor(totalPadding / 2);
-  return safe.padStart(left + safe.length).padEnd(INNER_WIDTH);
+  return cpPadEnd(' '.repeat(left) + safe, INNER_WIDTH);
 }
 
 export function buildStartupBanner(options: StartupBannerOptions): string {
