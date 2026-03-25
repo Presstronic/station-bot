@@ -159,11 +159,11 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const newCount           = displayNominations.filter((n) => n.lifecycleState === 'new').length;
     const businessOutcomeCount = displayNominations.filter((n) => {
       const code = resolveNominationOrgResultCode(n);
-      return code && businessResultCodes.includes(code as any);
+      return code !== null && businessResultCodes.includes(code);
     }).length;
     const technicalOutcomeCount = displayNominations.filter((n) => {
       const code = resolveNominationOrgResultCode(n);
-      return code && technicalResultCodes.includes(code as any);
+      return code !== null && technicalResultCodes.includes(code);
     }).length;
     const neverCheckedCount  = displayNominations.filter((n) => !n.lastOrgCheckAt).length;
     const unclassifiedCount  = displayNominations.filter((n) => n.lastOrgCheckAt && !resolveNominationOrgResultCode(n)).length;
