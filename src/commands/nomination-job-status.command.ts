@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import { toDateString } from '../utils/date.js';
 import {
@@ -37,11 +37,12 @@ export const nominationJobStatusCommandBuilder = new SlashCommandBuilder()
 export async function handleNominationJobStatusCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   try {
+    // Defer immediately — permission checks below involve async Discord/DB work.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     if (!(await ensureCanManageReviewProcessing(interaction))) {
       return;
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     const rawJobId = interaction.options.getString(
       i18n.__({ phrase: jobIdOptionKey, locale: defaultLocale })
@@ -105,12 +106,6 @@ export async function handleNominationJobStatusCommand(interaction: ChatInputCom
     if (interaction.deferred || interaction.replied) {
       await interaction.editReply({
         content: i18n.__({ phrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    } else {
-      await interaction.reply({
-        content: i18n.__({ phrase, locale }),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
     }

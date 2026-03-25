@@ -16,6 +16,7 @@ describe('nomination-access command', () => {
     }));
 
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       inGuild: () => true,
       locale: 'en-US',
@@ -27,15 +28,15 @@ describe('nomination-access command', () => {
       },
       replied: false,
       deferred: false,
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; });
 
     await handleNominationAccessCommand(interaction);
 
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('not configured correctly'),
-        ephemeral: true,
       })
     );
   });
@@ -49,6 +50,7 @@ describe('nomination-access command', () => {
     }));
 
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-r1',
       inGuild: () => true,
@@ -58,15 +60,15 @@ describe('nomination-access command', () => {
       options: { getString: () => 'reset', getRole: () => null },
       replied: false,
       deferred: false,
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; });
 
     await handleNominationAccessCommand(interaction);
 
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('No custom roles are configured'),
-        ephemeral: true,
       })
     );
   });
@@ -81,6 +83,7 @@ describe('nomination-access command', () => {
 
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
     const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('never resolves'); }) };
+    const editReply = jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined);
     const interaction: any = {
       id: 'iid-r2',
       inGuild: () => true,
@@ -90,18 +93,17 @@ describe('nomination-access command', () => {
       options: { getString: () => 'reset', getRole: () => null },
       replied: false,
       deferred: false,
-      editReply: jest.fn(async () => undefined),
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationAccessCommand(interaction);
 
-    const replyArg = (interaction.reply as jest.Mock).mock.calls[0]?.[0] as any;
-    expect(replyArg.content).toContain('2');
-    expect(replyArg.content).toContain('<@&role-1>');
-    expect(replyArg.content).toContain('<@&role-2>');
-    expect(replyArg.fetchReply).toBe(true);
-    expect(replyArg.components).toHaveLength(1);
+    const editReplyArg = (editReply as jest.Mock).mock.calls[0]?.[0] as any;
+    expect(editReplyArg.content).toContain('2');
+    expect(editReplyArg.content).toContain('<@&role-1>');
+    expect(editReplyArg.content).toContain('<@&role-2>');
+    expect(editReplyArg.components).toHaveLength(1);
   });
 
   it('reset confirms and performs reset when Confirm Reset is clicked', async () => {
@@ -132,15 +134,15 @@ describe('nomination-access command', () => {
       options: { getString: () => 'reset', getRole: () => null },
       replied: false,
       deferred: false,
-      editReply,
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockImplementation(editReply),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationAccessCommand(interaction);
 
     expect(resetReviewProcessRoleIds).toHaveBeenCalledTimes(1);
     expect(deferUpdate).toHaveBeenCalledTimes(1);
-    expect(editReply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('has been reset'),
         components: [],
@@ -175,9 +177,9 @@ describe('nomination-access command', () => {
       options: { getString: () => 'reset', getRole: () => null },
       replied: false,
       deferred: false,
-      editReply: jest.fn(async () => undefined),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationAccessCommand(interaction);
 
@@ -212,9 +214,9 @@ describe('nomination-access command', () => {
       options: { getString: () => 'reset', getRole: () => null },
       replied: false,
       deferred: false,
-      editReply,
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockImplementation(editReply),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationAccessCommand(interaction);
 
@@ -253,9 +255,9 @@ describe('nomination-access command', () => {
       options: { getString: () => 'reset', getRole: () => null },
       replied: false,
       deferred: false,
-      editReply,
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockImplementation(editReply),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationAccessCommand(interaction);
 

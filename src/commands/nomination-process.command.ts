@@ -4,6 +4,7 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   ComponentType,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
@@ -53,6 +54,9 @@ export const nominationProcessCommandBuilder = new SlashCommandBuilder()
 export async function handleNominationProcessCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   try {
+    // Defer immediately — permission checks below involve async Discord/DB work.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     if (!(await ensureCanManageReviewProcessing(interaction))) {
       return;
     }
@@ -63,9 +67,8 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
       const nomination = await getUnprocessedNominationByHandle(handle);
 
       if (!nomination) {
-        await interaction.reply({
+        await interaction.editReply({
           content: i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleNotFound', locale }, { rsiHandle: handle }),
-          ephemeral: true,
           allowedMentions: { parse: [] },
         });
         return;
@@ -97,11 +100,10 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
           }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
           throw err;
         }
-        await interaction.reply({
+        await interaction.editReply({
           content: updated
             ? i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle })
             : i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleNotFound', locale }, { rsiHandle: displayHandle }),
-          ephemeral: true,
           allowedMentions: { parse: [] },
         });
         return;
@@ -123,15 +125,13 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
           .setStyle(ButtonStyle.Secondary),
       );
 
-      const singleResponse = await interaction.reply({
+      const singleResponse = await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominationProcess.responses.singleNonQualifiedPrompt', locale },
           { displayHandle, lifecycleLabel }
         ),
         components: [row],
-        ephemeral: true,
         allowedMentions: { parse: [] },
-        fetchReply: true,
       });
 
       let singleConfirmation: Awaited<ReturnType<typeof singleResponse.awaitMessageComponent>>;
@@ -206,9 +206,8 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     // Bulk path — get count and show confirmation dialog
     const pending = await getUnprocessedNominations();
     if (pending.length === 0) {
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominationProcess.responses.noneToProcess', locale }),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
       return;
@@ -228,15 +227,13 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         .setStyle(ButtonStyle.Secondary),
     );
 
-    const response = await interaction.reply({
+    const response = await interaction.editReply({
       content: i18n.__mf(
         { phrase: 'commands.nominationProcess.responses.confirmBulkPrompt', locale },
         { count: String(pending.length) }
       ),
       components: [row],
-      ephemeral: true,
       allowedMentions: { parse: [] },
-      fetchReply: true,
     });
 
     let confirmation: Awaited<ReturnType<typeof response.awaitMessageComponent>>;
@@ -304,10 +301,8 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({ content: i18n.__({ phrase, locale }), ephemeral: true });
-    } else {
-      await interaction.reply({ content: i18n.__({ phrase, locale }), ephemeral: true });
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ content: i18n.__({ phrase, locale }), allowedMentions: { parse: [] } });
     }
   }
 }

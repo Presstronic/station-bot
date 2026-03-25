@@ -1,4 +1,4 @@
-import { ButtonInteraction } from 'discord.js';
+import { ButtonInteraction, MessageFlags } from 'discord.js';
 import { getUserVerificationData } from '../commands/verify.js';
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
@@ -14,7 +14,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
   }
 
   if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   }
 
   async function respond(content: string): Promise<void> {
@@ -23,10 +23,10 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
       return;
     }
     if (interaction.replied) {
-      await interaction.followUp({ content, ephemeral: true, allowedMentions: { parse: [] } });
+      await interaction.followUp({ content, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
       return;
     }
-    await interaction.reply({ content, ephemeral: true, allowedMentions: { parse: [] } });
+    await interaction.reply({ content, flags: MessageFlags.Ephemeral, allowedMentions: { parse: [] } });
   }
 
   const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;

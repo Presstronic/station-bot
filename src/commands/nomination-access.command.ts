@@ -4,6 +4,7 @@ import {
   ButtonStyle,
   ChatInputCommandInteraction,
   ComponentType,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
@@ -75,6 +76,9 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
   const locale = getCommandLocale(interaction);
 
   try {
+    // Defer immediately — ensureAdmin and subsequent DB work happen after acknowledgment.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     if (!(await ensureAdmin(interaction))) {
       return;
     }
@@ -86,9 +90,8 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
     const role = interaction.options.getRole(i18n.__({ phrase: accessRoleNameKey, locale: defaultLocale }));
 
     if ((action === 'add' || action === 'remove') && !role) {
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominationAccess.responses.roleRequired', locale }),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
       return;
@@ -117,7 +120,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
         throw err;
       }
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.added', locale },
           {
@@ -126,7 +129,6 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
             roles: formatRoleIds(addResult.roleIds),
           }
         ),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
       return;
@@ -155,7 +157,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
         throw err;
       }
-      await interaction.reply({
+      await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.removed', locale },
           {
@@ -164,7 +166,6 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
             roles: formatRoleIds(removeResult.roleIds),
           }
         ),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
       return;
@@ -174,9 +175,8 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
       const currentRoleIds = await getReviewProcessRoleIds();
 
       if (currentRoleIds.length === 0) {
-        await interaction.reply({
+        await interaction.editReply({
           content: i18n.__({ phrase: 'commands.nominationAccess.responses.resetNoRoles', locale }),
-          ephemeral: true,
           allowedMentions: { parse: [] },
         });
         return;
@@ -197,15 +197,13 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
           .setStyle(ButtonStyle.Secondary),
       );
 
-      const resetResponse = await interaction.reply({
+      const resetResponse = await interaction.editReply({
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.resetConfirmPrompt', locale },
           { count: String(currentRoleIds.length), roles: roleMentions }
         ),
         components: [row],
-        ephemeral: true,
         allowedMentions: { roles: currentRoleIds },
-        fetchReply: true,
       });
 
       let resetConfirmation: Awaited<ReturnType<typeof resetResponse.awaitMessageComponent>>;
@@ -269,13 +267,13 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
       return;
     }
 
+    // list action
     const roleIds = await getReviewProcessRoleIds();
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__mf(
         { phrase: 'commands.nominationAccess.responses.list', locale },
         { roles: formatRoleIds(roleIds) }
       ),
-      ephemeral: true,
       allowedMentions: { parse: [] },
     });
   } catch (error) {
@@ -284,16 +282,9 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({
         content: i18n.__({ phrase, locale }),
-        ephemeral: true,
-        allowedMentions: { parse: [] },
-      });
-    } else {
-      await interaction.reply({
-        content: i18n.__({ phrase, locale }),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
     }

@@ -1,4 +1,4 @@
-import { Client, Interaction } from 'discord.js';
+import { Client, DiscordAPIError, Interaction, MessageFlags, RESTJSONErrorCodes } from 'discord.js';
 import {
   handleVerifyCommand,
   handleHealthcheckCommand,
@@ -58,9 +58,9 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
         });
 
         if (interaction.replied || interaction.deferred) {
-          await interaction.followUp({ content: maintenanceMessage, ephemeral: true });
+          await interaction.followUp({ content: maintenanceMessage, flags: MessageFlags.Ephemeral });
         } else {
-          await interaction.reply({ content: maintenanceMessage, ephemeral: true });
+          await interaction.reply({ content: maintenanceMessage, flags: MessageFlags.Ephemeral });
         }
         return;
       }
@@ -92,6 +92,12 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
         await handleVerifyButtonInteraction(interaction);
       }
     } catch (error) {
+      // Interaction token expired — Discord will show "application did not respond".
+      // Nothing we can do to reply; log at warn and exit cleanly.
+      if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownInteraction) {
+        logger.warn(`[cid:${correlationId}] Interaction token expired: ${error.message}`);
+        return;
+      }
       if (error instanceof Error) {
         const stackText = error.stack ? `\n${error.stack}` : '';
         logger.error(`Error while handling interaction in router: ${error.message}${stackText}`);

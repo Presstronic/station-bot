@@ -63,7 +63,7 @@ describe('healthcheck command', () => {
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Only server administrators'),
-        ephemeral: true,
+        flags: 64,
       })
     );
   });
@@ -98,7 +98,7 @@ describe('healthcheck command', () => {
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('station-bot#0001'),
-        ephemeral: true,
+        flags: 64,
       })
     );
     expect(reply).toHaveBeenCalledTimes(1);
@@ -145,7 +145,7 @@ describe('healthcheck command', () => {
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('only be used in a server'),
-        ephemeral: true,
+        flags: 64,
       })
     );
   });

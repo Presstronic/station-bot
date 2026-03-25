@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import {
   getUnprocessedNominationByHandle,
@@ -40,11 +40,12 @@ export async function handleNominationRefreshCommand(interaction: ChatInputComma
   const locale = getCommandLocale(interaction);
 
   try {
+    // Defer immediately — permission checks below involve async Discord/DB work.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     if (!(await ensureCanManageReviewProcessing(interaction))) {
       return;
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     const rawRequestedHandle = interaction.options.getString(
       i18n.__({ phrase: rsiHandleKey, locale: defaultLocale })
@@ -136,15 +137,9 @@ export async function handleNominationRefreshCommand(interaction: ChatInputComma
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
 
-    if (interaction.replied || interaction.deferred) {
+    if (interaction.deferred || interaction.replied) {
       await interaction.editReply({
         content: i18n.__({ phrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    } else {
-      await interaction.reply({
-        content: i18n.__({ phrase, locale }),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
     }

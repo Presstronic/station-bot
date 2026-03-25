@@ -4,6 +4,7 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
+  MessageFlags,
   PermissionFlagsBits,
 } from 'discord.js';
 import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
@@ -62,7 +63,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   if (!isVerificationEnabled()) {
     await interaction.reply({
       content: 'Verification is not available on this server.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -73,7 +74,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   if (!RSI_HANDLE_PATTERN.test(rsiProfileName)) {
     await interaction.reply({
       content: i18n.__({ phrase: 'commands.verify.responses.invalidHandle', locale }),
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] },
     });
     return;
@@ -108,7 +109,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   await interaction.reply({
     content: replyMessage,
     components: [row],
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -130,7 +131,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
   if (!interaction.inGuild()) {
     await interaction.reply({
       content: i18n.__({ phrase: 'commands.healthcheck.responses.guildOnly', locale }),
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -140,7 +141,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
   if (!hasAdminPermission) {
     await interaction.reply({
       content: i18n.__({ phrase: 'commands.healthcheck.responses.adminOnly', locale }),
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -162,6 +163,6 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
         activeCommands,
       }
     ),
-    ephemeral: true,
+    flags: MessageFlags.Ephemeral,
   });
 }

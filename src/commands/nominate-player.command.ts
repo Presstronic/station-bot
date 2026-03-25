@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, DiscordAPIError, RESTJSONErrorCodes, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import { recordNomination } from '../services/nominations/nominations.repository.js';
 import { enqueueNominationCheckJob } from '../services/nominations/job-queue.repository.js';
@@ -76,7 +76,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     if (!interaction.inGuild()) {
       await interaction.reply({
         content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       return;
     }
@@ -85,7 +85,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     logger.debug(
       `nominate-player: calling deferReply (interactionAge=${Date.now() - interaction.createdTimestamp}ms)`
     );
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     logger.debug(`nominate-player: deferReply acknowledged (elapsed=${Date.now() - t0}ms)`);
 
     logger.debug(`nominate-player: checking member role (user=${interaction.user.id})`);
@@ -216,15 +216,6 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       nominationsInProgress.delete(interaction.user.id);
     }
   } catch (error) {
-    // Interaction token expired — Discord will show "application did not respond".
-    // Nothing we can do to reply; log at warn (not error) and exit cleanly.
-    if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownInteraction) {
-      logger.warn(
-        `nominate-player: interaction token expired for user ${interaction.user.id} — ${error.message}`
-      );
-      return;
-    }
-
     if (error instanceof NominationTargetCapExceededError) {
       try {
         await interaction.editReply({
@@ -261,7 +252,7 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       } else {
         await interaction.reply({
           content: i18n.__({ phrase: responsePhrase, locale }),
-          ephemeral: true,
+          flags: MessageFlags.Ephemeral,
           allowedMentions: { parse: [] },
         });
       }

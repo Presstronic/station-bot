@@ -89,7 +89,7 @@ describe('handleInteraction in read-only mode', () => {
     await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
-        ephemeral: true,
+        flags: 64, // MessageFlags.Ephemeral
       })
     );
   });
@@ -166,7 +166,7 @@ describe('handleInteraction in read-only mode', () => {
     await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
-        ephemeral: true,
+        flags: 64, // MessageFlags.Ephemeral
       })
     );
   });

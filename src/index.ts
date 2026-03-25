@@ -1,6 +1,6 @@
 import './bootstrap.js'; // Loads dotenv and any shared setup
 
-import { Client, IntentsBitField } from 'discord.js';
+import { Client, IntentsBitField, MessageFlags } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
 import { handleInteraction } from './interactions/interactionRouter.js';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
@@ -69,7 +69,7 @@ const shutdown = () => {
 process.once('SIGTERM', shutdown);
 process.once('SIGINT', shutdown);
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
@@ -182,7 +182,7 @@ client.on('interactionCreate', async (interaction) => {
     await interaction
       .reply({
         content: 'An unexpected error occurred while processing your request.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
         allowedMentions: { parse: [] },
       })
       .catch(() => {

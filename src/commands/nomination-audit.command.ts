@@ -1,6 +1,7 @@
 import {
   AttachmentBuilder,
   ChatInputCommandInteraction,
+  MessageFlags,
   PermissionFlagsBits,
   SlashCommandBuilder,
 } from 'discord.js';
@@ -96,11 +97,12 @@ export async function handleNominationAuditCommand(interaction: ChatInputCommand
   const locale = getCommandLocale(interaction);
 
   try {
+    // Defer immediately — ensureAdmin and subsequent DB work happen after acknowledgment.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     if (!(await ensureAdmin(interaction))) {
       return;
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     const rawEventType = interaction.options.getString(eventTypeOptionName) as AuditEventType | null;
     const rawSince     = interaction.options.getString(sinceOptionName);
@@ -181,15 +183,9 @@ export async function handleNominationAuditCommand(interaction: ChatInputCommand
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
 
-    if (interaction.replied || interaction.deferred) {
+    if (interaction.deferred || interaction.replied) {
       await interaction.editReply({
         content: i18n.__({ phrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    } else {
-      await interaction.reply({
-        content: i18n.__({ phrase, locale }),
-        ephemeral: true,
         allowedMentions: { parse: [] },
       });
     }

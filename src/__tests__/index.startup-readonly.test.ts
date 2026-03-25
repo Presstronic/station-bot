@@ -93,7 +93,7 @@ async function loadIndexAndRunReady(
       user = { tag: 'station-bot#0001' };
 
       once(event: string, callback: () => Promise<void>) {
-        if (event === 'ready') {
+        if (event === 'clientReady') {
           readyHandler = callback;
         }
       }
@@ -114,6 +114,7 @@ async function loadIndexAndRunReady(
     return {
       Client: MockClient,
       IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } },
+      MessageFlags: { Ephemeral: 64 },
     };
   });
 
@@ -235,7 +236,7 @@ describe('startup wiring with read-only mode', () => {
         guilds = { cache: new Map() };
         user = { tag: 'station-bot#0001' };
         once(event: string, callback: () => Promise<void>) {
-          if (event === 'ready') {
+          if (event === 'clientReady') {
             readyHandler = callback;
           }
         }
@@ -252,6 +253,7 @@ describe('startup wiring with read-only mode', () => {
       return {
         Client: MockClient,
         IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } },
+        MessageFlags: { Ephemeral: 64 },
       };
     });
 
@@ -310,13 +312,13 @@ describe('startup wiring with read-only mode', () => {
         guilds = { cache: new Map() };
         user = { tag: 'station-bot#0001' };
         once(event: string, callback: () => Promise<void>) {
-          if (event === 'ready') readyHandler = callback;
+          if (event === 'clientReady') { readyHandler = callback; }
         }
         on() { return undefined; }
         destroy = destroySpy;
         login() { return Promise.resolve('ok'); }
       }
-      return { Client: MockClient, IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } } };
+      return { Client: MockClient, IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } }, MessageFlags: { Ephemeral: 64 } };
     });
 
     process.env.BOT_READ_ONLY_MODE = 'false';
