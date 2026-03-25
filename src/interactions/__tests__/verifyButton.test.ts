@@ -74,7 +74,7 @@ describe('handleVerifyButtonInteraction', () => {
     await handleVerifyButtonInteraction(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledTimes(1);
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
   });
 
   it('replies with sessionExpired message when no session data exists', async () => {

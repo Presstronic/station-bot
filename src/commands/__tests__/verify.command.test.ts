@@ -50,8 +50,8 @@ describe('handleVerifyCommand — handle validation', () => {
     const interaction = makeVerifyInteraction('https://robertsspaceindustries.com/citizens/Testhandle123');
     await handleVerifyCommand(interaction);
 
-    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; ephemeral: boolean }])[0];
-    expect(call.ephemeral).toBe(true);
+    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(64); // MessageFlags.Ephemeral
     expect(call.content).toContain('RSI handle only');
   });
 
@@ -60,8 +60,8 @@ describe('handleVerifyCommand — handle validation', () => {
     const interaction = makeVerifyInteraction('citizens/Testhandle123');
     await handleVerifyCommand(interaction);
 
-    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; ephemeral: boolean }])[0];
-    expect(call.ephemeral).toBe(true);
+    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(64); // MessageFlags.Ephemeral
     expect(call.content).toContain('RSI handle only');
   });
 
@@ -70,8 +70,8 @@ describe('handleVerifyCommand — handle validation', () => {
     const interaction = makeVerifyInteraction('ab');
     await handleVerifyCommand(interaction);
 
-    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; ephemeral: boolean }])[0];
-    expect(call.ephemeral).toBe(true);
+    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(64); // MessageFlags.Ephemeral
     expect(call.content).toContain('RSI handle only');
   });
 
@@ -80,8 +80,8 @@ describe('handleVerifyCommand — handle validation', () => {
     const interaction = makeVerifyInteraction('a'.repeat(61));
     await handleVerifyCommand(interaction);
 
-    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; ephemeral: boolean }])[0];
-    expect(call.ephemeral).toBe(true);
+    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(64); // MessageFlags.Ephemeral
     expect(call.content).toContain('RSI handle only');
   });
 });

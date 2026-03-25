@@ -80,21 +80,25 @@ export async function hasOrganizationMemberOrHigher(
   return member.roles.highest.comparePositionTo(organizationRole) >= 0;
 }
 
+/**
+ * Checks that the interaction is in a guild and the member is an admin.
+ * Must be called after interaction.deferReply() — uses editReply for failures.
+ */
 export async function ensureAdmin(interaction: ChatInputCommandInteraction): Promise<boolean> {
   const locale = getCommandLocale(interaction);
 
   if (!interaction.inGuild()) {
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
-      ephemeral: true,
+      allowedMentions: { parse: [] },
     });
     return false;
   }
 
   if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__({ phrase: 'commands.nominationCommon.responses.adminOnly', locale }),
-      ephemeral: true,
+      allowedMentions: { parse: [] },
     });
     return false;
   }
@@ -102,15 +106,20 @@ export async function ensureAdmin(interaction: ChatInputCommandInteraction): Pro
   return true;
 }
 
+/**
+ * Checks that the interaction is in a guild and the member has review/process access
+ * (admin or an explicitly configured role).
+ * Must be called after interaction.deferReply() — uses editReply for failures.
+ */
 export async function ensureCanManageReviewProcessing(
   interaction: ChatInputCommandInteraction
 ): Promise<boolean> {
   const locale = getCommandLocale(interaction);
 
   if (!interaction.inGuild()) {
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
-      ephemeral: true,
+      allowedMentions: { parse: [] },
     });
     return false;
   }
@@ -121,9 +130,9 @@ export async function ensureCanManageReviewProcessing(
 
   const member = await getGuildMember(interaction);
   if (!member) {
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__({ phrase: 'commands.nominationCommon.responses.permissionsMissing', locale }),
-      ephemeral: true,
+      allowedMentions: { parse: [] },
     });
     return false;
   }
@@ -135,25 +144,25 @@ export async function ensureCanManageReviewProcessing(
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__({ phrase, locale }),
-      ephemeral: true,
+      allowedMentions: { parse: [] },
     });
     return false;
   }
   if (allowedRoleIds.length === 0) {
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__({ phrase: 'commands.nominationCommon.responses.permissionsMissing', locale }),
-      ephemeral: true,
+      allowedMentions: { parse: [] },
     });
     return false;
   }
 
   const hasAllowedRole = allowedRoleIds.some((roleId) => member.roles.cache.has(roleId));
   if (!hasAllowedRole) {
-    await interaction.reply({
+    await interaction.editReply({
       content: i18n.__({ phrase: 'commands.nominationCommon.responses.permissionsMissing', locale }),
-      ephemeral: true,
+      allowedMentions: { parse: [] },
     });
     return false;
   }

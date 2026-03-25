@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, DiscordAPIError, RESTJSONErrorCodes, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import { recordNomination } from '../services/nominations/nominations.repository.js';
 import { enqueueNominationCheckJob } from '../services/nominations/job-queue.repository.js';
@@ -72,22 +72,24 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
     `nominate-player: received (user=${interaction.user.id}, interactionAge=${interactionAgeMs}ms)`
   );
 
+  if (!interaction.inGuild()) {
+    await interaction.reply({
+      content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  // Defer immediately — async work (role lookup, DB queries) can exceed Discord's 3-second window.
+  // Placed before try so a 10062 (expired token) bubbles to the router rather than
+  // being swallowed and logged at ERROR here.
+  logger.debug(
+    `nominate-player: calling deferReply (interactionAge=${Date.now() - interaction.createdTimestamp}ms)`
+  );
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  logger.debug(`nominate-player: deferReply acknowledged (elapsed=${Date.now() - t0}ms)`);
+
   try {
-    if (!interaction.inGuild()) {
-      await interaction.reply({
-        content: i18n.__({ phrase: 'commands.nominationCommon.responses.guildOnly', locale }),
-        ephemeral: true,
-      });
-      return;
-    }
-
-    // Defer immediately — async work (role lookup, DB queries) can exceed Discord's 3-second window.
-    logger.debug(
-      `nominate-player: calling deferReply (interactionAge=${Date.now() - interaction.createdTimestamp}ms)`
-    );
-    await interaction.deferReply({ ephemeral: true });
-    logger.debug(`nominate-player: deferReply acknowledged (elapsed=${Date.now() - t0}ms)`);
-
     logger.debug(`nominate-player: checking member role (user=${interaction.user.id})`);
     const allowed = await hasOrganizationMemberOrHigher(interaction);
     logger.debug(
@@ -216,15 +218,6 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
       nominationsInProgress.delete(interaction.user.id);
     }
   } catch (error) {
-    // Interaction token expired — Discord will show "application did not respond".
-    // Nothing we can do to reply; log at warn (not error) and exit cleanly.
-    if (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownInteraction) {
-      logger.warn(
-        `nominate-player: interaction token expired for user ${interaction.user.id} — ${error.message}`
-      );
-      return;
-    }
-
     if (error instanceof NominationTargetCapExceededError) {
       try {
         await interaction.editReply({
@@ -253,18 +246,10 @@ export async function handleNominatePlayerCommand(interaction: ChatInputCommandI
         : 'commands.nominationCommon.responses.unexpectedError';
 
     try {
-      if (interaction.replied || interaction.deferred) {
-        await interaction.editReply({
-          content: i18n.__({ phrase: responsePhrase, locale }),
-          allowedMentions: { parse: [] },
-        });
-      } else {
-        await interaction.reply({
-          content: i18n.__({ phrase: responsePhrase, locale }),
-          ephemeral: true,
-          allowedMentions: { parse: [] },
-        });
-      }
+      await interaction.editReply({
+        content: i18n.__({ phrase: responsePhrase, locale }),
+        allowedMentions: { parse: [] },
+      });
     } catch (responseError) {
       logger.warn(`nominate-player: failed to deliver error response: ${String(responseError)}`);
     }

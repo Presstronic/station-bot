@@ -1,4 +1,4 @@
-import { ChatInputCommandInteraction, SlashCommandBuilder } from 'discord.js';
+import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import {
   getUnprocessedNominationByHandle,
@@ -39,12 +39,15 @@ export const nominationRefreshCommandBuilder = new SlashCommandBuilder()
 export async function handleNominationRefreshCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
 
+  // Defer immediately — permission checks below involve async Discord/DB work.
+  // Placed before try so a 10062 (expired token) bubbles to the router rather than
+  // being swallowed and logged at ERROR here.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
+
     if (!(await ensureCanManageReviewProcessing(interaction))) {
       return;
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     const rawRequestedHandle = interaction.options.getString(
       i18n.__({ phrase: rsiHandleKey, locale: defaultLocale })
@@ -136,17 +139,9 @@ export async function handleNominationRefreshCommand(interaction: ChatInputComma
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
 
-    if (interaction.replied || interaction.deferred) {
-      await interaction.editReply({
-        content: i18n.__({ phrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    } else {
-      await interaction.reply({
-        content: i18n.__({ phrase, locale }),
-        ephemeral: true,
-        allowedMentions: { parse: [] },
-      });
-    }
+    await interaction.editReply({
+      content: i18n.__({ phrase, locale }),
+      allowedMentions: { parse: [] },
+    });
   }
 }

@@ -1,6 +1,7 @@
 import {
   AttachmentBuilder,
   ChatInputCommandInteraction,
+  MessageFlags,
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
@@ -92,12 +93,15 @@ function getLastRefreshedAtUtc(lastCheckTimes: Array<string | null>): string {
 
 export async function handleNominationReviewCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
+  // Defer immediately — permission checks below involve async Discord/DB work.
+  // Placed before try so a 10062 (expired token) bubbles to the router rather than
+  // being swallowed and logged at ERROR here.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
+
     if (!(await ensureCanManageReviewProcessing(interaction))) {
       return;
     }
-
-    await interaction.deferReply({ ephemeral: true });
 
     const statusFilter = interaction.options.getString(statusOptionName) as NominationStatusFilter | null;
     const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
@@ -113,122 +117,137 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const isTruncated = nominations.length > limitValue;
     const displayNominations = isTruncated ? nominations.slice(0, limitValue) : nominations;
 
-    const truncationSuffix = isTruncated
-      ? i18n.__({ phrase: 'commands.nominationReview.responses.truncatedHint', locale })
-      : '';
-    const filterContext = i18n.__mf(
-      { phrase: 'commands.nominationReview.responses.filterContext', locale },
-      { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
-    ) + truncationSuffix;
-
     if (displayNominations.length === 0) {
-      await interaction.editReply({
-        content: i18n.__mf(
-          { phrase: 'commands.nominationReview.responses.noneFiltered', locale },
-          { filterContext }
-        ),
-      });
+      const phrase = statusFilter
+        ? 'commands.nominationReview.responses.noneFiltered'
+        : 'commands.nominationReview.responses.none';
+      const content = statusFilter
+        ? i18n.__mf({ phrase, locale }, {
+            filterContext: i18n.__mf(
+              { phrase: 'commands.nominationReview.responses.filterContext', locale },
+              { status: statusFilter, sort: sortChoice, limit: String(limitValue) }
+            ),
+          })
+        : i18n.__({ phrase, locale });
+      await interaction.editReply({ content, allowedMentions: { parse: [] } });
       return;
     }
 
+    const truncatedHint = isTruncated
+      ? i18n.__({ phrase: 'commands.nominationReview.responses.truncatedHint', locale })
+      : '';
+
+    const lastCheckTimes = displayNominations.map((n) => n.lastOrgCheckAt ?? null);
+    const lastRefreshedAt = toDateString(getLastRefreshedAtUtc(lastCheckTimes));
+
+    const filterContext = i18n.__mf(
+      { phrase: 'commands.nominationReview.responses.filterContext', locale },
+      { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
+    );
+
     const reasonCounts = createEmptyReasonCounts();
-    let unclassifiedCount = 0;
     for (const nomination of displayNominations) {
       const code = resolveNominationOrgResultCode(nomination);
-      if (!code) {
-        if (nomination.lastOrgCheckAt) {
-          unclassifiedCount += 1;
-        }
-        continue;
+      if (code && code in reasonCounts) {
+        reasonCounts[code as keyof typeof reasonCounts] += 1;
       }
-      reasonCounts[code] += 1;
     }
-    const businessOutcomeCount = businessResultCodes.reduce(
-      (total, code) => total + reasonCounts[code],
-      0
-    );
-    const technicalOutcomeCount = technicalResultCodes.reduce(
-      (total, code) => total + reasonCounts[code],
-      0
-    );
-    const neverCheckedCount = displayNominations.filter((nomination) => !nomination.lastOrgCheckAt).length;
-    const rawLastRefreshedAt = getLastRefreshedAtUtc(displayNominations.map((nomination) => nomination.lastOrgCheckAt));
-    const lastRefreshedAt = rawLastRefreshedAt === 'never' ? 'never' : toDateString(rawLastRefreshedAt);
-    const newCount = displayNominations.filter((n) => n.lifecycleState === 'new').length;
-    const checkedCount = displayNominations.filter((n) => n.lifecycleState === 'checked').length;
-    const qualifiedCount = displayNominations.filter((n) => n.lifecycleState === 'qualified').length;
-    const disqualifiedCount = displayNominations.filter((n) => n.lifecycleState === 'disqualified_in_org').length;
-    const needsAttentionCount = checkedCount;
+
+    const qualifiedCount     = reasonCounts['not_in_org'];
+    const disqualifiedCount  = reasonCounts['in_org'];
+    const needsAttentionCount = displayNominations.filter((n) => n.lifecycleState === 'checked').length;
+    const newCount           = displayNominations.filter((n) => n.lifecycleState === 'new').length;
+    const businessOutcomeCount = displayNominations.filter((n) => {
+      const code = resolveNominationOrgResultCode(n);
+      return code !== null && businessResultCodes.includes(code);
+    }).length;
+    const technicalOutcomeCount = displayNominations.filter((n) => {
+      const code = resolveNominationOrgResultCode(n);
+      return code !== null && technicalResultCodes.includes(code);
+    }).length;
+    const neverCheckedCount  = displayNominations.filter((n) => !n.lastOrgCheckAt).length;
+    const unclassifiedCount  = displayNominations.filter((n) => n.lastOrgCheckAt && !resolveNominationOrgResultCode(n)).length;
 
     const table = formatNominationsAsTable(displayNominations, showDetail);
-    const commonCounts = {
-      totalCount: String(displayNominations.length),
-      newCount: String(newCount),
-      qualifiedCount: String(qualifiedCount),
-      disqualifiedCount: String(disqualifiedCount),
-      needsAttentionCount: String(needsAttentionCount),
-      lastRefreshedAt,
-    };
+    const totalCount = String(displayNominations.length) + truncatedHint;
 
     const summaryPhrase = showDetail
       ? 'commands.nominationReview.responses.summary'
       : 'commands.nominationReview.responses.summaryBusiness';
-    const attachmentPhrase = showDetail
-      ? 'commands.nominationReview.responses.summaryAttachment'
-      : 'commands.nominationReview.responses.summaryBusinessAttachment';
 
-    const detailCounts = showDetail ? {
-      businessOutcomeCount: String(businessOutcomeCount),
-      technicalOutcomeCount: String(technicalOutcomeCount),
-      inOrgCount: String(reasonCounts.in_org),
-      notInOrgCount: String(reasonCounts.not_in_org),
-      notFoundCount: String(reasonCounts.not_found),
-      timeoutCount: String(reasonCounts.http_timeout),
-      rateLimitedCount: String(reasonCounts.rate_limited),
-      parseFailedCount: String(reasonCounts.parse_failed),
-      httpErrorCount: String(reasonCounts.http_error),
-      unclassifiedCount: String(unclassifiedCount),
-      neverCheckedCount: String(neverCheckedCount),
-    } : {};
-
-    const summary = i18n.__mf(
+    const inlineContent = i18n.__mf(
       { phrase: summaryPhrase, locale },
-      { filterContext, table: `\`\`\`\n${table}\n\`\`\``, ...commonCounts, ...detailCounts }
+      {
+        filterContext,
+        table,
+        totalCount,
+        newCount: String(newCount),
+        qualifiedCount: String(qualifiedCount),
+        disqualifiedCount: String(disqualifiedCount),
+        needsAttentionCount: String(needsAttentionCount),
+        businessOutcomeCount: String(businessOutcomeCount),
+        technicalOutcomeCount: String(technicalOutcomeCount),
+        inOrgCount: String(reasonCounts['in_org']),
+        notInOrgCount: String(reasonCounts['not_in_org']),
+        notFoundCount: String(reasonCounts['not_found']),
+        timeoutCount: String(reasonCounts['http_timeout']),
+        rateLimitedCount: String(reasonCounts['rate_limited']),
+        parseFailedCount: String(reasonCounts['parse_failed']),
+        httpErrorCount: String(reasonCounts['http_error']),
+        unclassifiedCount: String(unclassifiedCount),
+        neverCheckedCount: String(neverCheckedCount),
+        lastRefreshedAt,
+      }
     );
 
-    if (summary.length <= maxDiscordMessageLength) {
-      await interaction.editReply({ content: summary, allowedMentions: { parse: [] } });
-      return;
-    }
-
-    const attachment = new AttachmentBuilder(Buffer.from(table, 'utf8'), {
-      name: `nominations-${Date.now()}.txt`,
-    });
-    await interaction.editReply({
-      content: i18n.__mf(
+    if (inlineContent.length <= maxDiscordMessageLength) {
+      await interaction.editReply({ content: inlineContent, allowedMentions: { parse: [] } });
+    } else {
+      const attachment = new AttachmentBuilder(Buffer.from(table, 'utf8'), {
+        name: 'nominations.txt',
+      });
+      const attachmentPhrase = showDetail
+        ? 'commands.nominationReview.responses.summaryAttachment'
+        : 'commands.nominationReview.responses.summaryBusinessAttachment';
+      const attachmentContent = i18n.__mf(
         { phrase: attachmentPhrase, locale },
-        { filterContext, ...commonCounts, ...detailCounts }
-      ),
-      allowedMentions: { parse: [] },
-      files: [attachment],
-    });
+        {
+          filterContext,
+          totalCount,
+          newCount: String(newCount),
+          qualifiedCount: String(qualifiedCount),
+          disqualifiedCount: String(disqualifiedCount),
+          needsAttentionCount: String(needsAttentionCount),
+          businessOutcomeCount: String(businessOutcomeCount),
+          technicalOutcomeCount: String(technicalOutcomeCount),
+          inOrgCount: String(reasonCounts['in_org']),
+          notInOrgCount: String(reasonCounts['not_in_org']),
+          notFoundCount: String(reasonCounts['not_found']),
+          timeoutCount: String(reasonCounts['http_timeout']),
+          rateLimitedCount: String(reasonCounts['rate_limited']),
+          parseFailedCount: String(reasonCounts['parse_failed']),
+          httpErrorCount: String(reasonCounts['http_error']),
+          unclassifiedCount: String(unclassifiedCount),
+          neverCheckedCount: String(neverCheckedCount),
+          lastRefreshedAt,
+        }
+      );
+      await interaction.editReply({
+        content: attachmentContent,
+        files: [attachment],
+        allowedMentions: { parse: [] },
+      });
+    }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`nomination-review command failed: ${errorMessage}`);
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
-    if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({
-        content: i18n.__({ phrase, locale }),
-        allowedMentions: { parse: [] },
-      });
-    } else {
-      await interaction.reply({
-        content: i18n.__({ phrase, locale }),
-        ephemeral: true,
-        allowedMentions: { parse: [] },
-      });
-    }
+
+    await interaction.editReply({
+      content: i18n.__({ phrase, locale }),
+      allowedMentions: { parse: [] },
+    });
   }
 }

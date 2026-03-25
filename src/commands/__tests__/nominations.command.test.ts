@@ -110,7 +110,7 @@ describe('nominations commands', () => {
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -152,7 +152,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -186,7 +186,7 @@ describe('nominations commands', () => {
     const interaction = createNominationInteraction();
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('not configured correctly'),
@@ -232,7 +232,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('must have the role'),
@@ -260,16 +260,15 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      editReply: jest.fn(async () => undefined),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
-    expect(interaction.reply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('2'),
       components: expect.any(Array),
-      ephemeral: true,
     }));
   });
 
@@ -292,21 +291,20 @@ describe('nominations commands', () => {
       deferUpdate: jest.fn(async () => undefined),
     };
     const mockResponse = { awaitMessageComponent: jest.fn(async () => confirmButton) };
-    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-2', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
     expect(markAllNominationsProcessed).toHaveBeenCalledWith('admin-1');
-    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('Marked 1 nomination(s) as processed.'),
       components: [],
     }));
@@ -337,9 +335,9 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      editReply: jest.fn(async () => undefined),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
@@ -364,20 +362,19 @@ describe('nominations commands', () => {
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
     const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('Collector timeout'); }) };
-    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-4', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
-    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('timed out'),
       components: [],
     }));
@@ -396,21 +393,20 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
-    const reply = jest.fn(async () => undefined);
     const interaction = {
       id: 'iid-5', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      reply, editReply: jest.fn(async () => undefined),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn(async () => undefined),
     } as any;
 
     await handleNominationProcessCommand(interaction);
 
-    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('no unprocessed nominations'),
-      ephemeral: true,
     }));
   });
 
@@ -444,7 +440,7 @@ describe('nominations commands', () => {
       user: { id: 'role-user', tag: 'role#0001' },
       memberPermissions: { has: () => false },
       options: { getString: () => null },
-      reply: jest.fn(async () => { processInteraction.replied = true; return mockResponse; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     });
 
     await handleNominationProcessCommand(processInteraction);
@@ -469,22 +465,21 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
-    const processReply = jest.fn(async () => undefined);
     const interaction = {
       id: 'iid-7', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      reply: processReply, editReply: jest.fn(async () => undefined),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn(async () => undefined),
     } as any;
 
     await handleNominationProcessCommand(interaction);
 
-    expect(processReply).toHaveBeenCalledWith(
+    expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('not configured correctly'),
-        ephemeral: true,
       })
     );
   });
@@ -508,26 +503,25 @@ describe('nominations commands', () => {
       deferUpdate: jest.fn(async () => undefined),
     };
     const mockResponse = { awaitMessageComponent: jest.fn(async () => confirmButton) };
-    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-8', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: () => null },
       replied: false, deferred: false,
-      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
     expect(markAllNominationsProcessed).toHaveBeenCalledWith('admin-1');
-    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('went wrong'),
       components: [],
     }));
     // Must not show a success message
-    const content: string = (editReply.mock.calls as any[])[0]?.[0]?.content ?? '';
+    const content: string = (interaction.editReply.mock.calls as any[])[1]?.[0]?.content ?? '';
     expect(content).not.toContain('Marked');
   });
 
@@ -551,20 +545,17 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationProcessCommand } = await import('../nomination-process.command.js');
-    const processReply = jest.fn(async () => undefined);
     const processInteraction = createNominationInteraction({
       user: { id: 'role-user' },
       memberPermissions: { has: () => false },
       options: { getString: () => null },
-      reply: processReply,
     });
 
     await handleNominationProcessCommand(processInteraction);
 
-    expect(processReply).toHaveBeenCalledWith(
+    expect(processInteraction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('not configured correctly'),
-        ephemeral: true,
       })
     );
   });
@@ -653,7 +644,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -685,7 +676,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -720,7 +711,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -800,7 +791,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -842,7 +833,7 @@ describe('nominations commands', () => {
     // Second request from the same user arrives while first is in-flight
     await handleNominatePlayerCommand(secondInteraction);
 
-    expect(secondInteraction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(secondInteraction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(secondEditReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('still being processed'),
@@ -877,7 +868,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).not.toHaveBeenCalled();
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -911,7 +902,7 @@ describe('nominations commands', () => {
 
     await handleNominatePlayerCommand(interaction);
 
-    expect(interaction.deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(recordNomination).toHaveBeenCalledTimes(1);
     expect(interaction.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1085,12 +1076,10 @@ describe('nominations commands', () => {
       deferReply: jest.fn(async () => { throw tokenExpiredError; }),
     });
 
-    // Should not throw — handler must exit cleanly
-    await expect(handleNominatePlayerCommand(interaction)).resolves.toBeUndefined();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('interaction token expired'));
-    // Must not attempt a follow-up reply after the token is gone
+    // deferReply is now outside the try block so 10062 propagates to the router,
+    // which is the centralized handler for expired tokens.
+    await expect(handleNominatePlayerCommand(interaction)).rejects.toThrow(tokenExpiredError);
     expect(interaction.editReply).not.toHaveBeenCalled();
-    expect(interaction.reply).not.toHaveBeenCalled();
   });
 
   it('nominate-player swallows secondary errors when the error response itself fails', async () => {
@@ -1177,7 +1166,7 @@ describe('nominations commands', () => {
 
     await handleNominationReviewCommand(interaction);
 
-    expect(deferReply).toHaveBeenCalledWith({ ephemeral: true });
+    expect(deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
     expect(getUnprocessedNominations).toHaveBeenCalledTimes(1);
     expect(checkHasAnyOrgMembership).not.toHaveBeenCalled();
     expect(updateOrgCheckResult).not.toHaveBeenCalled();
@@ -1913,22 +1902,22 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
-    const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
-      replied: false, deferred: false, reply,
+      replied: false, deferred: false,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn(async () => undefined),
     } as any;
 
     await handleNominationProcessCommand(interaction);
 
     expect(getUnprocessedNominationByHandle).toHaveBeenCalledWith('SomePilot');
     expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
-    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('SomePilot'),
-      ephemeral: true,
     }));
   });
 
@@ -1945,21 +1934,21 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
-    const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'UnknownPilot' : null) },
-      replied: false, deferred: false, reply,
+      replied: false, deferred: false,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn(async () => undefined),
     } as any;
 
     await handleNominationProcessCommand(interaction);
 
     expect(markNominationProcessedByHandle).not.toHaveBeenCalled();
-    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('UnknownPilot'),
-      ephemeral: true,
     }));
   });
 
@@ -1987,20 +1976,20 @@ describe('nominations commands', () => {
       deferUpdate: jest.fn(async () => undefined),
     };
     const mockResponse = { awaitMessageComponent: jest.fn(async () => processAnywayButton) };
-    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-s1', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
-      replied: false, deferred: false, editReply,
+      replied: false, deferred: false,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
     expect(markNominationProcessedByHandle).toHaveBeenCalledWith('SomePilot', 'admin-1');
-    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('SomePilot'),
       components: [],
     }));
@@ -2036,9 +2025,9 @@ describe('nominations commands', () => {
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
       replied: false, deferred: false,
-      editReply: jest.fn(async () => undefined),
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
@@ -2067,20 +2056,20 @@ describe('nominations commands', () => {
     }));
 
     const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
-    const reply = jest.fn(async () => undefined);
     const interaction = {
       inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
-      replied: false, deferred: false, reply,
+      replied: false, deferred: false,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn(async () => undefined),
     } as any;
 
     await handleNominationProcessCommand(interaction);
 
-    expect(reply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('Could not find'),
-      ephemeral: true,
     }));
   });
 
@@ -2108,19 +2097,19 @@ describe('nominations commands', () => {
       deferUpdate: jest.fn(async () => undefined),
     };
     const mockResponse = { awaitMessageComponent: jest.fn(async () => processAnywayButton) };
-    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-s4', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
-      replied: false, deferred: false, editReply,
+      replied: false, deferred: false,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
-    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('Could not find'),
       components: [],
     }));
@@ -2145,20 +2134,20 @@ describe('nominations commands', () => {
 
     const { handleNominationProcessCommand, rsiHandleOptionName } = await import('../nomination-process.command.js');
     const mockResponse = { awaitMessageComponent: jest.fn(async () => { throw new Error('Collector received no interactions before ending with reason: time'); }) };
-    const editReply = jest.fn(async () => undefined);
     const interaction: any = {
       id: 'iid-s3', inGuild: () => true, locale: 'en-US',
       user: { id: 'admin-1', tag: 'admin#0001' },
       memberPermissions: { has: () => true },
       options: { getString: (name: string) => (name === rsiHandleOptionName ? 'SomePilot' : null) },
-      replied: false, deferred: false, editReply,
+      replied: false, deferred: false,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+      editReply: jest.fn<() => Promise<unknown>>().mockResolvedValueOnce(mockResponse).mockResolvedValue(undefined),
     };
-    interaction.reply = jest.fn(async () => { interaction.replied = true; return mockResponse; });
 
     await handleNominationProcessCommand(interaction);
 
     expect(markNominationProcessedByHandle).not.toHaveBeenCalled();
-    expect(editReply).toHaveBeenCalledWith(expect.objectContaining({
+    expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('timed out'),
       components: [],
     }));
