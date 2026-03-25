@@ -266,7 +266,7 @@ describe('handleInteraction in read-only mode', () => {
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
       // Handler calls deferReply and does not catch it — error propagates to router.
       handleNominatePlayerCommand: jest.fn(async (interaction: any) => {
-        await interaction.deferReply({ ephemeral: true });
+        await interaction.deferReply({ flags: 64 }); // MessageFlags.Ephemeral
       }),
     }));
     jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({

@@ -44,13 +44,15 @@ const logger = getLogger();
 
 // Undici transport error names that indicate Discord REST was unreachable.
 // These are infrastructure failures; a fallback reply attempt would also fail.
+// Note: undici's RequestAbortedError has error.name === 'AbortError' at runtime,
+// so we match on 'AbortError' rather than the class name.
 const TRANSPORT_ERROR_NAMES = new Set([
   'ConnectTimeoutError',
   'HeadersTimeoutError',
   'BodyTimeoutError',
   'SocketError',
   'UndiciError',
-  'RequestAbortedError',
+  'AbortError',
 ]);
 
 export async function handleInteraction(interaction: Interaction, _client: Client) {
