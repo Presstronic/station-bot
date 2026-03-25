@@ -48,6 +48,7 @@ async function loadIndexAndRunReady(
   const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: jest.fn() }));
   const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: jest.fn() }));
   const startNominationCheckWorkerLoop = jest.fn();
+  const buildStartupBanner = jest.fn(() => '[startup banner]');
   const logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -79,6 +80,9 @@ async function loadIndexAndRunReady(
   }));
   await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
     startNominationCheckWorkerLoop,
+  }));
+  await jest.unstable_mockModule('../utils/startup-banner.js', () => ({
+    buildStartupBanner,
   }));
   await jest.unstable_mockModule('../utils/logger.js', () => ({
     getLogger: () => logger,
@@ -131,6 +135,8 @@ async function loadIndexAndRunReady(
     scheduleTemporaryMemberCleanup,
     schedulePotentialApplicantCleanup,
     startNominationCheckWorkerLoop,
+    buildStartupBanner,
+    logger,
   };
 }
 
@@ -230,6 +236,9 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
     }));
+    await jest.unstable_mockModule('../utils/startup-banner.js', () => ({
+      buildStartupBanner: jest.fn(() => '[startup banner]'),
+    }));
     await jest.unstable_mockModule('../utils/logger.js', () => ({
       getLogger: () => logger,
     }));
@@ -309,6 +318,9 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
     }));
+    await jest.unstable_mockModule('../utils/startup-banner.js', () => ({
+      buildStartupBanner: jest.fn(() => '[startup banner]'),
+    }));
     await jest.unstable_mockModule('../utils/logger.js', () => ({ getLogger: () => logger }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
@@ -351,5 +363,12 @@ describe('startup wiring with read-only mode', () => {
     setTimeoutSpy.mockRestore();
     delete process.env.NOMINATION_WORKER_ENABLED;
     delete process.env.PURGE_JOBS_ENABLED;
+  });
+
+  it('logs the startup banner via logger.info after startup completes', async () => {
+    const { buildStartupBanner, logger } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'true' });
+
+    expect(buildStartupBanner).toHaveBeenCalledTimes(1);
+    expect(logger.info).toHaveBeenCalledWith('[startup banner]');
   });
 });

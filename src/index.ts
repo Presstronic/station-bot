@@ -9,6 +9,7 @@ import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
 import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
+import { buildStartupBanner } from './utils/startup-banner.js';
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
@@ -127,6 +128,18 @@ client.once('clientReady', async () => {
   }
 
   logger.info('Startup tasks completed.');
+  logger.info(
+    buildStartupBanner({
+      logLevel: process.env.LOG_LEVEL || 'info',
+      readOnlyMode,
+      dbConfigured: isDatabaseConfigured(),
+      nominationWorkerActive: workerHandle !== null,
+      purgeJobsEnabled,
+      guildCount: client.guilds.cache.size,
+      botTag: client.user?.tag ?? 'unknown',
+      startedAt: new Date().toISOString(),
+    })
+  );
 });
 
 client.on('guildCreate', async (guild) => {
