@@ -57,7 +57,7 @@ const TRANSPORT_ERROR_NAMES = new Set([
 
 const FALLBACK_ERROR_CONTENT = 'An unexpected error occurred while processing your request.';
 
-async function attemptFallbackReply(interaction: Interaction, correlationId: string): Promise<void> {
+export async function attemptFallbackReply(interaction: Interaction, correlationId: string): Promise<void> {
   if (!interaction.isRepliable() || interaction.replied) return;
   if (interaction.deferred) {
     await interaction

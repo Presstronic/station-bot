@@ -1,8 +1,8 @@
 import './bootstrap.js'; // Loads dotenv and any shared setup
 
-import { Client, IntentsBitField, MessageFlags } from 'discord.js';
+import { Client, IntentsBitField } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
-import { handleInteraction } from './interactions/interactionRouter.js';
+import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
@@ -14,7 +14,6 @@ const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
-const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
 process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, error);
@@ -164,30 +163,7 @@ client.on('interactionCreate', async (interaction) => {
     } else {
       logger.error(`Unhandled interaction error in index handler: ${String(error)}`);
     }
-    if (!interaction.isRepliable()) {
-      return;
-    }
-    if (interaction.replied) {
-      return;
-    }
-    if (interaction.deferred) {
-      await interaction.editReply({
-        content: 'An unexpected error occurred while processing your request.',
-        allowedMentions: { parse: [] },
-      }).catch(() => {
-        logger.debug(`Failed to send fallback interaction error editReply (locale=${defaultLocale}).`);
-      });
-      return;
-    }
-    await interaction
-      .reply({
-        content: 'An unexpected error occurred while processing your request.',
-        flags: MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] },
-      })
-      .catch(() => {
-        logger.debug(`Failed to send fallback interaction error reply (locale=${defaultLocale}).`);
-      });
+    await attemptFallbackReply(interaction, interaction.id);
   }
 });
 

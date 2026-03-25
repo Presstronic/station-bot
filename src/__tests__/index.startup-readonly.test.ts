@@ -68,6 +68,7 @@ async function loadIndexAndRunReady(
   }));
   await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
     handleInteraction: jest.fn(async () => undefined),
+    attemptFallbackReply: jest.fn(async () => undefined),
   }));
   await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
     scheduleTemporaryMemberCleanup,
@@ -217,6 +218,7 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),
+      attemptFallbackReply: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
       scheduleTemporaryMemberCleanup,
@@ -297,6 +299,7 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),
+      attemptFallbackReply: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
       scheduleTemporaryMemberCleanup,
