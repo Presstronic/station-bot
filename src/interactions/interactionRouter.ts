@@ -98,13 +98,23 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
         logger.warn(`[cid:${correlationId}] Interaction token expired: ${error.message}`);
         return;
       }
+      // Network/connectivity error — the Discord REST API was unreachable (e.g. a
+      // ConnectTimeoutError from deferReply). Attempting a fallback reply would also
+      // fail and waste another timeout. Log at warn (infrastructure failure, not a
+      // code bug) and return; do not rethrow to index.ts.
+      if (!(error instanceof DiscordAPIError)) {
+        const msg = error instanceof Error ? error.message : String(error);
+        logger.warn(`[cid:${correlationId}] Interaction failed due to connectivity error: ${msg}`);
+        return;
+      }
+      // Unexpected Discord API error — log at error for visibility but do not rethrow;
+      // the router is the top-level handler and rethrowing only causes double-logging.
       if (error instanceof Error) {
         const stackText = error.stack ? `\n${error.stack}` : '';
         logger.error(`Error while handling interaction in router: ${error.message}${stackText}`);
       } else {
         logger.error(`Error while handling interaction in router: ${String(error)}`);
       }
-      throw error;
     }
   });
 }
