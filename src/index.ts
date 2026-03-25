@@ -1,5 +1,6 @@
 import './bootstrap.js'; // Loads dotenv and any shared setup
 
+import { createRequire } from 'node:module';
 import { Client, IntentsBitField } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
 import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
@@ -10,6 +11,9 @@ import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './con
 import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
+
+const _require = createRequire(import.meta.url);
+const { version: appVersion } = _require('../package.json') as { version: string };
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
@@ -130,11 +134,14 @@ client.once('clientReady', async () => {
   logger.info('Startup tasks completed.');
   logger.info(
     buildStartupBanner({
+      version: appVersion,
+      nodeVersion: process.version,
+      environment: process.env.NODE_ENV ?? 'development',
       logLevel: process.env.LOG_LEVEL || 'info',
       readOnlyMode,
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
-      purgeJobsEnabled,
+      purgeJobsEnabled: !readOnlyMode && purgeJobsEnabled,
       guildCount: client.guilds.cache.size,
       botTag: client.user?.tag ?? 'unknown',
       startedAt: new Date().toISOString(),
