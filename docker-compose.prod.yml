@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     container_name: station-bot-postgres
@@ -42,7 +40,6 @@ services:
       - /etc/localtime:/etc/localtime:ro # Sync container time with host
       - ./logs:/app/logs # Persistent writable logs directory
     environment:
-      LOG_LEVEL: "${LOG_LEVEL:-info}"
       DATABASE_URL: "${DATABASE_URL}"
 
 networks:

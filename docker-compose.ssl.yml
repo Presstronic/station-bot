@@ -7,8 +7,6 @@
 # Usage:
 #   docker compose -f docker-compose.prod.yml -f docker-compose.ssl.yml up -d
 
-version: '3.8'
-
 services:
   postgres:
     volumes:
