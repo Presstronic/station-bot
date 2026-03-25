@@ -69,7 +69,7 @@ const shutdown = () => {
 process.once('SIGTERM', shutdown);
 process.once('SIGINT', shutdown);
 
-client.once('ready', async () => {
+client.once('clientReady', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);

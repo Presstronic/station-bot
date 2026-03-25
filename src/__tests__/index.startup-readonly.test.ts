@@ -93,7 +93,7 @@ async function loadIndexAndRunReady(
       user = { tag: 'station-bot#0001' };
 
       once(event: string, callback: () => Promise<void>) {
-        if (event === 'ready') {
+        if (event === 'clientReady') {
           readyHandler = callback;
         }
       }
@@ -236,7 +236,7 @@ describe('startup wiring with read-only mode', () => {
         guilds = { cache: new Map() };
         user = { tag: 'station-bot#0001' };
         once(event: string, callback: () => Promise<void>) {
-          if (event === 'ready') {
+          if (event === 'clientReady') {
             readyHandler = callback;
           }
         }
@@ -312,7 +312,7 @@ describe('startup wiring with read-only mode', () => {
         guilds = { cache: new Map() };
         user = { tag: 'station-bot#0001' };
         once(event: string, callback: () => Promise<void>) {
-          if (event === 'ready') { readyHandler = callback; }
+          if (event === 'clientReady') { readyHandler = callback; }
         }
         on() { return undefined; }
         destroy = destroySpy;
