@@ -25,7 +25,7 @@ function makeMockWorker() {
       if (event === 'exit')    exitHandler    = handler as ExitHandler;
       return worker;
     }),
-    postMessage: jest.fn((msg: { id: number; type: string; html: string; fallback?: string }) => {
+    postMessage: jest.fn((msg: { id: number; type: string; html: string; fallback?: string; parentSelector?: string; childSelector?: string; searchValue?: string }) => {
       posted.push(msg);
     }),
     emit: {
@@ -271,5 +271,24 @@ describe('parseSelectorCheckInWorker', () => {
     mockWorker.emit.message({ id, ok: false, error: 'parse blew up' });
 
     await expect(promise).rejects.toThrow('parse blew up');
+  });
+
+  it('rejects when the worker returns an unexpected value (not "true" or "false")', async () => {
+    const mockWorker = makeMockWorker();
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseSelectorCheckInWorker } = await import('../html-parse.pool.js');
+
+    const promise = parseSelectorCheckInWorker('<html/>', 'div.entry.bio', 'div.value', 'VERIFY-CODE');
+    const { id } = mockWorker.posted[0];
+    mockWorker.emit.message({ id, ok: true, value: 'unexpected_value' });
+
+    await expect(promise).rejects.toThrow('unexpected selector-check value');
   });
 });

@@ -36,11 +36,12 @@ describe('scrapeAndCheckValueSpecific', () => {
     expect(result).toBe(false);
   });
 
-  it('rethrows when the HTTP request fails', async () => {
+  it('logs via logger.error and rethrows when the HTTP request fails', async () => {
     const get = jest.fn<() => Promise<any>>().mockRejectedValueOnce(new Error('network error'));
+    const error = jest.fn();
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({ debug: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ debug: jest.fn(), warn: jest.fn(), error, info: jest.fn() }),
     }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
       parseSelectorCheckInWorker: jest.fn(),
@@ -49,13 +50,15 @@ describe('scrapeAndCheckValueSpecific', () => {
     const { scrapeAndCheckValueSpecific } = await import('../web-scraping.services.js');
     await expect(scrapeAndCheckValueSpecific('https://example.com', 'div.bio', 'div.value', 'CODE123'))
       .rejects.toThrow('network error');
+    expect(error).toHaveBeenCalledWith('Error fetching the page', expect.objectContaining({ url: 'https://example.com' }));
   });
 
-  it('rethrows when the parse worker rejects', async () => {
+  it('logs via logger.error and rethrows when the parse worker rejects', async () => {
     const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({ data: '<html/>' });
+    const error = jest.fn();
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({ debug: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
+      getLogger: () => ({ debug: jest.fn(), warn: jest.fn(), error, info: jest.fn() }),
     }));
     const parseSelectorCheckInWorker = jest
       .fn<() => Promise<boolean>>()
@@ -65,5 +68,6 @@ describe('scrapeAndCheckValueSpecific', () => {
     const { scrapeAndCheckValueSpecific } = await import('../web-scraping.services.js');
     await expect(scrapeAndCheckValueSpecific('https://example.com', 'div.bio', 'div.value', 'CODE123'))
       .rejects.toThrow('worker crashed');
+    expect(error).toHaveBeenCalledWith('Error fetching the page', expect.objectContaining({ url: 'https://example.com' }));
   });
 });

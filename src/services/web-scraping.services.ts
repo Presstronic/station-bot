@@ -17,7 +17,7 @@ export async function scrapeAndCheckValueSpecific(
 
         return await parseSelectorCheckInWorker(data, parentSelector, childSelector, searchValue);
     } catch (error) {
-        console.error('Error fetching the page:', error);
+        logger.error('Error fetching the page', { error, url, parentSelector, childSelector, searchValue });
         throw error;
     }
 }

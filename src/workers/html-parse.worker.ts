@@ -66,7 +66,7 @@ parentPort.on('message', (request: ParseRequest) => {
     } else if (request.type === 'canonicalHandle') {
       response = { id: request.id, ok: true, value: parseCanonicalHandle(request.html, request.fallback) };
     } else if (request.type === 'selectorCheck') {
-      response = { id: request.id, ok: true, value: String(parseSelectorCheck(request.html, request.parentSelector, request.childSelector, request.searchValue)) };
+      response = { id: request.id, ok: true, value: parseSelectorCheck(request.html, request.parentSelector, request.childSelector, request.searchValue) ? 'true' : 'false' };
     } else {
       throw new Error(`Unknown request type: ${String((request as { type: unknown }).type)}`);
     }
