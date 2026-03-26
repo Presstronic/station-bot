@@ -37,26 +37,27 @@ describe('buildStartupBanner', () => {
 
   it('reflects all provided option values', () => {
     const banner = buildStartupBanner(BASE_OPTIONS);
-    expect(banner).toContain('1.2.3');          // version
-    expect(banner).toContain('v20.11.0');        // nodeVersion
-    expect(banner).toContain('test');            // environment
-    expect(banner).toContain('debug');           // logLevel
-    expect(banner).toContain('false');           // readOnlyMode
-    expect(banner).toContain('true');            // dbConfigured
-    expect(banner).toContain('enabled');         // nominationWorkerActive
-    expect(banner).toContain('3');               // guildCount
+    expect(banner).toContain('1.2.3');                           // version
+    expect(banner).toContain('v20.11.0');                        // nodeVersion
+    expect(banner).toContain('test');                            // environment
+    expect(banner).toContain('debug');                           // logLevel
+    expect(banner).toContain('false');                           // readOnlyMode
+    expect(banner).toContain('true');                            // dbConfigured
+    expect(banner).toMatch(/Nom\. worker\s+: enabled/);         // nominationWorkerActive
+    expect(banner).toMatch(/Purge jobs\s+: enabled/);           // purgeJobsEnabled
+    expect(banner).toMatch(/Guilds\s+: 3/);                     // guildCount — unambiguous, not matched by '1.2.3'
     expect(banner).toContain('station-bot#0001');
     expect(banner).toContain('2026-03-25T04:00:00.000Z');
   });
 
   it('shows "disabled" when nomination worker is inactive', () => {
     const banner = buildStartupBanner({ ...BASE_OPTIONS, nominationWorkerActive: false });
-    expect(banner).toContain('disabled');
+    expect(banner).toMatch(/Nom\. worker\s+: disabled/);
   });
 
   it('shows "disabled" when purge jobs are off', () => {
     const banner = buildStartupBanner({ ...BASE_OPTIONS, purgeJobsEnabled: false });
-    expect(banner).toContain('disabled');
+    expect(banner).toMatch(/Purge jobs\s+: disabled/);
   });
 
   it('all lines have the same length', () => {
