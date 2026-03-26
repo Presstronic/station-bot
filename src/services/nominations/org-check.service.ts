@@ -1,12 +1,12 @@
 import https from 'https';
 import axios from 'axios';
-import * as cheerio from 'cheerio';
 import type { OrgCheckResult, OrgCheckResultCode } from './types.js';
+import { getLogger } from '../../utils/logger.js';
+import { sanitizeForInlineText } from '../../utils/sanitize.js';
+import { parseOrgOutcomeInWorker, parseCanonicalHandleInWorker } from '../../workers/html-parse.pool.js';
 
 /** Internal result of a single org-check HTTP attempt. Never stored or displayed. */
 type OrgCheckOutcome = Extract<OrgCheckResultCode, 'in_org' | 'not_in_org'> | 'undetermined';
-import { getLogger } from '../../utils/logger.js';
-import { sanitizeForInlineText } from '../../utils/sanitize.js';
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
 const defaultOrganizationsPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}/organizations';
@@ -238,36 +238,11 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
   };
 }
 
-// Yield to the event loop once before running synchronous CPU work (cheerio HTML
-// parsing). This gives already-pending I/O (including Discord interaction handling)
-// a chance to run before starting a new parse, reducing the risk that long batches
-// of cheerio.load() calls block the event loop and cause interaction tokens to expire.
-// Note: multiple concurrent calls to this function may still run back-to-back in the
-// same event-loop "check" phase; this is not a full parse queue or throttle.
-function yieldToEventLoop(): Promise<void> {
-  return new Promise((resolve) => setImmediate(resolve));
-}
-
 async function parseOrgOutcomeFromOrganizationsPage(html: string): Promise<OrgCheckOutcome> {
-  await yieldToEventLoop();
   const parseStart = Date.now();
-  const $ = cheerio.load(html);
-  logger.debug(`org-check: cheerio.load organizations page (${Date.now() - parseStart}ms)`);
-  const orgLink = $('a[href*="/orgs/"]').first().text().trim();
-  if (orgLink.length > 0) {
-    return 'in_org';
-  }
-
-  const bodyText = $('body').text().toLowerCase();
-  if (
-    bodyText.includes('no organizations') ||
-    bodyText.includes('no affiliation') ||
-    (bodyText.includes('affiliation') && bodyText.includes('none'))
-  ) {
-    return 'not_in_org';
-  }
-
-  return 'undetermined';
+  const outcome = await parseOrgOutcomeInWorker(html);
+  logger.debug(`org-check: organizations page parsed in worker (${Date.now() - parseStart}ms)`);
+  return outcome;
 }
 
 export type CitizenExistsResult =
@@ -276,12 +251,10 @@ export type CitizenExistsResult =
   | { status: 'unavailable' };
 
 async function parseCanonicalHandle(html: string, fallback: string): Promise<string> {
-  await yieldToEventLoop();
   const parseStart = Date.now();
-  const $ = cheerio.load(html);
-  logger.debug(`org-check: cheerio.load citizen page (${Date.now() - parseStart}ms)`);
-  const nick = $('span.nick').first().text().trim();
-  return nick.length > 0 ? nick : fallback;
+  const handle = await parseCanonicalHandleInWorker(html, fallback);
+  logger.debug(`org-check: citizen page parsed in worker (${Date.now() - parseStart}ms)`);
+  return handle;
 }
 
 /**
