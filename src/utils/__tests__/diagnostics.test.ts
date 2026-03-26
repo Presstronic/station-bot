@@ -14,6 +14,7 @@ afterEach(() => {
 
 const mockWarn = jest.fn();
 const mockTrace = jest.fn();
+const mockSubscribe = jest.fn();
 
 jest.unstable_mockModule('../logger.js', () => ({
   getLogger: jest.fn(() => ({
@@ -25,6 +26,12 @@ jest.unstable_mockModule('../logger.js', () => ({
   })),
 }));
 
+// Mock node:diagnostics_channel so we can assert that subscribe() is or is not
+// called — the function call itself is the observable effect of the guard.
+jest.unstable_mockModule('node:diagnostics_channel', () => ({
+  subscribe: mockSubscribe,
+}));
+
 // Helpers to control Date.now precisely without relying on fake timer advancement.
 // Jest's fake timers advance Date.now in sync with setInterval, so without
 // injecting specific values there is never any simulated lag.
@@ -32,10 +39,6 @@ function mockNowSequence(values: number[]): void {
   let i = 0;
   jest.spyOn(Date, 'now').mockImplementation(() => values[Math.min(i++, values.length - 1)]);
 }
-
-// diagnostics_channel is a real Node built-in — no mock needed for unit tests.
-// REST and undici hook wiring is integration-level; only the event loop monitor
-// threshold logic is unit-tested here.
 
 describe('startEventLoopMonitor', () => {
   it('does not warn when event loop fires on time', async () => {
@@ -86,7 +89,7 @@ describe('startEventLoopMonitor', () => {
 
     mockNowSequence([0, 250]);
 
-    const handle = startEventLoopMonitor(); // default threshold
+    const handle = startEventLoopMonitor();
     jest.runOnlyPendingTimers();
 
     expect(mockWarn).toHaveBeenCalledWith(expect.stringContaining('50ms'));
@@ -124,12 +127,84 @@ describe('startEventLoopMonitor', () => {
 });
 
 describe('subscribeUndiciDiagnostics', () => {
-  it('does not subscribe (no-op) when LOG_LEVEL is not trace', async () => {
+  it('does not call diagnostics_channel.subscribe when LOG_LEVEL is not trace', async () => {
     process.env.LOG_LEVEL = 'debug';
     const { subscribeUndiciDiagnostics } = await import('../diagnostics.js');
     subscribeUndiciDiagnostics();
-    // If subscriptions were made they would emit trace logs on any subsequent HTTP;
-    // verifying no trace calls were made during the subscribe call itself is sufficient.
-    expect(mockTrace).not.toHaveBeenCalled();
+    expect(mockSubscribe).not.toHaveBeenCalled();
+  });
+
+  it('calls diagnostics_channel.subscribe for each undici channel when LOG_LEVEL=trace', async () => {
+    process.env.LOG_LEVEL = 'trace';
+    const { subscribeUndiciDiagnostics } = await import('../diagnostics.js');
+    subscribeUndiciDiagnostics();
+    const subscribedChannels = (mockSubscribe.mock.calls as [string, unknown][]).map(([channel]) => channel);
+    expect(subscribedChannels).toContain('undici:connect:start');
+    expect(subscribedChannels).toContain('undici:connect:connected');
+    expect(subscribedChannels).toContain('undici:connect:error');
+    expect(subscribedChannels).toContain('undici:request:create');
+    expect(subscribedChannels).toContain('undici:request:headers');
+    expect(subscribedChannels).toContain('undici:request:error');
+  });
+});
+
+describe('redactUrl (via subscribeRestEvents logged output)', () => {
+  it('redacts long token segments from Discord interaction paths', async () => {
+    process.env.LOG_LEVEL = 'debug';
+
+    const mockDebug = jest.fn();
+    jest.unstable_mockModule('../logger.js', () => ({
+      getLogger: jest.fn(() => ({
+        warn: mockWarn,
+        debug: mockDebug,
+        trace: mockTrace,
+        info: jest.fn(),
+        error: jest.fn(),
+      })),
+    }));
+
+    jest.unstable_mockModule('discord.js', () => ({
+      RESTEvents: { Response: 'response', RateLimited: 'rateLimited' },
+    }));
+
+    const { subscribeRestEvents } = await import('../diagnostics.js');
+
+    // Simulate a client.rest EventEmitter
+    type Handler = (req: unknown, res: unknown) => void;
+    let responseHandler: Handler | null = null;
+    const mockClient = {
+      rest: {
+        on: jest.fn((event: string, handler: Handler) => {
+          if (event === 'response') responseHandler = handler;
+        }),
+      },
+    };
+
+    subscribeRestEvents(mockClient as never);
+
+    // Fire the response handler with a path that contains a token
+    const token = 'A'.repeat(68);
+    (responseHandler as unknown as Handler)({ method: 'POST', path: `/interactions/123/${token}/callback` }, { status: 200 });
+
+    expect(mockDebug).toHaveBeenCalledWith(expect.stringContaining('[token]'));
+    expect(mockDebug).not.toHaveBeenCalledWith(expect.stringContaining(token));
+  });
+
+  it('strips query strings from logged URLs', async () => {
+    process.env.LOG_LEVEL = 'trace';
+    const { subscribeUndiciDiagnostics } = await import('../diagnostics.js');
+    subscribeUndiciDiagnostics();
+
+    // Find the undici:request:create handler that was registered
+    const createCall = (mockSubscribe.mock.calls as [string, (msg: unknown) => void][])
+      .find(([channel]) => channel === 'undici:request:create');
+    expect(createCall).toBeDefined();
+    const createHandler = createCall![1];
+
+    createHandler({ request: { method: 'GET', origin: 'https://example.com', path: '/api?secret=abc123' } });
+
+    expect(mockTrace).toHaveBeenCalled();
+    const logged = mockTrace.mock.calls[0][0] as string;
+    expect(logged).not.toContain('secret=abc123');
   });
 });

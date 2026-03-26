@@ -6,6 +6,17 @@ import { getLogger } from './logger.js';
 
 const LOOP_MONITOR_INTERVAL_MS = 100;
 
+// Discord interaction/webhook tokens are embedded in URL paths and are ≥50
+// characters (URL-safe base64). Redact any such segment to prevent credential
+// leakage into log sinks (e.g. Elasticsearch). Also strip query strings which
+// may carry additional secret parameters.
+// Example: /interactions/123/{token}/callback → /interactions/123/[token]/callback
+const TOKEN_SEGMENT_RE = /\/[A-Za-z0-9_\-.~]{50,}/g;
+
+function redactUrl(url: string): string {
+  return url.split('?')[0].replace(TOKEN_SEGMENT_RE, '/[token]');
+}
+
 /**
  * Starts a periodic event loop lag monitor. Fires every 100 ms and logs a
  * warning whenever the actual firing is delayed beyond `thresholdMs`. A lag
@@ -41,6 +52,9 @@ export function startEventLoopMonitor(thresholdMs = 50): NodeJS.Timeout {
  * Note: @discordjs/rest v2.x does not emit a Request event, so elapsed time
  * is not available here. Use subscribeUndiciDiagnostics() at LOG_LEVEL=trace
  * for per-request RTT and connection establishment timing.
+ *
+ * URL paths are redacted before logging to prevent interaction/webhook tokens
+ * from appearing in log sinks.
  */
 export function subscribeRestEvents(client: Client): void {
   const level = process.env.LOG_LEVEL ?? 'info';
@@ -49,12 +63,12 @@ export function subscribeRestEvents(client: Client): void {
   const logger = getLogger();
 
   client.rest.on(RESTEvents.Response, (request: APIRequest, response: ResponseLike) => {
-    logger.debug(`REST ← ${request.method} ${request.path} ${response.status}`);
+    logger.debug(`REST ← ${request.method} ${redactUrl(request.path)} ${response.status}`);
   });
 
   client.rest.on(RESTEvents.RateLimited, (data: RateLimitData) => {
     logger.warn(
-      `REST rate limited: ${data.method} ${data.route} — retry after ${data.retryAfter}ms (global=${data.global})`
+      `REST rate limited: ${data.method} ${redactUrl(data.route)} — retry after ${data.retryAfter}ms (global=${data.global})`
     );
   });
 }
@@ -70,6 +84,9 @@ export function subscribeRestEvents(client: Client): void {
  *   undici:connect:error     → connection failed at the TCP layer
  *   undici:request:create    → HTTP request queued/sent
  *   undici:request:headers   → response headers received; time since request:create = full RTT
+ *
+ * URL paths are redacted before logging to prevent interaction/webhook tokens
+ * from appearing in log sinks.
  */
 export function subscribeUndiciDiagnostics(): void {
   // Guard: undici channels fire on every HTTP request in the process.
@@ -111,9 +128,8 @@ export function subscribeUndiciDiagnostics(): void {
     const { request } = message as { request: object };
     const req = request as Record<string, unknown>;
     requestStartTimes.set(request, Date.now());
-    logger.trace(
-      `undici request:create → ${String(req.method ?? 'GET')} ${String(req.origin ?? '')}${String(req.path ?? '')}`
-    );
+    const url = redactUrl(`${String(req.origin ?? '')}${String(req.path ?? '')}`);
+    logger.trace(`undici request:create → ${String(req.method ?? 'GET')} ${url}`);
   });
 
   subscribe('undici:request:headers', (message: unknown) => {
@@ -131,8 +147,7 @@ export function subscribeUndiciDiagnostics(): void {
     const { request, error } = message as { request: object; error: Error };
     const req = request as Record<string, unknown>;
     requestStartTimes.delete(request);
-    logger.trace(
-      `undici request:error → ${String(req.method ?? 'GET')} ${String(req.origin ?? '')}${String(req.path ?? '')}: ${error.message}`
-    );
+    const url = redactUrl(`${String(req.origin ?? '')}${String(req.path ?? '')}`);
+    logger.trace(`undici request:error → ${String(req.method ?? 'GET')} ${url}: ${error.message}`);
   });
 }
