@@ -46,8 +46,9 @@ export function startEventLoopMonitor(thresholdMs = 50): NodeJS.Timeout {
  * fire on every REST call and their output is only useful when actively
  * debugging.
  *
- * response    → DEBUG (visible when LOG_LEVEL is debug, trace, or silly)
- * rateLimited → WARN  (visible when LOG_LEVEL is warn, info, http, verbose, debug, trace, or silly)
+ * Both listeners are only registered when LOG_LEVEL is debug or trace (see guard above).
+ * response    → DEBUG
+ * rateLimited → WARN
  *
  * Note: @discordjs/rest v2.x does not emit a Request event, so elapsed time
  * is not available here. Use subscribeUndiciDiagnostics() at LOG_LEVEL=trace
