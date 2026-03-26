@@ -124,3 +124,20 @@ export async function parseOrgOutcomeInWorker(html: string): Promise<OrgOutcome>
 export async function parseCanonicalHandleInWorker(html: string, fallback: string): Promise<string> {
   return sendToWorker({ type: 'canonicalHandle', html, fallback });
 }
+
+function assertSelectorCheckValue(value: string): boolean {
+  if (value !== 'true' && value !== 'false') {
+    throw new Error(`html-parse worker returned unexpected selector-check value: "${value}"`);
+  }
+  return value === 'true';
+}
+
+export async function parseSelectorCheckInWorker(
+  html: string,
+  parentSelector: string,
+  childSelector: string,
+  searchValue: string
+): Promise<boolean> {
+  const value = await sendToWorker({ type: 'selectorCheck', html, parentSelector, childSelector, searchValue });
+  return assertSelectorCheckValue(value);
+}

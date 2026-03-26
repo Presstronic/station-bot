@@ -43,6 +43,32 @@ describe('parseOrgOutcome', () => {
   });
 });
 
+describe('parseSelectorCheck', () => {
+  it('returns true when the child element text contains the search value', async () => {
+    const { parseSelectorCheck } = await import('../html-parse.worker.js');
+    const html = '<html><body><div class="entry bio"><div class="value">VERIFY-ABC123</div></div></body></html>';
+    expect(parseSelectorCheck(html, 'div.entry.bio', 'div.value', 'VERIFY-ABC123')).toBe(true);
+  });
+
+  it('returns false when the child element text does not contain the search value', async () => {
+    const { parseSelectorCheck } = await import('../html-parse.worker.js');
+    const html = '<html><body><div class="entry bio"><div class="value">some other text</div></div></body></html>';
+    expect(parseSelectorCheck(html, 'div.entry.bio', 'div.value', 'VERIFY-ABC123')).toBe(false);
+  });
+
+  it('returns false when the parent element is absent', async () => {
+    const { parseSelectorCheck } = await import('../html-parse.worker.js');
+    const html = '<html><body><p>no matching structure here</p></body></html>';
+    expect(parseSelectorCheck(html, 'div.entry.bio', 'div.value', 'VERIFY-ABC123')).toBe(false);
+  });
+
+  it('returns true for a partial match within the child text', async () => {
+    const { parseSelectorCheck } = await import('../html-parse.worker.js');
+    const html = '<html><body><div class="entry bio"><div class="value">prefix VERIFY-ABC123 suffix</div></div></body></html>';
+    expect(parseSelectorCheck(html, 'div.entry.bio', 'div.value', 'VERIFY-ABC123')).toBe(true);
+  });
+});
+
 describe('parseCanonicalHandle', () => {
   it('returns the nick element text when present', async () => {
     const { parseCanonicalHandle } = await import('../html-parse.worker.js');

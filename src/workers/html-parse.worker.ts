@@ -7,7 +7,8 @@ export type OrgOutcome = 'in_org' | 'not_in_org' | 'undetermined';
 // adding a new parse task here, be sure to update the pool implementation too.
 export type ParseRequestBody =
   | { type: 'orgOutcome'; html: string }
-  | { type: 'canonicalHandle'; html: string; fallback: string };
+  | { type: 'canonicalHandle'; html: string; fallback: string }
+  | { type: 'selectorCheck'; html: string; parentSelector: string; childSelector: string; searchValue: string };
 
 // Distributed add of the routing id across each member of the union.
 type AddId<T> = T extends unknown ? T & { id: number } : never;
@@ -46,6 +47,17 @@ export function parseCanonicalHandle(html: string, fallback: string): string {
   return nick.length > 0 ? nick : fallback;
 }
 
+export function parseSelectorCheck(
+  html: string,
+  parentSelector: string,
+  childSelector: string,
+  searchValue: string
+): boolean {
+  const $ = cheerio.load(html);
+  const value = $(parentSelector).find(childSelector).text();
+  return value.includes(searchValue);
+}
+
 parentPort.on('message', (request: ParseRequest) => {
   let response: ParseResponse;
   try {
@@ -53,6 +65,8 @@ parentPort.on('message', (request: ParseRequest) => {
       response = { id: request.id, ok: true, value: parseOrgOutcome(request.html) };
     } else if (request.type === 'canonicalHandle') {
       response = { id: request.id, ok: true, value: parseCanonicalHandle(request.html, request.fallback) };
+    } else if (request.type === 'selectorCheck') {
+      response = { id: request.id, ok: true, value: parseSelectorCheck(request.html, request.parentSelector, request.childSelector, request.searchValue) ? 'true' : 'false' };
     } else {
       throw new Error(`Unknown request type: ${String((request as { type: unknown }).type)}`);
     }
