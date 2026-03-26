@@ -118,6 +118,31 @@ describe('parseOrgOutcomeInWorker', () => {
 
     await expect(promise).rejects.toThrow('exited unexpectedly');
   });
+
+  it('rejects and removes the pending entry when postMessage throws synchronously', async () => {
+    const mockWorker = makeMockWorker();
+    mockWorker.postMessage.mockImplementation(() => {
+      throw new Error('worker terminated');
+    });
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseOrgOutcomeInWorker } = await import('../html-parse.pool.js');
+
+    await expect(parseOrgOutcomeInWorker('<html/>')).rejects.toThrow('Failed to send message to html-parse worker');
+    // Pending entry must be cleaned up — a subsequent successful call should resolve normally.
+    mockWorker.postMessage.mockImplementation((msg: { id: number }) => {
+      mockWorker.posted.push(msg as typeof mockWorker.posted[0]);
+    });
+    const promise2 = parseOrgOutcomeInWorker('<html/>');
+    mockWorker.emit.message({ id: mockWorker.posted[0].id, ok: true, value: 'not_in_org' });
+    await expect(promise2).resolves.toBe('not_in_org');
+  });
 });
 
 describe('parseCanonicalHandleInWorker', () => {

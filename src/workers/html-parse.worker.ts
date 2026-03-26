@@ -1,7 +1,7 @@
 import { parentPort } from 'worker_threads';
 import * as cheerio from 'cheerio';
 
-type OrgOutcome = 'in_org' | 'not_in_org' | 'undetermined';
+export type OrgOutcome = 'in_org' | 'not_in_org' | 'undetermined';
 
 // Payload types shared with html-parse.pool — the pool imports these so that
 // adding a new parse task here produces a compile error in the pool as well.

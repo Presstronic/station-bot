@@ -1,10 +1,8 @@
 import { Worker } from 'worker_threads';
 import { getLogger } from '../utils/logger.js';
-import type { ParseRequestBody, ParseResponse } from './html-parse.worker.js';
+import type { OrgOutcome, ParseRequestBody, ParseResponse } from './html-parse.worker.js';
 
 const logger = getLogger();
-
-type OrgOutcome = 'in_org' | 'not_in_org' | 'undetermined';
 
 type PendingEntry = {
   resolve: (value: string) => void;
@@ -30,9 +28,17 @@ function spawnWorker(): Worker {
     ? new URL('./html-parse.worker.ts', import.meta.url)
     : new URL('./html-parse.worker.js', import.meta.url);
 
-  const w = new Worker(workerUrl, {
-    execArgv: isDev ? ['--import', 'tsx'] : [],
-  });
+  // In dev, append '--import tsx' to the parent's execArgv (deduped) so the
+  // worker can load TypeScript source files. In prod, omit execArgv entirely
+  // so the worker inherits the parent process flags unchanged.
+  let workerOptions: ConstructorParameters<typeof Worker>[1] = {};
+  if (isDev) {
+    const base = process.execArgv ?? [];
+    const hasTsx = base.includes('--import') && base.includes('tsx');
+    workerOptions = { execArgv: hasTsx ? base : [...base, '--import', 'tsx'] };
+  }
+
+  const w = new Worker(workerUrl, workerOptions);
 
   w.on('message', (response: ParseResponse) => {
     const entry = pending.get(response.id);
@@ -77,7 +83,13 @@ function sendToWorker(request: ParseRequestBody): Promise<string> {
   const id = nextId++;
   return new Promise<string>((resolve, reject) => {
     pending.set(id, { resolve, reject });
-    getWorker().postMessage({ ...request, id });
+    try {
+      getWorker().postMessage({ ...request, id });
+    } catch (err) {
+      pending.delete(id);
+      const error = err instanceof Error ? err : new Error(String(err));
+      reject(new Error(`Failed to send message to html-parse worker: ${error.message}`));
+    }
   });
 }
 
