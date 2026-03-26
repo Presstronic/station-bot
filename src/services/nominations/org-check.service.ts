@@ -240,9 +240,17 @@ async function fetchPageWithReason(url: string): Promise<FetchResult> {
 
 async function parseOrgOutcomeFromOrganizationsPage(html: string): Promise<OrgCheckOutcome> {
   const parseStart = Date.now();
-  const outcome = await parseOrgOutcomeInWorker(html);
-  logger.debug(`org-check: organizations page parsed in worker (${Date.now() - parseStart}ms)`);
-  return outcome;
+  try {
+    const outcome = await parseOrgOutcomeInWorker(html);
+    logger.debug(`org-check: organizations page parsed in worker (${Date.now() - parseStart}ms)`);
+    return outcome;
+  } catch (err) {
+    logger.error(
+      `org-check: organizations page worker parse failed after ${Date.now() - parseStart}ms`,
+      err
+    );
+    return 'undetermined';
+  }
 }
 
 export type CitizenExistsResult =
@@ -252,9 +260,16 @@ export type CitizenExistsResult =
 
 async function parseCanonicalHandle(html: string, fallback: string): Promise<string> {
   const parseStart = Date.now();
-  const handle = await parseCanonicalHandleInWorker(html, fallback);
-  logger.debug(`org-check: citizen page parsed in worker (${Date.now() - parseStart}ms)`);
-  return handle;
+  try {
+    const handle = await parseCanonicalHandleInWorker(html, fallback);
+    logger.debug(`org-check: citizen page parsed in worker (${Date.now() - parseStart}ms)`);
+    return handle;
+  } catch (err) {
+    logger.warn(
+      `org-check: failed to parse canonical handle in worker, falling back to submitted handle: ${trimMessage(err instanceof Error ? err.message : String(err), 200)}`
+    );
+    return fallback;
+  }
 }
 
 /**

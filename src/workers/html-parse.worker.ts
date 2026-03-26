@@ -51,8 +51,10 @@ parentPort.on('message', (request: ParseRequest) => {
   try {
     if (request.type === 'orgOutcome') {
       response = { id: request.id, ok: true, value: parseOrgOutcome(request.html) };
-    } else {
+    } else if (request.type === 'canonicalHandle') {
       response = { id: request.id, ok: true, value: parseCanonicalHandle(request.html, request.fallback) };
+    } else {
+      throw new Error(`Unknown request type: ${String((request as { type: unknown }).type)}`);
     }
   } catch (err) {
     response = { id: request.id, ok: false, error: String(err) };
