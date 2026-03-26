@@ -119,6 +119,43 @@ describe('parseOrgOutcomeInWorker', () => {
     await expect(promise).rejects.toThrow('exited unexpectedly');
   });
 
+  it('rejects pending promises when the worker exits cleanly (code 0) while requests are in flight', async () => {
+    const mockWorker = makeMockWorker();
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseOrgOutcomeInWorker } = await import('../html-parse.pool.js');
+
+    const promise = parseOrgOutcomeInWorker('<html/>');
+    mockWorker.emit.exit(0);
+
+    await expect(promise).rejects.toThrow('exited while requests were pending');
+  });
+
+  it('rejects when the worker returns an unrecognised org outcome string', async () => {
+    const mockWorker = makeMockWorker();
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseOrgOutcomeInWorker } = await import('../html-parse.pool.js');
+
+    const promise = parseOrgOutcomeInWorker('<html/>');
+    const { id } = mockWorker.posted[0];
+    mockWorker.emit.message({ id, ok: true, value: 'unexpected_value' });
+
+    await expect(promise).rejects.toThrow('unexpected org outcome');
+  });
+
   it('rejects and removes the pending entry when postMessage throws synchronously', async () => {
     const mockWorker = makeMockWorker();
     mockWorker.postMessage.mockImplementation(() => {

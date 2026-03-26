@@ -3,8 +3,8 @@ import * as cheerio from 'cheerio';
 
 export type OrgOutcome = 'in_org' | 'not_in_org' | 'undetermined';
 
-// Payload types shared with html-parse.pool — the pool imports these so that
-// adding a new parse task here produces a compile error in the pool as well.
+// Payload types shared with html-parse.pool — the pool imports these, so when
+// adding a new parse task here, be sure to update the pool implementation too.
 export type ParseRequestBody =
   | { type: 'orgOutcome'; html: string }
   | { type: 'canonicalHandle'; html: string; fallback: string };

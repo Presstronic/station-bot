@@ -53,19 +53,31 @@ function spawnWorker(): Worker {
 
   w.on('error', (err) => {
     // Node fires 'error' then 'exit' for uncaught worker exceptions.
-    // Handle here; the 'exit' handler skips non-zero codes that follow an error.
+    // Null the reference and reject here; the 'exit' handler will see an
+    // empty pending map and a null worker reference and skip its cleanup.
     logger.error(`html-parse worker error: ${String(err)}`);
     worker = null;
     rejectAll(err);
   });
 
   w.on('exit', (code) => {
-    if (code !== 0 && worker !== null) {
-      // Only reached for abnormal exits that were NOT preceded by an 'error' event
-      // (which already nulls worker). Avoids double-logging and double-rejecting.
-      logger.warn(`html-parse worker exited unexpectedly (code ${code})`);
+    // Always drop the reference to this specific worker instance if it is still
+    // the current one (the error handler may have already replaced it with null).
+    if (worker === w) {
       worker = null;
-      rejectAll(new Error(`html-parse worker exited unexpectedly (code ${code})`));
+    }
+
+    // Reject any in-flight requests — they can't be fulfilled by a dead worker.
+    // This also covers the code-0 case (intentional shutdown while requests
+    // were still pending), not just abnormal exits.
+    if (pending.size > 0) {
+      const message = code !== 0
+        ? `html-parse worker exited unexpectedly (code ${code})`
+        : 'html-parse worker exited while requests were pending';
+      if (code !== 0) {
+        logger.warn(message);
+      }
+      rejectAll(new Error(message));
     }
   });
 
@@ -93,9 +105,18 @@ function sendToWorker(request: ParseRequestBody): Promise<string> {
   });
 }
 
+const ORG_OUTCOMES: ReadonlySet<string> = new Set<OrgOutcome>(['in_org', 'not_in_org', 'undetermined']);
+
+function assertOrgOutcome(value: string): OrgOutcome {
+  if (!ORG_OUTCOMES.has(value)) {
+    throw new Error(`html-parse worker returned unexpected org outcome: "${value}"`);
+  }
+  return value as OrgOutcome;
+}
+
 export async function parseOrgOutcomeInWorker(html: string): Promise<OrgOutcome> {
   const value = await sendToWorker({ type: 'orgOutcome', html });
-  return value as OrgOutcome;
+  return assertOrgOutcome(value);
 }
 
 export async function parseCanonicalHandleInWorker(html: string, fallback: string): Promise<string> {
