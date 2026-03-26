@@ -11,6 +11,7 @@ import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './con
 import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
+import { startEventLoopMonitor, subscribeRestEvents, subscribeUndiciDiagnostics } from './utils/diagnostics.js';
 
 const _require = createRequire(import.meta.url);
 const { version: appVersion } = _require('../package.json') as { version: string };
@@ -45,9 +46,14 @@ const client = new Client({
 // Declared at module scope so the shutdown handler can stop them regardless of
 // when the signal arrives (before or after ready, jobs enabled or not).
 let workerHandle: NodeJS.Timeout | null = null;
+let loopMonitorHandle: NodeJS.Timeout | null = null;
 let tempMemberCronTask: { stop: () => void } | null = null;
 let potentialApplicantCronTask: { stop: () => void } | null = null;
 let shuttingDown = false;
+
+// Subscribe to undici TCP-level diagnostics before any HTTP activity begins.
+// Only active when LOG_LEVEL=trace; no-op otherwise.
+subscribeUndiciDiagnostics();
 
 const shutdown = () => {
   if (shuttingDown) return;
@@ -56,6 +62,9 @@ const shutdown = () => {
   process.exitCode = 0;
   if (workerHandle !== null) {
     clearInterval(workerHandle);
+  }
+  if (loopMonitorHandle !== null) {
+    clearInterval(loopMonitorHandle);
   }
   tempMemberCronTask?.stop();
   potentialApplicantCronTask?.stop();
@@ -74,6 +83,8 @@ process.once('SIGTERM', shutdown);
 process.once('SIGINT', shutdown);
 
 client.once('clientReady', async () => {
+  loopMonitorHandle = startEventLoopMonitor();
+  subscribeRestEvents(client);
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
