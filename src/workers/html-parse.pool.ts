@@ -34,7 +34,9 @@ function spawnWorker(): Worker {
   let workerOptions: ConstructorParameters<typeof Worker>[1] = {};
   if (isDev) {
     const base = process.execArgv ?? [];
-    const hasTsx = base.includes('--import') && base.includes('tsx');
+    const hasTsx = base.some(
+      (arg, i) => arg === '--import=tsx' || (arg === '--import' && base[i + 1] === 'tsx')
+    );
     workerOptions = { execArgv: hasTsx ? base : [...base, '--import', 'tsx'] };
   }
 

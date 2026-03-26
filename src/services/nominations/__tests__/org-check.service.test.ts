@@ -17,10 +17,13 @@ afterEach(() => {
 });
 
 function mockPool(orgOutcome: string = 'in_org', canonicalHandle: string = '') {
+  const parseOrgOutcomeInWorker = jest.fn<() => Promise<string>>().mockResolvedValue(orgOutcome);
+  const parseCanonicalHandleInWorker = jest.fn<() => Promise<string>>().mockResolvedValue(canonicalHandle);
   jest.unstable_mockModule('../../../workers/html-parse.pool.js', () => ({
-    parseOrgOutcomeInWorker: jest.fn<() => Promise<string>>().mockResolvedValue(orgOutcome),
-    parseCanonicalHandleInWorker: jest.fn<() => Promise<string>>().mockResolvedValue(canonicalHandle),
+    parseOrgOutcomeInWorker,
+    parseCanonicalHandleInWorker,
   }));
+  return { parseOrgOutcomeInWorker, parseCanonicalHandleInWorker };
 }
 
 describe('checkHasAnyOrgMembership', () => {
