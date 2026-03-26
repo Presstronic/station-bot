@@ -1,6 +1,6 @@
 import axios from 'axios';
-import * as cheerio from 'cheerio';
 import { getLogger } from '../utils/logger.js';
+import { parseSelectorCheckInWorker } from '../workers/html-parse.pool.js';
 
 const logger = getLogger();
 
@@ -15,12 +15,7 @@ export async function scrapeAndCheckValueSpecific(
 
         const { data } = await axios.get<string>(url);
 
-        const $ = cheerio.load(data);
-        const parentDiv = $(parentSelector);
-
-        const value = parentDiv.find(childSelector).text();
-        const exists = value.includes(searchValue);
-        return exists;
+        return await parseSelectorCheckInWorker(data, parentSelector, childSelector, searchValue);
     } catch (error) {
         console.error('Error fetching the page:', error);
         throw error;

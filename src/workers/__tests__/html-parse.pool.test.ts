@@ -16,7 +16,7 @@ function makeMockWorker() {
   let messageHandler: MessageHandler | null = null;
   let errorHandler: ErrorHandler | null = null;
   let exitHandler: ExitHandler | null = null;
-  const posted: Array<{ id: number; type: string; html: string; fallback?: string }> = [];
+  const posted: Array<{ id: number; type: string; html: string; fallback?: string; parentSelector?: string; childSelector?: string; searchValue?: string }> = [];
 
   const worker = {
     on: jest.fn((event: string, handler: (...args: unknown[]) => void) => {
@@ -205,5 +205,71 @@ describe('parseCanonicalHandleInWorker', () => {
     mockWorker.emit.message({ id, ok: true, value: 'CanonicalHandle' });
 
     await expect(promise).resolves.toBe('CanonicalHandle');
+  });
+});
+
+describe('parseSelectorCheckInWorker', () => {
+  it('sends a selectorCheck request to the worker and resolves true when value is "true"', async () => {
+    const mockWorker = makeMockWorker();
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseSelectorCheckInWorker } = await import('../html-parse.pool.js');
+
+    const promise = parseSelectorCheckInWorker('<html/>', 'div.entry.bio', 'div.value', 'VERIFY-CODE');
+
+    expect(mockWorker.posted).toHaveLength(1);
+    expect(mockWorker.posted[0].type).toBe('selectorCheck');
+    expect(mockWorker.posted[0].parentSelector).toBe('div.entry.bio');
+    expect(mockWorker.posted[0].childSelector).toBe('div.value');
+    expect(mockWorker.posted[0].searchValue).toBe('VERIFY-CODE');
+
+    const { id } = mockWorker.posted[0];
+    mockWorker.emit.message({ id, ok: true, value: 'true' });
+
+    await expect(promise).resolves.toBe(true);
+  });
+
+  it('resolves false when the worker returns "false"', async () => {
+    const mockWorker = makeMockWorker();
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseSelectorCheckInWorker } = await import('../html-parse.pool.js');
+
+    const promise = parseSelectorCheckInWorker('<html/>', 'div.entry.bio', 'div.value', 'VERIFY-CODE');
+    const { id } = mockWorker.posted[0];
+    mockWorker.emit.message({ id, ok: true, value: 'false' });
+
+    await expect(promise).resolves.toBe(false);
+  });
+
+  it('rejects when the worker returns ok:false', async () => {
+    const mockWorker = makeMockWorker();
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseSelectorCheckInWorker } = await import('../html-parse.pool.js');
+
+    const promise = parseSelectorCheckInWorker('<html/>', 'div.entry.bio', 'div.value', 'VERIFY-CODE');
+    const { id } = mockWorker.posted[0];
+    mockWorker.emit.message({ id, ok: false, error: 'parse blew up' });
+
+    await expect(promise).rejects.toThrow('parse blew up');
   });
 });
