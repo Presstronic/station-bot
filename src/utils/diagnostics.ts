@@ -89,10 +89,16 @@ export function subscribeRestEvents(client: Client): void {
  * URL paths are redacted before logging to prevent interaction/webhook tokens
  * from appearing in log sinks.
  */
+// Idempotency guard: diagnostics_channel.subscribe() accumulates listeners on the
+// channel — calling subscribeUndiciDiagnostics() twice would double-log every event.
+let undiciSubscribed = false;
+
 export function subscribeUndiciDiagnostics(): void {
   // Guard: undici channels fire on every HTTP request in the process.
   // Only subscribe when trace output is actually wanted to avoid unnecessary overhead.
   if (process.env.LOG_LEVEL !== 'trace') return;
+  if (undiciSubscribed) return;
+  undiciSubscribed = true;
 
   const logger = getLogger();
 
@@ -102,53 +108,66 @@ export function subscribeUndiciDiagnostics(): void {
   const requestStartTimes = new WeakMap<object, number>();
 
   subscribe('undici:connect:start', (message: unknown) => {
-    const { connectParams } = message as { connectParams: { hostname: string; port: string | number } };
-    connectStartTimes.set(connectParams, Date.now());
-    logger.trace(`undici connect:start → ${connectParams.hostname}:${connectParams.port}`);
+    if (typeof message !== 'object' || message === null) return;
+    const { connectParams } = message as { connectParams: unknown };
+    if (typeof connectParams !== 'object' || connectParams === null) return;
+    const p = connectParams as { hostname: string; port: string | number };
+    connectStartTimes.set(connectParams as object, Date.now());
+    logger.trace(`undici connect:start → ${p.hostname}:${p.port}`);
   });
 
   subscribe('undici:connect:connected', (message: unknown) => {
-    const { connectParams } = message as { connectParams: { hostname: string; port: string | number } };
-    const start = connectStartTimes.get(connectParams);
-    connectStartTimes.delete(connectParams);
+    if (typeof message !== 'object' || message === null) return;
+    const { connectParams } = message as { connectParams: unknown };
+    if (typeof connectParams !== 'object' || connectParams === null) return;
+    const p = connectParams as { hostname: string; port: string | number };
+    const key = connectParams as object;
+    const start = connectStartTimes.get(key);
+    connectStartTimes.delete(key);
     const elapsed = start !== undefined ? `${Date.now() - start}ms` : '?ms';
-    logger.trace(`undici connect:connected → ${connectParams.hostname}:${connectParams.port} (${elapsed})`);
+    logger.trace(`undici connect:connected → ${p.hostname}:${p.port} (${elapsed})`);
   });
 
   subscribe('undici:connect:error', (message: unknown) => {
-    const { connectParams, error } = message as {
-      connectParams: { hostname: string; port: string | number };
-      error: Error;
-    };
-    logger.trace(
-      `undici connect:error → ${connectParams.hostname}:${connectParams.port}: ${error.message}`
-    );
+    if (typeof message !== 'object' || message === null) return;
+    const { connectParams, error } = message as { connectParams: unknown; error: unknown };
+    if (typeof connectParams !== 'object' || connectParams === null) return;
+    const p = connectParams as { hostname: string; port: string | number };
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.trace(`undici connect:error → ${p.hostname}:${p.port}: ${errorMessage}`);
   });
 
   subscribe('undici:request:create', (message: unknown) => {
-    const { request } = message as { request: object };
+    if (typeof message !== 'object' || message === null) return;
+    const { request } = message as { request: unknown };
+    if (typeof request !== 'object' || request === null) return;
     const req = request as Record<string, unknown>;
-    requestStartTimes.set(request, Date.now());
+    requestStartTimes.set(request as object, Date.now());
     const url = redactUrl(`${String(req.origin ?? '')}${String(req.path ?? '')}`);
     logger.trace(`undici request:create → ${String(req.method ?? 'GET')} ${url}`);
   });
 
   subscribe('undici:request:headers', (message: unknown) => {
-    const { request, response } = message as {
-      request: object;
-      response: { statusCode: number };
-    };
-    const start = requestStartTimes.get(request);
-    requestStartTimes.delete(request);
+    if (typeof message !== 'object' || message === null) return;
+    const { request, response } = message as { request: unknown; response: unknown };
+    if (typeof request !== 'object' || request === null) return;
+    if (typeof response !== 'object' || response === null) return;
+    const key = request as object;
+    const start = requestStartTimes.get(key);
+    requestStartTimes.delete(key);
     const elapsed = start !== undefined ? `${Date.now() - start}ms` : '?ms';
-    logger.trace(`undici request:headers ← ${response.statusCode} (${elapsed})`);
+    const statusCode = (response as Record<string, unknown>).statusCode;
+    logger.trace(`undici request:headers ← ${String(statusCode ?? '?')} (${elapsed})`);
   });
 
   subscribe('undici:request:error', (message: unknown) => {
-    const { request, error } = message as { request: object; error: Error };
+    if (typeof message !== 'object' || message === null) return;
+    const { request, error } = message as { request: unknown; error: unknown };
+    if (typeof request !== 'object' || request === null) return;
     const req = request as Record<string, unknown>;
-    requestStartTimes.delete(request);
+    requestStartTimes.delete(request as object);
     const url = redactUrl(`${String(req.origin ?? '')}${String(req.path ?? '')}`);
-    logger.trace(`undici request:error → ${String(req.method ?? 'GET')} ${url}: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.trace(`undici request:error → ${String(req.method ?? 'GET')} ${url}: ${errorMessage}`);
   });
 }
