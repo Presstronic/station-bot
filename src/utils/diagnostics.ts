@@ -30,13 +30,22 @@ export function startEventLoopMonitor(thresholdMs = 50): NodeJS.Timeout {
 }
 
 /**
- * Attaches to discord.js REST client events and logs every outbound request,
- * its response status, and any rate-limit events.
+ * Attaches to discord.js REST client events and logs REST activity.
+ * Only registers listeners when LOG_LEVEL is debug or trace — the handlers
+ * fire on every REST call and their output is only useful when actively
+ * debugging.
  *
- * response    → DEBUG (visible at LOG_LEVEL=debug)
- * rateLimited → WARN  (visible at all levels)
+ * response    → DEBUG (visible when LOG_LEVEL <= debug)
+ * rateLimited → WARN  (visible when LOG_LEVEL <= warn)
+ *
+ * Note: @discordjs/rest v2.x does not emit a Request event, so elapsed time
+ * is not available here. Use subscribeUndiciDiagnostics() at LOG_LEVEL=trace
+ * for per-request RTT and connection establishment timing.
  */
 export function subscribeRestEvents(client: Client): void {
+  const level = process.env.LOG_LEVEL ?? 'info';
+  if (level !== 'debug' && level !== 'trace') return;
+
   const logger = getLogger();
 
   client.rest.on(RESTEvents.Response, (request: APIRequest, response: ResponseLike) => {

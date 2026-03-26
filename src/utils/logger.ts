@@ -5,8 +5,9 @@ import type Transport from 'winston-transport';
 import { inspect } from 'node:util';
 import { getCorrelationId } from './request-context.js';
 
-// Custom level set — extends Winston's defaults with `trace` (most verbose).
-// Lower number = higher severity; trace sits below debug.
+// Custom level set — mirrors Winston's default npm levels exactly, adding
+// `trace` below `debug` and retaining `silly` at the bottom.
+// Lower number = higher severity.
 const LEVELS = {
   error: 0,
   warn: 1,
@@ -15,6 +16,7 @@ const LEVELS = {
   verbose: 4,
   debug: 5,
   trace: 6,
+  silly: 7,
 };
 
 // Augment the Winston logger type to expose the `trace` method added by the

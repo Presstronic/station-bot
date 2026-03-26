@@ -88,7 +88,11 @@ async function loadIndexAndRunReady(
     getLogger: () => logger,
   }));
   await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
-    startEventLoopMonitor: jest.fn(() => setInterval(() => undefined, 99999)),
+    startEventLoopMonitor: jest.fn(() => {
+      const handle = setInterval(() => undefined, 99999);
+      handle.unref();
+      return handle;
+    }),
     subscribeRestEvents: jest.fn(),
     subscribeUndiciDiagnostics: jest.fn(),
   }));
