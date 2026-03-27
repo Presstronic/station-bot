@@ -48,6 +48,27 @@ beforeEach(() => {
   delete process.env.ELASTICSEARCH_NODE;
 });
 
+describe('getLogger — custom levels', () => {
+  it('passes a levels map containing trace to createLogger', async () => {
+    const winston = await import('winston');
+    const { getLogger } = await loadLogger();
+    getLogger();
+    const createLoggerCall = (winston.createLogger as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+    const levels = createLoggerCall.levels as Record<string, number>;
+    expect(levels).toHaveProperty('trace');
+    expect(typeof levels.trace).toBe('number');
+  });
+
+  it('accepts LOG_LEVEL=trace without falling back to the default level', async () => {
+    process.env.LOG_LEVEL = 'trace';
+    const winston = await import('winston');
+    const { getLogger } = await loadLogger();
+    getLogger();
+    const createLoggerCall = (winston.createLogger as jest.Mock).mock.calls[0][0] as Record<string, unknown>;
+    expect(createLoggerCall.level).toBe('trace');
+  });
+});
+
 describe('getLogger — singleton', () => {
   it('returns the same instance on repeated calls', async () => {
     const { getLogger } = await loadLogger();
