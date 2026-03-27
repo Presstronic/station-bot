@@ -8,7 +8,7 @@ jest.unstable_mockModule('worker_threads', () => ({
 describe('parseOrgOutcome', () => {
   it('returns in_org when page contains an /orgs/ link with text', async () => {
     const { parseOrgOutcome } = await import('../html-parse.worker.js');
-    const html = '<html><body><a href="/orgs/EXAMPLEORG">Example Org</a></body></html>';
+    const html = '<html><body><div class="orgs-content"><a href="/orgs/EXAMPLEORG">Example Org</a></div></body></html>';
     expect(parseOrgOutcome(html)).toBe('in_org');
   });
 
@@ -16,8 +16,14 @@ describe('parseOrgOutcome', () => {
     const { parseOrgOutcome } = await import('../html-parse.worker.js');
     // RSI org pages render a thumbnail anchor before the text anchor — the first
     // match has no text content, only an <img> child.
-    const html = '<html><body><a href="/orgs/EXAMPLEORG"><img src="/logo.png" /></a></body></html>';
+    const html = '<html><body><div class="orgs-content"><a href="/orgs/EXAMPLEORG"><img src="/logo.png" /></a></div></body></html>';
     expect(parseOrgOutcome(html)).toBe('in_org');
+  });
+
+  it('returns undetermined when /orgs/ link is outside .orgs-content (page chrome)', async () => {
+    const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    const html = '<html><body><nav><a href="/orgs/SOMEORG">Browse</a></nav><div class="orgs-content"></div></body></html>';
+    expect(parseOrgOutcome(html)).toBe('undetermined');
   });
 
   it('returns not_in_org when page contains "no organizations"', async () => {

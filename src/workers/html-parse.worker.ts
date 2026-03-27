@@ -27,7 +27,8 @@ export function parseOrgOutcome(html: string): OrgOutcome {
   // Org pages render two anchors per org: an image-only thumbnail link and a
   // separate text link. Checking .first().text() would return empty string for
   // the thumbnail, so we check for the existence of any /orgs/ anchor instead.
-  if ($('a[href*="/orgs/"]').length > 0) {
+  // Scoped to .orgs-content to avoid false positives from nav or page chrome.
+  if ($('.orgs-content a[href*="/orgs/"]').length > 0) {
     return 'in_org';
   }
 
