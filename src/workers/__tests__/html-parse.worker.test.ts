@@ -26,6 +26,14 @@ describe('parseOrgOutcome', () => {
     expect(parseOrgOutcome(html)).toBe('undetermined');
   });
 
+  it('returns in_org when .orgs-content has an /orgs/ link even if body contains "no affiliation"', async () => {
+    const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    // Regression: affiliated org metadata may include "no affiliation" in its own profile
+    // data. The org-link presence check must take precedence over the body-text fallback.
+    const html = '<html><body><div class="orgs-content"><a href="/orgs/EXAMPLEORG">Example Org</a></div>No affiliation listed</body></html>';
+    expect(parseOrgOutcome(html)).toBe('in_org');
+  });
+
   it('returns not_in_org when page contains "no organizations"', async () => {
     const { parseOrgOutcome } = await import('../html-parse.worker.js');
     const html = '<html><body>No organizations found</body></html>';
