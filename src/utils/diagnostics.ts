@@ -130,7 +130,7 @@ export function subscribeUndiciDiagnostics(): void {
     const { connectParams } = message as { connectParams: unknown };
     if (typeof connectParams !== 'object' || connectParams === null) return;
     const p = connectParams as { hostname: string; port: string | number };
-    connectStartTimes.set(connectParams as object, Date.now());
+    connectStartTimes.set(connectParams as object, performance.now());
     logger.trace(`undici connect:start → ${p.hostname}:${p.port}`);
   });
 
@@ -142,7 +142,7 @@ export function subscribeUndiciDiagnostics(): void {
     const key = connectParams as object;
     const start = connectStartTimes.get(key);
     connectStartTimes.delete(key);
-    const elapsed = start !== undefined ? `${Date.now() - start}ms` : '?ms';
+    const elapsed = start !== undefined ? `${Math.round(performance.now() - start)}ms` : '?ms';
     logger.trace(`undici connect:connected → ${p.hostname}:${p.port} (${elapsed})`);
   });
 
@@ -151,8 +151,12 @@ export function subscribeUndiciDiagnostics(): void {
     const { connectParams, error } = message as { connectParams: unknown; error: unknown };
     if (typeof connectParams !== 'object' || connectParams === null) return;
     const p = connectParams as { hostname: string; port: string | number };
+    const key = connectParams as object;
+    const start = connectStartTimes.get(key);
+    connectStartTimes.delete(key);
+    const elapsed = start !== undefined ? `${Math.round(performance.now() - start)}ms` : '?ms';
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.trace(`undici connect:error → ${p.hostname}:${p.port}: ${errorMessage}`);
+    logger.trace(`undici connect:error → ${p.hostname}:${p.port} (${elapsed}): ${errorMessage}`);
   });
 
   subscribe('undici:request:create', (message: unknown) => {
@@ -160,7 +164,7 @@ export function subscribeUndiciDiagnostics(): void {
     const { request } = message as { request: unknown };
     if (typeof request !== 'object' || request === null) return;
     const req = request as Record<string, unknown>;
-    requestStartTimes.set(request as object, Date.now());
+    requestStartTimes.set(request as object, performance.now());
     const url = redactUrl(`${String(req.origin ?? '')}${String(req.path ?? '')}`);
     logger.trace(`undici request:create → ${String(req.method ?? 'GET')} ${url}`);
   });
@@ -173,7 +177,7 @@ export function subscribeUndiciDiagnostics(): void {
     const key = request as object;
     const start = requestStartTimes.get(key);
     requestStartTimes.delete(key);
-    const elapsed = start !== undefined ? `${Date.now() - start}ms` : '?ms';
+    const elapsed = start !== undefined ? `${Math.round(performance.now() - start)}ms` : '?ms';
     const statusCode = (response as Record<string, unknown>).statusCode;
     logger.trace(`undici request:headers ← ${String(statusCode ?? '?')} (${elapsed})`);
   });
