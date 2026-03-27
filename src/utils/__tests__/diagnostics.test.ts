@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { performance } from 'node:perf_hooks';
 
 beforeEach(() => {
   jest.resetModules();
@@ -32,12 +33,12 @@ jest.unstable_mockModule('node:diagnostics_channel', () => ({
   subscribe: mockSubscribe,
 }));
 
-// Helpers to control Date.now precisely without relying on fake timer advancement.
-// Jest's fake timers advance Date.now in sync with setInterval, so without
+// Helpers to control performance.now precisely without relying on fake timer advancement.
+// Jest's fake timers advance performance.now in sync with setInterval, so without
 // injecting specific values there is never any simulated lag.
 function mockNowSequence(values: number[]): void {
   let i = 0;
-  jest.spyOn(Date, 'now').mockImplementation(() => values[Math.min(i++, values.length - 1)]);
+  jest.spyOn(performance, 'now').mockImplementation(() => values[Math.min(i++, values.length - 1)]);
 }
 
 describe('startEventLoopMonitor', () => {
@@ -109,19 +110,40 @@ describe('startEventLoopMonitor', () => {
     clearInterval(handle);
   });
 
-  it('warns on each interval where lag persists', async () => {
+  it('rate-limits warnings: only first fires within the 5s cooldown, rest are suppressed', async () => {
     const { startEventLoopMonitor } = await import('../diagnostics.js');
 
-    // Four ticks: each fires 100ms late
-    // t0=0, t1=250 (lag=150), t2=500 (lag=150), t3=750 (lag=150)
+    // Three ticks all lagging 150ms, but only the first is within a new 5s window.
+    // t0=0 (init), t1=250 (lag=150 → warn), t2=500 (250ms since warn → suppressed),
+    // t3=750 (500ms since warn → suppressed)
     mockNowSequence([0, 250, 500, 750]);
+
+    const handle = startEventLoopMonitor(50);
+    jest.runOnlyPendingTimers(); // tick 1 — warns
+    jest.runOnlyPendingTimers(); // tick 2 — suppressed
+    jest.runOnlyPendingTimers(); // tick 3 — suppressed
+
+    expect(mockWarn).toHaveBeenCalledTimes(1);
+    clearInterval(handle);
+  });
+
+  it('logs suppressed count when cooldown expires and lag persists', async () => {
+    const { startEventLoopMonitor } = await import('../diagnostics.js');
+
+    // t0=0 (init), t1=250 (lag=150 → warn #1, lastWarnAt=250),
+    // t2=500 (suppressed, count=1), t3=750 (suppressed, count=2),
+    // t4=5300 (lag=4450, 5300-250=5050 >= 5000 → warn #2 with "2 … suppressed")
+    mockNowSequence([0, 250, 500, 750, 5300]);
 
     const handle = startEventLoopMonitor(50);
     jest.runOnlyPendingTimers(); // tick 1
     jest.runOnlyPendingTimers(); // tick 2
     jest.runOnlyPendingTimers(); // tick 3
+    jest.runOnlyPendingTimers(); // tick 4
 
-    expect(mockWarn).toHaveBeenCalledTimes(3);
+    expect(mockWarn).toHaveBeenCalledTimes(2);
+    const secondMessage = mockWarn.mock.calls[1][0] as string;
+    expect(secondMessage).toContain('2 similar warnings suppressed');
     clearInterval(handle);
   });
 });

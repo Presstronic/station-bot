@@ -1,10 +1,12 @@
 import { subscribe } from 'node:diagnostics_channel';
+import { performance } from 'node:perf_hooks';
 import type { Client } from 'discord.js';
 import { RESTEvents } from 'discord.js';
 import type { APIRequest, RateLimitData, ResponseLike } from '@discordjs/rest';
 import { getLogger } from './logger.js';
 
 const LOOP_MONITOR_INTERVAL_MS = 100;
+const LOOP_WARN_COOLDOWN_MS = 5_000;
 
 // Discord interaction/webhook tokens are embedded in URL paths and are ≥50
 // characters (URL-safe base64). Redact any such segment to prevent credential
@@ -27,13 +29,29 @@ function redactUrl(url: string): string {
  * The returned handle is unref'd so it does not prevent graceful shutdown.
  */
 export function startEventLoopMonitor(thresholdMs = 50): NodeJS.Timeout {
-  let lastTick = Date.now();
+  let lastTick = performance.now();
+  // Initialise before the cooldown window so the very first lag spike is always logged.
+  let lastWarnAt = -LOOP_WARN_COOLDOWN_MS;
+  let suppressedCount = 0;
+
   const handle = setInterval(() => {
-    const now = Date.now();
+    const now = performance.now();
     const lag = now - lastTick - LOOP_MONITOR_INTERVAL_MS;
     lastTick = now;
     if (lag > thresholdMs) {
-      getLogger().warn(`Event loop lag: ${lag}ms (threshold: ${thresholdMs}ms)`);
+      if (now - lastWarnAt >= LOOP_WARN_COOLDOWN_MS) {
+        const suppressed =
+          suppressedCount > 0
+            ? ` (${suppressedCount} similar warning${suppressedCount === 1 ? '' : 's'} suppressed)`
+            : '';
+        getLogger().warn(
+          `Event loop lag: ${Math.round(lag)}ms (threshold: ${thresholdMs}ms)${suppressed}`
+        );
+        lastWarnAt = now;
+        suppressedCount = 0;
+      } else {
+        suppressedCount++;
+      }
     }
   }, LOOP_MONITOR_INTERVAL_MS);
   handle.unref();
