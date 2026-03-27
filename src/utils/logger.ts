@@ -1,12 +1,33 @@
 import { createLogger, format, transports } from 'winston';
+import type { Logger as WinstonLogger } from 'winston';
 import { ElasticsearchTransport } from 'winston-elasticsearch';
 import type Transport from 'winston-transport';
 import { inspect } from 'node:util';
 import { getCorrelationId } from './request-context.js';
 
-let loggerInstance: ReturnType<typeof createLogger> | null = null;
+// Custom level set — preserves Winston's default npm level ordering, adding
+// `trace` between `debug` and `silly` (so numeric values differ from npm defaults).
+// Lower number = higher severity.
+const LEVELS = {
+  error: 0,
+  warn: 1,
+  info: 2,
+  http: 3,
+  verbose: 4,
+  debug: 5,
+  trace: 6,
+  silly: 7,
+};
 
-export const getLogger = () => {
+// Augment the Winston logger type to expose the `trace` method added by the
+// custom level set above.
+export type AppLogger = WinstonLogger & {
+  trace: WinstonLogger['debug'];
+};
+
+let loggerInstance: AppLogger | null = null;
+
+export const getLogger = (): AppLogger => {
   if (loggerInstance) {
     return loggerInstance;
   }
@@ -38,6 +59,7 @@ export const getLogger = () => {
   }
 
   loggerInstance = createLogger({
+    levels: LEVELS,
     level: logLevel,
     format: format.combine(
       format.errors({ stack: true }),
@@ -69,7 +91,7 @@ export const getLogger = () => {
       })
     ),
     transports: loggerTransports,
-  });
+  }) as AppLogger;
 
   return loggerInstance;
 };

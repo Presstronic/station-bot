@@ -12,6 +12,9 @@ beforeEach(() => {
   jest.resetModules();
   process.env = { ...originalEnv, DISCORD_BOT_TOKEN: 'test-token' };
   delete process.env.DATABASE_URL;
+  // Prevent environment-dependent flakiness: if the test runner has LOG_LEVEL=debug|trace,
+  // subscribeRestEvents() will try client.rest.on(...) on MockClient which has no rest property.
+  process.env.LOG_LEVEL = 'info';
   preTestSigtermListeners = [...process.rawListeners('SIGTERM')];
   preTestSigintListeners = [...process.rawListeners('SIGINT')];
 });
@@ -86,6 +89,15 @@ async function loadIndexAndRunReady(
   }));
   await jest.unstable_mockModule('../utils/logger.js', () => ({
     getLogger: () => logger,
+  }));
+  await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
+    startEventLoopMonitor: jest.fn(() => {
+      const handle = setInterval(() => undefined, 99999);
+      handle.unref();
+      return handle;
+    }),
+    subscribeRestEvents: jest.fn(),
+    subscribeUndiciDiagnostics: jest.fn(),
   }));
   await jest.unstable_mockModule('discord.js', () => {
     class MockClient {
@@ -242,6 +254,15 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../utils/logger.js', () => ({
       getLogger: () => logger,
     }));
+    await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
+      startEventLoopMonitor: jest.fn(() => {
+        const handle = setInterval(() => undefined, 99999);
+        handle.unref();
+        return handle;
+      }),
+      subscribeRestEvents: jest.fn(),
+      subscribeUndiciDiagnostics: jest.fn(),
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
@@ -322,6 +343,15 @@ describe('startup wiring with read-only mode', () => {
       buildStartupBanner: jest.fn(() => '[startup banner]'),
     }));
     await jest.unstable_mockModule('../utils/logger.js', () => ({ getLogger: () => logger }));
+    await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
+      startEventLoopMonitor: jest.fn(() => {
+        const handle = setInterval(() => undefined, 99999);
+        handle.unref();
+        return handle;
+      }),
+      subscribeRestEvents: jest.fn(),
+      subscribeUndiciDiagnostics: jest.fn(),
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
