@@ -60,24 +60,24 @@ export function startEventLoopMonitor(thresholdMs = 50): NodeJS.Timeout {
 
 /**
  * Attaches to discord.js REST client events and logs REST activity.
- * Only registers listeners when LOG_LEVEL is debug or trace — the handlers
+ * Only registers listeners when LOG_LEVEL is debug, trace, or silly — the handlers
  * fire on every REST call and their output is only useful when actively
  * debugging.
  *
- * Both listeners are only registered when LOG_LEVEL is debug or trace (see guard above).
+ * Both listeners are only registered when LOG_LEVEL is debug, trace, or silly (see guard above).
  * response    → DEBUG
  * rateLimited → WARN
  *
  * Note: @discordjs/rest v2.x does not emit a Request event, so elapsed time
  * is not available here. Use subscribeUndiciDiagnostics() at LOG_LEVEL=trace
- * for per-request RTT and connection establishment timing.
+ * or silly for per-request RTT and connection establishment timing.
  *
  * URL paths are redacted before logging to prevent interaction/webhook tokens
  * from appearing in log sinks.
  */
 export function subscribeRestEvents(client: Client): void {
   const level = process.env.LOG_LEVEL ?? 'info';
-  if (level !== 'debug' && level !== 'trace') return;
+  if (level !== 'debug' && level !== 'trace' && level !== 'silly') return;
 
   const logger = getLogger();
 
@@ -95,7 +95,7 @@ export function subscribeRestEvents(client: Client): void {
 /**
  * Subscribes to Node.js undici diagnostics_channel events to expose raw TCP
  * connection and HTTP request lifecycle data. Only active when LOG_LEVEL=trace
- * since these channels fire on every HTTP request made by the process.
+ * or silly since these channels fire on every HTTP request made by the process.
  *
  * Key signals:
  *   undici:connect:start     → a new TCP connection is being established (pool miss / stale conn)
@@ -113,8 +113,9 @@ let undiciSubscribed = false;
 
 export function subscribeUndiciDiagnostics(): void {
   // Guard: undici channels fire on every HTTP request in the process.
-  // Only subscribe when trace output is actually wanted to avoid unnecessary overhead.
-  if (process.env.LOG_LEVEL !== 'trace') return;
+  // Only subscribe when trace/silly output is actually wanted to avoid unnecessary overhead.
+  const logLevel = process.env.LOG_LEVEL;
+  if (logLevel !== 'trace' && logLevel !== 'silly') return;
   if (undiciSubscribed) return;
   undiciSubscribed = true;
 

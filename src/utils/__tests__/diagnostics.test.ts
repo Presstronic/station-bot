@@ -149,7 +149,7 @@ describe('startEventLoopMonitor', () => {
 });
 
 describe('subscribeUndiciDiagnostics', () => {
-  it('does not call diagnostics_channel.subscribe when LOG_LEVEL is not trace', async () => {
+  it('does not call diagnostics_channel.subscribe when LOG_LEVEL is not trace or silly', async () => {
     process.env.LOG_LEVEL = 'debug';
     const { subscribeUndiciDiagnostics } = await import('../diagnostics.js');
     subscribeUndiciDiagnostics();
