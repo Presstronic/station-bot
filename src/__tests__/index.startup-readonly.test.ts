@@ -254,6 +254,15 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../utils/logger.js', () => ({
       getLogger: () => logger,
     }));
+    await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
+      startEventLoopMonitor: jest.fn(() => {
+        const handle = setInterval(() => undefined, 99999);
+        handle.unref();
+        return handle;
+      }),
+      subscribeRestEvents: jest.fn(),
+      subscribeUndiciDiagnostics: jest.fn(),
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
@@ -334,6 +343,15 @@ describe('startup wiring with read-only mode', () => {
       buildStartupBanner: jest.fn(() => '[startup banner]'),
     }));
     await jest.unstable_mockModule('../utils/logger.js', () => ({ getLogger: () => logger }));
+    await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
+      startEventLoopMonitor: jest.fn(() => {
+        const handle = setInterval(() => undefined, 99999);
+        handle.unref();
+        return handle;
+      }),
+      subscribeRestEvents: jest.fn(),
+      subscribeUndiciDiagnostics: jest.fn(),
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
