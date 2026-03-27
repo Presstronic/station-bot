@@ -6,9 +6,17 @@ jest.unstable_mockModule('worker_threads', () => ({
 }));
 
 describe('parseOrgOutcome', () => {
-  it('returns in_org when page contains an /orgs/ link', async () => {
+  it('returns in_org when page contains an /orgs/ link with text', async () => {
     const { parseOrgOutcome } = await import('../html-parse.worker.js');
     const html = '<html><body><a href="/orgs/EXAMPLEORG">Example Org</a></body></html>';
+    expect(parseOrgOutcome(html)).toBe('in_org');
+  });
+
+  it('returns in_org when the /orgs/ link contains only an image (no text)', async () => {
+    const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    // RSI org pages render a thumbnail anchor before the text anchor — the first
+    // match has no text content, only an <img> child.
+    const html = '<html><body><a href="/orgs/EXAMPLEORG"><img src="/logo.png" /></a></body></html>';
     expect(parseOrgOutcome(html)).toBe('in_org');
   });
 
