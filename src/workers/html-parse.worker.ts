@@ -24,8 +24,11 @@ if (!parentPort) {
 
 export function parseOrgOutcome(html: string): OrgOutcome {
   const $ = cheerio.load(html);
-  const orgLink = $('a[href*="/orgs/"]').first().text().trim();
-  if (orgLink.length > 0) {
+  // Org pages render two anchors per org: an image-only thumbnail link and a
+  // separate text link. Checking .first().text() would return empty string for
+  // the thumbnail, so we check for the existence of any /orgs/ anchor instead.
+  // Scoped to .orgs-content to avoid false positives from nav or page chrome.
+  if ($('.orgs-content a[href*="/orgs/"]').length > 0) {
     return 'in_org';
   }
 

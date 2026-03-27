@@ -6,9 +6,31 @@ jest.unstable_mockModule('worker_threads', () => ({
 }));
 
 describe('parseOrgOutcome', () => {
-  it('returns in_org when page contains an /orgs/ link', async () => {
+  it('returns in_org when page contains an /orgs/ link with text', async () => {
     const { parseOrgOutcome } = await import('../html-parse.worker.js');
-    const html = '<html><body><a href="/orgs/EXAMPLEORG">Example Org</a></body></html>';
+    const html = '<html><body><div class="orgs-content"><a href="/orgs/EXAMPLEORG">Example Org</a></div></body></html>';
+    expect(parseOrgOutcome(html)).toBe('in_org');
+  });
+
+  it('returns in_org when the /orgs/ link contains only an image (no text)', async () => {
+    const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    // RSI org pages render a thumbnail anchor before the text anchor — the first
+    // match has no text content, only an <img> child.
+    const html = '<html><body><div class="orgs-content"><a href="/orgs/EXAMPLEORG"><img src="/logo.png" /></a></div></body></html>';
+    expect(parseOrgOutcome(html)).toBe('in_org');
+  });
+
+  it('returns undetermined when /orgs/ link is outside .orgs-content (page chrome)', async () => {
+    const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    const html = '<html><body><nav><a href="/orgs/SOMEORG">Browse</a></nav><div class="orgs-content"></div></body></html>';
+    expect(parseOrgOutcome(html)).toBe('undetermined');
+  });
+
+  it('returns in_org when .orgs-content has an /orgs/ link even if body contains "no affiliation"', async () => {
+    const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    // Regression: affiliated org metadata may include "no affiliation" in its own profile
+    // data. The org-link presence check must take precedence over the body-text fallback.
+    const html = '<html><body><div class="orgs-content"><a href="/orgs/EXAMPLEORG">Example Org</a></div>No affiliation listed</body></html>';
     expect(parseOrgOutcome(html)).toBe('in_org');
   });
 
