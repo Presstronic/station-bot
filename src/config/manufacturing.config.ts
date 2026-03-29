@@ -25,7 +25,7 @@ export interface ManufacturingConfig {
 }
 
 export function isManufacturingEnabled(): boolean {
-  return envFlag('MANUFACTURING_ENABLED', true);
+  return envFlag('MANUFACTURING_ENABLED', false);
 }
 
 export function getManufacturingConfig(): ManufacturingConfig {

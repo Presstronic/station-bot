@@ -40,8 +40,8 @@ afterEach(() => {
 // isManufacturingEnabled
 // ---------------------------------------------------------------------------
 describe('isManufacturingEnabled', () => {
-  it('defaults to true when env var is not set', () => {
-    expect(isManufacturingEnabled()).toBe(true);
+  it('defaults to false when env var is not set', () => {
+    expect(isManufacturingEnabled()).toBe(false);
   });
 
   it('returns false when MANUFACTURING_ENABLED=false', () => {
@@ -63,9 +63,9 @@ describe('isManufacturingEnabled', () => {
     }
   });
 
-  it('falls back to default (true) for unrecognised values', () => {
+  it('falls back to default (false) for unrecognised values', () => {
     process.env.MANUFACTURING_ENABLED = 'maybe';
-    expect(isManufacturingEnabled()).toBe(true);
+    expect(isManufacturingEnabled()).toBe(false);
   });
 });
 
@@ -155,9 +155,8 @@ describe('validateManufacturingConfig', () => {
     expect(errors.some((e) => e.includes('ORGANIZATION_MEMBER_ROLE_ID'))).toBe(true);
   });
 
-  it('treats default-enabled (no env var) as enabled for validation', () => {
-    // MANUFACTURING_ENABLED not set — defaults to true, so validation should run
-    const errors = validateManufacturingConfig();
-    expect(errors.length).toBeGreaterThan(0);
+  it('skips validation when env var is not set (defaults to disabled)', () => {
+    // MANUFACTURING_ENABLED not set — defaults to false, so validation should be skipped
+    expect(validateManufacturingConfig()).toEqual([]);
   });
 });

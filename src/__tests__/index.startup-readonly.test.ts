@@ -12,7 +12,6 @@ beforeEach(() => {
   jest.resetModules();
   process.env = { ...originalEnv, DISCORD_BOT_TOKEN: 'test-token' };
   delete process.env.DATABASE_URL;
-  process.env.MANUFACTURING_ENABLED = 'false';
   // Prevent environment-dependent flakiness: if the test runner has LOG_LEVEL=debug|trace,
   // subscribeRestEvents() will try client.rest.on(...) on MockClient which has no rest property.
   process.env.LOG_LEVEL = 'info';
