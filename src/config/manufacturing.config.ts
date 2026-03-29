@@ -31,9 +31,9 @@ export function isManufacturingEnabled(): boolean {
 
 export function getManufacturingConfig(): ManufacturingConfig {
   return {
-    forumChannelId: process.env.MANUFACTURING_FORUM_CHANNEL_ID ?? '',
-    manufacturingRoleId: process.env.MANUFACTURING_ROLE_ID ?? '',
-    organizationMemberRoleId: process.env.ORGANIZATION_MEMBER_ROLE_ID ?? '',
+    forumChannelId: (process.env.MANUFACTURING_FORUM_CHANNEL_ID ?? '').trim(),
+    manufacturingRoleId: (process.env.MANUFACTURING_ROLE_ID ?? '').trim(),
+    organizationMemberRoleId: (process.env.ORGANIZATION_MEMBER_ROLE_ID ?? '').trim(),
     orderLimit: envInt('MANUFACTURING_ORDER_LIMIT', 5),
     maxItemsPerOrder: envInt('MANUFACTURING_MAX_ITEMS_PER_ORDER', 10),
   };
@@ -48,13 +48,13 @@ export function validateManufacturingConfig(): string[] {
 
   const errors: string[] = [];
 
-  if (!process.env.MANUFACTURING_FORUM_CHANNEL_ID) {
+  if (!(process.env.MANUFACTURING_FORUM_CHANNEL_ID ?? '').trim()) {
     errors.push('MANUFACTURING_FORUM_CHANNEL_ID is required when MANUFACTURING_ENABLED=true');
   }
-  if (!process.env.MANUFACTURING_ROLE_ID) {
+  if (!(process.env.MANUFACTURING_ROLE_ID ?? '').trim()) {
     errors.push('MANUFACTURING_ROLE_ID is required when MANUFACTURING_ENABLED=true');
   }
-  if (!process.env.ORGANIZATION_MEMBER_ROLE_ID) {
+  if (!(process.env.ORGANIZATION_MEMBER_ROLE_ID ?? '').trim()) {
     errors.push('ORGANIZATION_MEMBER_ROLE_ID is required when MANUFACTURING_ENABLED=true');
   }
 

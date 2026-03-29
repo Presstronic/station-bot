@@ -91,6 +91,17 @@ describe('getManufacturingConfig', () => {
     expect(config.organizationMemberRoleId).toBe('org-789');
   });
 
+  it('trims whitespace from ID values', () => {
+    process.env.MANUFACTURING_FORUM_CHANNEL_ID = '  forum-123  ';
+    process.env.MANUFACTURING_ROLE_ID = '  role-456  ';
+    process.env.ORGANIZATION_MEMBER_ROLE_ID = '  org-789  ';
+
+    const config = getManufacturingConfig();
+    expect(config.forumChannelId).toBe('forum-123');
+    expect(config.manufacturingRoleId).toBe('role-456');
+    expect(config.organizationMemberRoleId).toBe('org-789');
+  });
+
   it('uses default orderLimit of 5 when not set', () => {
     expect(getManufacturingConfig().orderLimit).toBe(5);
   });
@@ -144,6 +155,19 @@ describe('validateManufacturingConfig', () => {
     process.env.MANUFACTURING_ROLE_ID = 'role-456';
     process.env.ORGANIZATION_MEMBER_ROLE_ID = 'org-789';
     expect(validateManufacturingConfig()).toEqual([]);
+  });
+
+  it('treats whitespace-only required vars as missing when enabled', () => {
+    process.env.MANUFACTURING_ENABLED = 'true';
+    process.env.MANUFACTURING_FORUM_CHANNEL_ID = '   ';
+    process.env.MANUFACTURING_ROLE_ID = '   ';
+    process.env.ORGANIZATION_MEMBER_ROLE_ID = '   ';
+
+    const errors = validateManufacturingConfig();
+    expect(errors).toHaveLength(3);
+    expect(errors.some((e) => e.includes('MANUFACTURING_FORUM_CHANNEL_ID'))).toBe(true);
+    expect(errors.some((e) => e.includes('MANUFACTURING_ROLE_ID'))).toBe(true);
+    expect(errors.some((e) => e.includes('ORGANIZATION_MEMBER_ROLE_ID'))).toBe(true);
   });
 
   it('returns only the missing var errors when partially configured', () => {
