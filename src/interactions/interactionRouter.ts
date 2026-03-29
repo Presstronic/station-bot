@@ -33,6 +33,15 @@ import {
   handleNominationAuditCommand,
   NOMINATION_AUDIT_COMMAND_NAME,
 } from '../commands/nomination-audit.command.js';
+import {
+  handleOrderCommand,
+  handleOrderItemModal,
+  handleOrderButtonInteraction,
+  ORDER_COMMAND_NAME,
+  ITEM_MODAL_PREFIX,
+  ADD_ITEM_BUTTON_PREFIX,
+  SUBMIT_ORDER_BUTTON_PREFIX,
+} from '../commands/order-submit.command.js';
 import i18n from '../utils/i18n-config.js';
 import { isReadOnlyMode } from '../config/runtime-flags.js';
 import { handleVerifyButtonInteraction } from './verifyButton.js';
@@ -78,7 +87,11 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
       const isHealthcheckCommand =
         interaction.isChatInputCommand() && interaction.commandName === HEALTHCHECK_COMMAND_NAME;
 
-      if (readOnlyMode && !isHealthcheckCommand && (interaction.isChatInputCommand() || interaction.isButton())) {
+      if (
+        readOnlyMode &&
+        !isHealthcheckCommand &&
+        (interaction.isChatInputCommand() || interaction.isButton() || interaction.isModalSubmit())
+      ) {
         const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
         const maintenanceMessage = i18n.__({
           phrase: 'interactions.readOnly.maintenance',
@@ -112,12 +125,28 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleNominationAccessCommand(interaction);
         } else if (interaction.commandName === NOMINATION_AUDIT_COMMAND_NAME) {
           await handleNominationAuditCommand(interaction);
+        } else if (interaction.commandName === ORDER_COMMAND_NAME) {
+          await handleOrderCommand(interaction);
+        }
+        return;
+      }
+
+      if (interaction.isModalSubmit()) {
+        if (interaction.customId.startsWith(`${ITEM_MODAL_PREFIX}:`)) {
+          await handleOrderItemModal(interaction);
         }
         return;
       }
 
       if (interaction.isButton()) {
-        await handleVerifyButtonInteraction(interaction);
+        if (
+          interaction.customId.startsWith(`${ADD_ITEM_BUTTON_PREFIX}:`) ||
+          interaction.customId.startsWith(`${SUBMIT_ORDER_BUTTON_PREFIX}:`)
+        ) {
+          await handleOrderButtonInteraction(interaction);
+        } else {
+          await handleVerifyButtonInteraction(interaction);
+        }
       }
     } catch (error) {
       // Interaction token expired — Discord will show "application did not respond".

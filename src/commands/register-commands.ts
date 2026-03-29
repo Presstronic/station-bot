@@ -9,6 +9,7 @@ import { nominationAccessCommandBuilder } from './nomination-access.command.js';
 import { nominationAuditCommandBuilder } from './nomination-audit.command.js';
 import { nominationJobStatusCommandBuilder } from './nomination-job-status.command.js';
 import { verifyCommandBuilder, healthcheckCommandBuilder } from './verify.js';
+import { orderCommandBuilder } from './order-submit.command.js';
 import { setRegisteredCommandNames } from './registration-state.js';
 
 const logger = getLogger();
@@ -23,6 +24,7 @@ const allCommands = [
   nominationProcessCommandBuilder,
   nominationAccessCommandBuilder,
   nominationAuditCommandBuilder,
+  orderCommandBuilder,
 ];
 
 export async function registerAllCommands() {

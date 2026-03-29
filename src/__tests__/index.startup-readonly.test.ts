@@ -99,6 +99,15 @@ async function loadIndexAndRunReady(
     subscribeRestEvents: jest.fn(),
     subscribeUndiciDiagnostics: jest.fn(),
   }));
+  await jest.unstable_mockModule('../domain/manufacturing/manufacturing.forum.js', () => ({
+    ensureForumTags: jest.fn(async () => new Map()),
+    formatOrderPost: jest.fn(() => ''),
+    buildForumPostComponents: jest.fn(() => []),
+    ORDER_STATUS_TAG_NAMES: [],
+    MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
+    MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
+    MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+  }));
   await jest.unstable_mockModule('discord.js', () => {
     class MockClient {
       guilds = {
@@ -128,10 +137,14 @@ async function loadIndexAndRunReady(
       }
     }
 
+    class MockForumChannel {}
+
     return {
       Client: MockClient,
       IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } },
       MessageFlags: { Ephemeral: 64 },
+      ChannelType: { GuildForum: 15 },
+      ForumChannel: MockForumChannel,
     };
   });
 
@@ -263,6 +276,15 @@ describe('startup wiring with read-only mode', () => {
       subscribeRestEvents: jest.fn(),
       subscribeUndiciDiagnostics: jest.fn(),
     }));
+    await jest.unstable_mockModule('../domain/manufacturing/manufacturing.forum.js', () => ({
+      ensureForumTags: jest.fn(async () => new Map()),
+      formatOrderPost: jest.fn(() => ''),
+      buildForumPostComponents: jest.fn(() => []),
+      ORDER_STATUS_TAG_NAMES: [],
+      MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
+      MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
+      MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
@@ -282,10 +304,13 @@ describe('startup wiring with read-only mode', () => {
           return Promise.resolve('ok');
         }
       }
+      class MockForumChannel {}
       return {
         Client: MockClient,
         IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } },
         MessageFlags: { Ephemeral: 64 },
+        ChannelType: { GuildForum: 15 },
+        ForumChannel: MockForumChannel,
       };
     });
 
@@ -352,6 +377,15 @@ describe('startup wiring with read-only mode', () => {
       subscribeRestEvents: jest.fn(),
       subscribeUndiciDiagnostics: jest.fn(),
     }));
+    await jest.unstable_mockModule('../domain/manufacturing/manufacturing.forum.js', () => ({
+      ensureForumTags: jest.fn(async () => new Map()),
+      formatOrderPost: jest.fn(() => ''),
+      buildForumPostComponents: jest.fn(() => []),
+      ORDER_STATUS_TAG_NAMES: [],
+      MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
+      MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
+      MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
@@ -363,7 +397,14 @@ describe('startup wiring with read-only mode', () => {
         destroy = destroySpy;
         login() { return Promise.resolve('ok'); }
       }
-      return { Client: MockClient, IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } }, MessageFlags: { Ephemeral: 64 } };
+      class MockForumChannel {}
+      return {
+        Client: MockClient,
+        IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } },
+        MessageFlags: { Ephemeral: 64 },
+        ChannelType: { GuildForum: 15 },
+        ForumChannel: MockForumChannel,
+      };
     });
 
     process.env.BOT_READ_ONLY_MODE = 'false';
