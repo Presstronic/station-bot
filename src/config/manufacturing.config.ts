@@ -46,15 +46,16 @@ export function getManufacturingConfig(): ManufacturingConfig {
 export function validateManufacturingConfig(): string[] {
   if (!isManufacturingEnabled()) return [];
 
+  const config = getManufacturingConfig();
   const errors: string[] = [];
 
-  if (!(process.env.MANUFACTURING_FORUM_CHANNEL_ID ?? '').trim()) {
+  if (!config.forumChannelId) {
     errors.push('MANUFACTURING_FORUM_CHANNEL_ID is required when MANUFACTURING_ENABLED=true');
   }
-  if (!(process.env.MANUFACTURING_ROLE_ID ?? '').trim()) {
+  if (!config.manufacturingRoleId) {
     errors.push('MANUFACTURING_ROLE_ID is required when MANUFACTURING_ENABLED=true');
   }
-  if (!(process.env.ORGANIZATION_MEMBER_ROLE_ID ?? '').trim()) {
+  if (!config.organizationMemberRoleId) {
     errors.push('ORGANIZATION_MEMBER_ROLE_ID is required when MANUFACTURING_ENABLED=true');
   }
 
