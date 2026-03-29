@@ -66,23 +66,24 @@ export async function create(
 }
 
 export async function findById(id: number): Promise<ManufacturingOrder | null> {
-  const orderResult = await withClient((client) =>
-    client.query(`SELECT * FROM manufacturing_orders WHERE id = $1`, [id]),
-  );
+  return withClient(async (client) => {
+    const orderResult = await client.query(
+      `SELECT * FROM manufacturing_orders WHERE id = $1`,
+      [id],
+    );
 
-  if (orderResult.rows.length === 0) return null;
+    if (orderResult.rows.length === 0) return null;
 
-  const itemsResult = await withClient((client) =>
-    client.query(
+    const itemsResult = await client.query(
       `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
       [id],
-    ),
-  );
+    );
 
-  return mapOrderRow(
-    orderResult.rows[0] as Record<string, unknown>,
-    (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
-  );
+    return mapOrderRow(
+      orderResult.rows[0] as Record<string, unknown>,
+      (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+    );
+  });
 }
 
 export async function findByUserId(userId: string): Promise<ManufacturingOrder[]> {
@@ -132,27 +133,25 @@ export async function countActiveByUserId(userId: string): Promise<number> {
 }
 
 export async function updateStatus(id: number, status: OrderStatus): Promise<ManufacturingOrder> {
-  const orderResult = await withClient((client) =>
-    client.query(
+  return withClient(async (client) => {
+    const orderResult = await client.query(
       `UPDATE manufacturing_orders
        SET status = $2, updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
       [id, status],
-    ),
-  );
+    );
 
-  const itemsResult = await withClient((client) =>
-    client.query(
+    const itemsResult = await client.query(
       `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
       [id],
-    ),
-  );
+    );
 
-  return mapOrderRow(
-    orderResult.rows[0] as Record<string, unknown>,
-    (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
-  );
+    return mapOrderRow(
+      orderResult.rows[0] as Record<string, unknown>,
+      (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+    );
+  });
 }
 
 export async function updateForumThreadId(id: number, threadId: string): Promise<void> {
@@ -167,25 +166,23 @@ export async function updateForumThreadId(id: number, threadId: string): Promise
 }
 
 export async function findByForumThreadId(threadId: string): Promise<ManufacturingOrder | null> {
-  const orderResult = await withClient((client) =>
-    client.query(
+  return withClient(async (client) => {
+    const orderResult = await client.query(
       `SELECT * FROM manufacturing_orders WHERE forum_thread_id = $1`,
       [threadId],
-    ),
-  );
+    );
 
-  if (orderResult.rows.length === 0) return null;
+    if (orderResult.rows.length === 0) return null;
 
-  const orderId = Number((orderResult.rows[0] as Record<string, unknown>).id);
-  const itemsResult = await withClient((client) =>
-    client.query(
+    const orderId = Number((orderResult.rows[0] as Record<string, unknown>).id);
+    const itemsResult = await client.query(
       `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
       [orderId],
-    ),
-  );
+    );
 
-  return mapOrderRow(
-    orderResult.rows[0] as Record<string, unknown>,
-    (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
-  );
+    return mapOrderRow(
+      orderResult.rows[0] as Record<string, unknown>,
+      (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+    );
+  });
 }

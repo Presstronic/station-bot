@@ -140,7 +140,7 @@ describe('transitionStatus', () => {
     'allows valid transition %s → %s',
     async (from, to) => {
       const { transitionStatus, repo } = await setupTransitionTest(from);
-      await transitionStatus(1, to);
+      await transitionStatus(1, to, 'staff-user');
       expect(repo.updateStatus).toHaveBeenCalledWith(1, to);
     },
   );
@@ -160,7 +160,7 @@ describe('transitionStatus', () => {
     async (from, to) => {
       const { transitionStatus } = await setupTransitionTest(from);
       const { InvalidStatusTransitionError } = await import('../types.js');
-      await expect(transitionStatus(1, to)).rejects.toBeInstanceOf(InvalidStatusTransitionError);
+      await expect(transitionStatus(1, to, 'staff-user')).rejects.toBeInstanceOf(InvalidStatusTransitionError);
     },
   );
 
@@ -179,7 +179,7 @@ describe('transitionStatus', () => {
     const { transitionStatus } = await import('../manufacturing.service.js');
     const { OrderNotFoundError } = await import('../types.js');
 
-    await expect(transitionStatus(999, 'accepted')).rejects.toBeInstanceOf(OrderNotFoundError);
+    await expect(transitionStatus(999, 'accepted', 'user-1')).rejects.toBeInstanceOf(OrderNotFoundError);
   });
 });
 

@@ -28,12 +28,12 @@ export async function submitOrder(
 export async function transitionStatus(
   orderId: number,
   newStatus: OrderStatus,
+  _actorId: string,
 ): Promise<ManufacturingOrder> {
   const order = await repository.findById(orderId);
   if (!order) throw new OrderNotFoundError(orderId);
 
-  const allowed = VALID_TRANSITIONS.get(order.status);
-  if (!allowed?.has(newStatus)) {
+  if (!VALID_TRANSITIONS[order.status].includes(newStatus)) {
     throw new InvalidStatusTransitionError(order.status, newStatus);
   }
 
@@ -48,7 +48,7 @@ export async function cancelOrder(
   const order = await repository.findById(orderId);
   if (!order) throw new OrderNotFoundError(orderId);
 
-  if (TERMINAL_STATUSES.has(order.status)) {
+  if (TERMINAL_STATUSES.includes(order.status)) {
     throw new InvalidStatusTransitionError(order.status, 'cancelled');
   }
 

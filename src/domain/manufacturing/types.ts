@@ -6,16 +6,16 @@ export type OrderStatus =
   | 'complete'
   | 'cancelled';
 
-export const TERMINAL_STATUSES = new Set<OrderStatus>(['complete', 'cancelled']);
+export const TERMINAL_STATUSES: ReadonlyArray<OrderStatus> = Object.freeze(['complete', 'cancelled']);
 
-export const VALID_TRANSITIONS = new Map<OrderStatus, ReadonlySet<OrderStatus>>([
-  ['new',              new Set<OrderStatus>(['accepted', 'cancelled'])],
-  ['accepted',         new Set<OrderStatus>(['processing', 'cancelled'])],
-  ['processing',       new Set<OrderStatus>(['ready_for_pickup', 'cancelled'])],
-  ['ready_for_pickup', new Set<OrderStatus>(['complete', 'cancelled'])],
-  ['complete',         new Set<OrderStatus>()],
-  ['cancelled',        new Set<OrderStatus>()],
-]);
+export const VALID_TRANSITIONS: Readonly<Record<OrderStatus, ReadonlyArray<OrderStatus>>> = Object.freeze({
+  new:              Object.freeze(['accepted', 'cancelled']),
+  accepted:         Object.freeze(['processing', 'cancelled']),
+  processing:       Object.freeze(['ready_for_pickup', 'cancelled']),
+  ready_for_pickup: Object.freeze(['complete', 'cancelled']),
+  complete:         Object.freeze([]),
+  cancelled:        Object.freeze([]),
+} as Record<OrderStatus, ReadonlyArray<OrderStatus>>);
 
 export interface ManufacturingOrderItem {
   id: number;
