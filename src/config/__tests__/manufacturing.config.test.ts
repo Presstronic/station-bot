@@ -77,7 +77,7 @@ describe('getManufacturingConfig', () => {
     const config = getManufacturingConfig();
     expect(config.forumChannelId).toBe('');
     expect(config.manufacturingRoleId).toBe('');
-    expect(config.orgMemberRoleId).toBe('');
+    expect(config.organizationMemberRoleId).toBe('');
   });
 
   it('returns configured values when set', () => {
@@ -88,7 +88,7 @@ describe('getManufacturingConfig', () => {
     const config = getManufacturingConfig();
     expect(config.forumChannelId).toBe('forum-123');
     expect(config.manufacturingRoleId).toBe('role-456');
-    expect(config.orgMemberRoleId).toBe('org-789');
+    expect(config.organizationMemberRoleId).toBe('org-789');
   });
 
   it('uses default orderLimit of 5 when not set', () => {

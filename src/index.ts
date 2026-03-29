@@ -21,15 +21,15 @@ const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
-const manufacturingEnabled = isManufacturingEnabled();
+let manufacturingEnabled = isManufacturingEnabled();
 
-const manufacturingConfigErrors = validateManufacturingConfig();
-if (manufacturingConfigErrors.length > 0) {
+const manufacturingConfigErrors = manufacturingEnabled ? validateManufacturingConfig() : [];
+if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   for (const error of manufacturingConfigErrors) {
     logger.error(`[manufacturing] Configuration error: ${error}`);
   }
-  logger.error('[manufacturing] Fix the above configuration errors or set MANUFACTURING_ENABLED=false to disable the feature.');
-  process.exit(1);
+  logger.error('[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.');
+  manufacturingEnabled = false;
 }
 
 process.on('uncaughtException', (error) => {
