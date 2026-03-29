@@ -269,6 +269,20 @@ describe('updateStatus', () => {
     expect(result.status).toBe('accepted');
     expect(result.items).toEqual([]);
   });
+
+  it('throws OrderNotFoundError when no row is updated', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [] });  // UPDATE returns nothing
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { updateStatus } = await import('../manufacturing.repository.js');
+    const { OrderNotFoundError } = await import('../types.js');
+    await expect(updateStatus(999, 'accepted')).rejects.toBeInstanceOf(OrderNotFoundError);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -278,8 +292,8 @@ describe('updateStatus', () => {
 describe('updateForumThreadId', () => {
   it('executes an UPDATE without returning a value', async () => {
     const query = jest
-      .fn<() => Promise<{ rows: unknown[] }>>()
-      .mockResolvedValueOnce({ rows: [] });
+      .fn<() => Promise<{ rows: unknown[]; rowCount: number }>>()
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
       withClient: makeWithClient(query),
@@ -291,6 +305,20 @@ describe('updateForumThreadId', () => {
     expect(result).toBeUndefined();
     const calls = queryCalls(query);
     expect(calls[0]).toMatch(/forum_thread_id/);
+  });
+
+  it('throws OrderNotFoundError when no row is updated', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[]; rowCount: number }>>()
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { updateForumThreadId } = await import('../manufacturing.repository.js');
+    const { OrderNotFoundError } = await import('../types.js');
+    await expect(updateForumThreadId(999, 'thread-abc')).rejects.toBeInstanceOf(OrderNotFoundError);
   });
 });
 

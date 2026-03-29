@@ -1,4 +1,5 @@
 import { withClient } from '../../services/nominations/db.js';
+import { OrderNotFoundError } from './types.js';
 import type { ManufacturingOrder, ManufacturingOrderItem, NewOrderItem, OrderStatus } from './types.js';
 
 function mapItemRow(row: Record<string, unknown>): ManufacturingOrderItem {
@@ -87,36 +88,34 @@ export async function findById(id: number): Promise<ManufacturingOrder | null> {
 }
 
 export async function findByUserId(userId: string): Promise<ManufacturingOrder[]> {
-  const ordersResult = await withClient((client) =>
-    client.query(
+  return withClient(async (client) => {
+    const ordersResult = await client.query(
       `SELECT * FROM manufacturing_orders WHERE discord_user_id = $1 ORDER BY created_at DESC`,
       [userId],
-    ),
-  );
+    );
 
-  if (ordersResult.rows.length === 0) return [];
+    if (ordersResult.rows.length === 0) return [];
 
-  const orderIds = (ordersResult.rows as Record<string, unknown>[]).map((row) => Number(row.id));
-  const itemsResult = await withClient((client) =>
-    client.query(
+    const orderIds = (ordersResult.rows as Record<string, unknown>[]).map((row) => Number(row.id));
+    const itemsResult = await client.query(
       `SELECT * FROM manufacturing_order_items
        WHERE order_id = ANY($1::int[])
        ORDER BY order_id, sort_order`,
       [orderIds],
-    ),
-  );
+    );
 
-  const itemsByOrderId = new Map<number, ManufacturingOrderItem[]>();
-  for (const row of itemsResult.rows as Record<string, unknown>[]) {
-    const orderId = Number(row.order_id);
-    const list = itemsByOrderId.get(orderId) ?? [];
-    list.push(mapItemRow(row));
-    itemsByOrderId.set(orderId, list);
-  }
+    const itemsByOrderId = new Map<number, ManufacturingOrderItem[]>();
+    for (const row of itemsResult.rows as Record<string, unknown>[]) {
+      const orderId = Number(row.order_id);
+      const list = itemsByOrderId.get(orderId) ?? [];
+      list.push(mapItemRow(row));
+      itemsByOrderId.set(orderId, list);
+    }
 
-  return (ordersResult.rows as Record<string, unknown>[]).map((row) =>
-    mapOrderRow(row, itemsByOrderId.get(Number(row.id)) ?? []),
-  );
+    return (ordersResult.rows as Record<string, unknown>[]).map((row) =>
+      mapOrderRow(row, itemsByOrderId.get(Number(row.id)) ?? []),
+    );
+  });
 }
 
 export async function countActiveByUserId(userId: string): Promise<number> {
@@ -142,6 +141,8 @@ export async function updateStatus(id: number, status: OrderStatus): Promise<Man
       [id, status],
     );
 
+    if (orderResult.rows.length === 0) throw new OrderNotFoundError(id);
+
     const itemsResult = await client.query(
       `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
       [id],
@@ -155,14 +156,15 @@ export async function updateStatus(id: number, status: OrderStatus): Promise<Man
 }
 
 export async function updateForumThreadId(id: number, threadId: string): Promise<void> {
-  await withClient((client) =>
-    client.query(
+  await withClient(async (client) => {
+    const result = await client.query(
       `UPDATE manufacturing_orders
        SET forum_thread_id = $2, updated_at = NOW()
        WHERE id = $1`,
       [id, threadId],
-    ),
-  );
+    );
+    if ((result.rowCount ?? 0) === 0) throw new OrderNotFoundError(id);
+  });
 }
 
 export async function findByForumThreadId(threadId: string): Promise<ManufacturingOrder | null> {
