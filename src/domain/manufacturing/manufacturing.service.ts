@@ -5,7 +5,6 @@ import {
   VALID_TRANSITIONS,
   InvalidStatusTransitionError,
   OrderCancelForbiddenError,
-  OrderLimitExceededError,
   OrderNotFoundError,
   type ManufacturingOrder,
   type NewOrderItem,
@@ -18,11 +17,7 @@ export async function submitOrder(
   items: NewOrderItem[],
 ): Promise<ManufacturingOrder> {
   const { orderLimit } = getManufacturingConfig();
-  const activeCount = await repository.countActiveByUserId(userId);
-  if (activeCount >= orderLimit) {
-    throw new OrderLimitExceededError(orderLimit);
-  }
-  return repository.create(userId, username, items);
+  return repository.create(userId, username, items, orderLimit);
 }
 
 export async function transitionStatus(

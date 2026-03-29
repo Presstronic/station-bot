@@ -43,9 +43,10 @@ function makeRepoMock(overrides: Record<string, jest.Mock> = {}) {
 // ---------------------------------------------------------------------------
 
 describe('submitOrder', () => {
-  it('throws OrderLimitExceededError when the active order limit is reached', async () => {
+  it('delegates to repository.create with orderLimit from config', async () => {
+    const created = makeOrder();
     const repo = makeRepoMock({
-      countActiveByUserId: jest.fn<() => Promise<number>>().mockResolvedValue(5),
+      create: jest.fn<() => Promise<ManufacturingOrder>>().mockResolvedValue(created),
     });
 
     jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
@@ -56,50 +57,27 @@ describe('submitOrder', () => {
     }));
 
     const { submitOrder } = await import('../manufacturing.service.js');
+    const result = await submitOrder('user-1', 'User#1234', []);
+
+    expect(result).toBe(created);
+    expect(repo.create).toHaveBeenCalledWith('user-1', 'User#1234', [], 5);
+  });
+
+  it('propagates OrderLimitExceededError thrown by repository.create', async () => {
     const { OrderLimitExceededError } = await import('../types.js');
+    const repo = makeRepoMock({
+      create: jest.fn<() => Promise<ManufacturingOrder>>().mockRejectedValue(new OrderLimitExceededError(5)),
+    });
 
+    jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
+    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
+      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
+      isManufacturingEnabled: () => true,
+      validateManufacturingConfig: () => [],
+    }));
+
+    const { submitOrder } = await import('../manufacturing.service.js');
     await expect(submitOrder('user-1', 'User#1234', [])).rejects.toBeInstanceOf(OrderLimitExceededError);
-    expect(repo.create).not.toHaveBeenCalled();
-  });
-
-  it('creates the order when under the active limit', async () => {
-    const created = makeOrder();
-    const repo = makeRepoMock({
-      countActiveByUserId: jest.fn<() => Promise<number>>().mockResolvedValue(2),
-      create: jest.fn<() => Promise<ManufacturingOrder>>().mockResolvedValue(created),
-    });
-
-    jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
-
-    const { submitOrder } = await import('../manufacturing.service.js');
-
-    const result = await submitOrder('user-1', 'User#1234', []);
-    expect(result).toBe(created);
-    expect(repo.create).toHaveBeenCalledWith('user-1', 'User#1234', []);
-  });
-
-  it('creates the order when at zero active orders', async () => {
-    const created = makeOrder();
-    const repo = makeRepoMock({
-      countActiveByUserId: jest.fn<() => Promise<number>>().mockResolvedValue(0),
-      create: jest.fn<() => Promise<ManufacturingOrder>>().mockResolvedValue(created),
-    });
-
-    jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
-
-    const { submitOrder } = await import('../manufacturing.service.js');
-    const result = await submitOrder('user-1', 'User#1234', []);
-    expect(result).toBe(created);
   });
 });
 

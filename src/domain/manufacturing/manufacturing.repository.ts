@@ -1,5 +1,5 @@
 import { withClient } from '../../services/nominations/db.js';
-import { OrderNotFoundError } from './types.js';
+import { OrderLimitExceededError, OrderNotFoundError } from './types.js';
 import type { ManufacturingOrder, ManufacturingOrderItem, NewOrderItem, OrderStatus } from './types.js';
 
 function mapItemRow(row: Record<string, unknown>): ManufacturingOrderItem {
@@ -21,8 +21,8 @@ function mapOrderRow(row: Record<string, unknown>, items: ManufacturingOrderItem
     discordUsername: String(row.discord_username),
     forumThreadId: row.forum_thread_id != null ? String(row.forum_thread_id) : null,
     status: String(row.status) as OrderStatus,
-    createdAt: new Date(String(row.created_at)).toISOString(),
-    updatedAt: new Date(String(row.updated_at)).toISOString(),
+    createdAt: new Date(row.created_at as string | number | Date).toISOString(),
+    updatedAt: new Date(row.updated_at as string | number | Date).toISOString(),
     items,
   };
 }
@@ -31,10 +31,31 @@ export async function create(
   discordUserId: string,
   discordUsername: string,
   items: NewOrderItem[],
+  orderLimit: number,
 ): Promise<ManufacturingOrder> {
   return withClient(async (client) => {
     await client.query('BEGIN');
     try {
+      // Serialize concurrent submits per user with a pg advisory lock so the
+      // count check and insert are atomic (same pattern as nominations).
+      await client.query(
+        `SELECT pg_advisory_xact_lock(
+          ('x' || left(md5('manufacturing_order:' || $1), 16))::bit(64)::bigint
+        )`,
+        [discordUserId],
+      );
+
+      const countResult = await client.query(
+        `SELECT COUNT(*)::int AS active_count
+         FROM manufacturing_orders
+         WHERE discord_user_id = $1
+           AND status NOT IN ('complete', 'cancelled')`,
+        [discordUserId],
+      );
+      if (Number((countResult.rows[0] as Record<string, unknown>).active_count) >= orderLimit) {
+        throw new OrderLimitExceededError(orderLimit);
+      }
+
       const orderResult = await client.query(
         `INSERT INTO manufacturing_orders (discord_user_id, discord_username)
          VALUES ($1, $2)
@@ -57,8 +78,12 @@ export async function create(
         [orderRow.id],
       );
 
+      const mapped = mapOrderRow(
+        orderRow,
+        (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+      );
       await client.query('COMMIT');
-      return mapOrderRow(orderRow, (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow));
+      return mapped;
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

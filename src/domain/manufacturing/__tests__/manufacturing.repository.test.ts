@@ -57,11 +57,13 @@ describe('create', () => {
 
     const query = jest
       .fn<() => Promise<{ rows: unknown[] }>>()
-      .mockResolvedValueOnce({ rows: [] })            // BEGIN
-      .mockResolvedValueOnce({ rows: [orderRow] })    // INSERT order RETURNING *
-      .mockResolvedValueOnce({ rows: [] })            // INSERT item
-      .mockResolvedValueOnce({ rows: [itemRow] })     // SELECT items
-      .mockResolvedValueOnce({ rows: [] });           // COMMIT
+      .mockResolvedValueOnce({ rows: [] })                         // BEGIN
+      .mockResolvedValueOnce({ rows: [] })                         // advisory lock
+      .mockResolvedValueOnce({ rows: [{ active_count: 0 }] })     // count check
+      .mockResolvedValueOnce({ rows: [orderRow] })                 // INSERT order RETURNING *
+      .mockResolvedValueOnce({ rows: [] })                         // INSERT item
+      .mockResolvedValueOnce({ rows: [itemRow] })                  // SELECT items
+      .mockResolvedValueOnce({ rows: [] });                        // COMMIT
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
       withClient: makeWithClient(query),
@@ -70,7 +72,7 @@ describe('create', () => {
     const { create } = await import('../manufacturing.repository.js');
     const result = await create('user-1', 'User#1234', [
       { itemName: 'Steel Plate', quantity: 5, priorityStat: 'Ballistic resistance', note: null, sortOrder: 0 },
-    ]);
+    ], 5);
 
     expect(result.id).toBe(1);
     expect(result.discordUserId).toBe('user-1');
@@ -86,12 +88,35 @@ describe('create', () => {
     expect(calls[calls.length - 1]).toMatch(/COMMIT/i);
   });
 
+  it('throws OrderLimitExceededError and rolls back when the active limit is reached', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [] })                         // BEGIN
+      .mockResolvedValueOnce({ rows: [] })                         // advisory lock
+      .mockResolvedValueOnce({ rows: [{ active_count: 5 }] })     // count check — at limit
+      .mockResolvedValueOnce({ rows: [] });                        // ROLLBACK
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { create } = await import('../manufacturing.repository.js');
+    const { OrderLimitExceededError } = await import('../types.js');
+    await expect(create('user-1', 'User#1234', [], 5)).rejects.toBeInstanceOf(OrderLimitExceededError);
+
+    const calls = queryCalls(query);
+    expect(calls.some((q) => q.includes('ROLLBACK'))).toBe(true);
+    expect(calls.some((q) => q.includes('COMMIT'))).toBe(false);
+  });
+
   it('inserts multiple items in order', async () => {
     const orderRow = makeOrderRow();
 
     const query = jest
       .fn<() => Promise<{ rows: unknown[] }>>()
       .mockResolvedValueOnce({ rows: [] })                                  // BEGIN
+      .mockResolvedValueOnce({ rows: [] })                                  // advisory lock
+      .mockResolvedValueOnce({ rows: [{ active_count: 0 }] })              // count check
       .mockResolvedValueOnce({ rows: [orderRow] })                          // INSERT order
       .mockResolvedValueOnce({ rows: [] })                                  // INSERT item 1
       .mockResolvedValueOnce({ rows: [] })                                  // INSERT item 2
@@ -106,25 +131,26 @@ describe('create', () => {
     await create('user-1', 'User#1234', [
       { itemName: 'Steel Plate', quantity: 5, priorityStat: 'Ballistic resistance', note: null, sortOrder: 0 },
       { itemName: 'Iron Rod', quantity: 2, priorityStat: 'EM resistance', note: 'rush', sortOrder: 1 },
-    ]);
+    ], 5);
 
     const insertItemCalls = queryCalls(query).filter((q) => q.includes('manufacturing_order_items') && q.includes('INSERT'));
     expect(insertItemCalls).toHaveLength(2);
   });
 
-  it('rolls back and rethrows on error', async () => {
+  it('rolls back and rethrows on DB error', async () => {
     const query = jest
       .fn<() => Promise<{ rows: unknown[] }>>()
-      .mockResolvedValueOnce({ rows: [] })                    // BEGIN
-      .mockRejectedValueOnce(new Error('DB failure'))         // INSERT order fails
-      .mockResolvedValueOnce({ rows: [] });                   // ROLLBACK
+      .mockResolvedValueOnce({ rows: [] })                         // BEGIN
+      .mockResolvedValueOnce({ rows: [] })                         // advisory lock
+      .mockRejectedValueOnce(new Error('DB failure'))              // count check fails
+      .mockResolvedValueOnce({ rows: [] });                        // ROLLBACK
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
       withClient: makeWithClient(query),
     }));
 
     const { create } = await import('../manufacturing.repository.js');
-    await expect(create('user-1', 'User#1234', [])).rejects.toThrow('DB failure');
+    await expect(create('user-1', 'User#1234', [], 5)).rejects.toThrow('DB failure');
 
     const calls = queryCalls(query);
     expect(calls.some((q) => q.includes('ROLLBACK'))).toBe(true);
