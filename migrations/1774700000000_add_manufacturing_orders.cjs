@@ -26,7 +26,7 @@ exports.up = (pgm) => {
     order_id:   {
       type: 'integer',
       notNull: true,
-      references: '"manufacturing_orders"',
+      references: 'manufacturing_orders(id)',
       onDelete: 'CASCADE',
     },
     item_name:     { type: 'varchar(255)', notNull: true },
