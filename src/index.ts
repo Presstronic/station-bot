@@ -8,6 +8,7 @@ import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } fro
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
+import { validateManufacturingConfig, isManufacturingEnabled } from './config/manufacturing.config.js';
 import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -20,6 +21,16 @@ const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
+let manufacturingEnabled = isManufacturingEnabled();
+
+const manufacturingConfigErrors = manufacturingEnabled ? validateManufacturingConfig() : [];
+if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
+  for (const error of manufacturingConfigErrors) {
+    logger.error(`[manufacturing] Configuration error: ${error}`);
+  }
+  logger.error('[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.');
+  manufacturingEnabled = false;
+}
 
 process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, error);
@@ -88,6 +99,7 @@ client.once('clientReady', async () => {
   logger.info(`Bot logged in as ${client.user?.tag}`);
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
+  logger.info(`MANUFACTURING_ENABLED=${manufacturingEnabled}`);
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
