@@ -98,6 +98,7 @@ function makeButtonInteraction(
 async function setupMocks(overrides: {
   hasRole?: boolean;
   manufacturingEnabled?: boolean;
+  databaseConfigured?: boolean;
   activeCount?: number;
   submitOrder?: jest.Mock;
   updateForumThreadId?: jest.Mock;
@@ -105,6 +106,7 @@ async function setupMocks(overrides: {
 } = {}) {
   const hasRole = overrides.hasRole ?? true;
   const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
+  const databaseConfigured = overrides.databaseConfigured ?? true;
   const activeCount = overrides.activeCount ?? 0;
   const config = { ...BASE_CONFIG, ...overrides.configOverrides };
 
@@ -133,6 +135,14 @@ async function setupMocks(overrides: {
     submitOrder: submitOrderMock,
     transitionStatus: jest.fn(),
     cancelOrder: jest.fn(),
+  }));
+
+  jest.unstable_mockModule('../../services/nominations/db.js', () => ({
+    isDatabaseConfigured: jest.fn(() => databaseConfigured),
+    endDbPoolIfInitialized: jest.fn(),
+    ensureNominationsSchema: jest.fn(),
+    withClient: jest.fn(),
+    getPool: jest.fn(),
   }));
 
   jest.unstable_mockModule('../../domain/manufacturing/manufacturing.repository.js', () => ({
@@ -216,6 +226,16 @@ describe('handleOrderCommand', () => {
     await h.handleOrderCommand(i as any);
     expect((i.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/Organization Member/i),
+    });
+    expect(i.showModal).not.toHaveBeenCalled();
+  });
+
+  it('replies with a configuration error when the database is not configured', async () => {
+    const h = await setupMocks({ databaseConfigured: false });
+    const i = makeSlashInteraction();
+    await h.handleOrderCommand(i as any);
+    expect((i.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/configuration issue/i),
     });
     expect(i.showModal).not.toHaveBeenCalled();
   });
@@ -454,6 +474,26 @@ describe('handleOrderButtonInteraction', () => {
     expect(updateForumThreadIdMock).toHaveBeenCalledWith(99, 'thread-id');
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Order #99/i) }),
+    );
+  });
+
+  it('edits reply with a misconfiguration error and does not save the order when forum channel is invalid', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'bad-channel');
+    await addItemToSession(h, 'bad-channel');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:bad-channel`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => null), // channel not found
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/not configured correctly/i) }),
     );
   });
 

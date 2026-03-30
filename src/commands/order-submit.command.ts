@@ -26,6 +26,7 @@ import {
 } from '../domain/manufacturing/manufacturing.forum.js';
 import { OrderLimitExceededError, type NewOrderItem } from '../domain/manufacturing/types.js';
 import { hasOrganizationMemberOrHigher } from './nomination.helpers.js';
+import { isDatabaseConfigured } from '../services/nominations/db.js';
 import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
@@ -170,6 +171,14 @@ export async function handleOrderCommand(
     return;
   }
 
+  if (!isDatabaseConfigured()) {
+    await interaction.reply({
+      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   // Eager limit check — gives the user an early error with their current count
   // before they start the item flow. The authoritative check still happens in
   // the repository (with advisory lock) at submit time.
@@ -295,12 +304,8 @@ export async function handleOrderButtonInteraction(
   await interaction.deferUpdate();
 
   try {
-    const order = await submitOrder(
-      interaction.user.id,
-      interaction.user.username,
-      submittedItems,
-    );
-
+    // Validate the forum channel before persisting the order so a misconfigured
+    // channel ID never produces an orphaned order that can't be managed.
     const { forumChannelId } = getManufacturingConfig();
     const channel = await interaction.client.channels.fetch(forumChannelId);
 
@@ -310,13 +315,19 @@ export async function handleOrderButtonInteraction(
       );
       await interaction.editReply({
         content:
-          'Your order was saved but the forum post could not be created. Please contact staff.',
+          'Manufacturing is not configured correctly (forum channel unavailable). Please contact staff.',
         components: [],
       });
       return;
     }
 
     const forumChannel = channel as unknown as ForumChannel;
+
+    const order = await submitOrder(
+      interaction.user.id,
+      interaction.user.username,
+      submittedItems,
+    );
 
     let tagIds: Map<string, string> | undefined;
     try {
