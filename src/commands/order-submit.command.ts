@@ -95,7 +95,8 @@ function buildItemModal(customId: string, itemNumber: number): ModalBuilder {
         .setCustomId('quantity')
         .setLabel('Quantity')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true),
+        .setRequired(true)
+        .setMaxLength(10),
     ),
     new ActionRowBuilder<TextInputBuilder>().addComponents(
       new TextInputBuilder()
