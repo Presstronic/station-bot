@@ -71,7 +71,7 @@ Any order can be cancelled at any stage by the manufacturing team. Members can c
 
 A few rules are built in to keep the system fair and the queue manageable:
 
-- **Organisation members only** — only members with the Organisation Member role can place orders
+- **Organization members only** — only members with the Organization Member role can place orders
 - **5 active orders maximum** — members are capped at 5 open orders at a time to prevent queue abuse
 - **10 items per order maximum** — each order can contain up to 10 line items
 - **Free service** — there is no charge to org members for manufacturing orders
