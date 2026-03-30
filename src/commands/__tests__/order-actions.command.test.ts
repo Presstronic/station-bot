@@ -227,7 +227,7 @@ describe('handleMfgCancelOrder', () => {
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'cancelled');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'new', 'cancelled');
     expect(btn.editReply).toHaveBeenCalled();
   });
 
@@ -236,7 +236,7 @@ describe('handleMfgCancelOrder', () => {
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'cancelled');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'accepted', 'cancelled');
   });
 
   it('succeeds when staff cancels a processing order they do not own', async () => {
@@ -244,7 +244,7 @@ describe('handleMfgCancelOrder', () => {
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'staff-1', roles: ['mfg-role'] });
     await h.handleMfgCancelOrder(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'cancelled');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'processing', 'cancelled');
   });
 
   it('posts a thread reply on successful cancel', async () => {
@@ -289,7 +289,7 @@ describe('handleMfgStaffCancel', () => {
     const btn = makeButtonInteraction('mfg-staff-cancel:42');
     await h.handleMfgStaffCancel(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'cancelled');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'processing', 'cancelled');
     expect(btn.editReply).toHaveBeenCalled();
   });
 
@@ -298,7 +298,7 @@ describe('handleMfgStaffCancel', () => {
     const btn = makeButtonInteraction('mfg-staff-cancel:42', { userId: 'admin-1', roles: [], isAdmin: true });
     await h.handleMfgStaffCancel(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'cancelled');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'new', 'cancelled');
   });
 });
 

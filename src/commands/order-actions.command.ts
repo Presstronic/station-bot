@@ -10,7 +10,6 @@ import { getManufacturingConfig } from '../config/manufacturing.config.js';
 import {
   findById,
   transitionStatus,
-  updateStatus,
 } from '../domain/manufacturing/manufacturing.repository.js';
 import {
   buildForumPostComponents,
@@ -110,10 +109,34 @@ async function applyPostTransition(
 async function applyTransition(
   interaction: ButtonInteraction,
   orderId: number,
+  fromStatus: OrderStatus,
   toStatus: OrderStatus,
 ): Promise<void> {
-  const updatedOrder = await updateStatus(orderId, toStatus);
-  await applyPostTransition(interaction, updatedOrder, toStatus);
+  try {
+    const updatedOrder = await transitionStatus(orderId, fromStatus, toStatus);
+    await applyPostTransition(interaction, updatedOrder, toStatus);
+  } catch (err) {
+    if (err instanceof InvalidStatusTransitionError) {
+      await interaction
+        .followUp({
+          content: 'This order was already updated by another action. Please refresh to see the current status.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(() => {});
+      return;
+    }
+    logger.error('[manufacturing] Failed to apply status transition', {
+      orderId,
+      toStatus,
+      error: err,
+    });
+    await interaction
+      .followUp({
+        content: 'An error occurred while updating the order status. Please contact staff.',
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -161,7 +184,7 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
   }
 
   await interaction.deferUpdate();
-  await applyTransition(interaction, orderId, 'cancelled');
+  await applyTransition(interaction, orderId, order.status, 'cancelled');
 }
 
 // ---------------------------------------------------------------------------
@@ -198,7 +221,7 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
   }
 
   await interaction.deferUpdate();
-  await applyTransition(interaction, orderId, 'cancelled');
+  await applyTransition(interaction, orderId, order.status, 'cancelled');
 }
 
 // ---------------------------------------------------------------------------
