@@ -136,6 +136,27 @@ async function setupMocks(overrides: {
     }
   }
 
+  class MockOrderNotFoundError extends Error {
+    constructor(orderId: number) {
+      super(`Manufacturing order ${orderId} not found`);
+      this.name = 'OrderNotFoundError';
+    }
+  }
+
+  class MockOrderLimitExceededError extends Error {
+    constructor(limit: number) {
+      super(`Active order limit of ${limit} reached`);
+      this.name = 'OrderLimitExceededError';
+    }
+  }
+
+  class MockOrderCancelForbiddenError extends Error {
+    constructor(reason: string) {
+      super(reason);
+      this.name = 'OrderCancelForbiddenError';
+    }
+  }
+
   jest.unstable_mockModule('../../domain/manufacturing/types.js', () => ({
     TERMINAL_STATUSES: ['complete', 'cancelled'],
     VALID_TRANSITIONS: {
@@ -147,6 +168,9 @@ async function setupMocks(overrides: {
       cancelled: [],
     },
     InvalidStatusTransitionError: MockInvalidStatusTransitionError,
+    OrderNotFoundError: MockOrderNotFoundError,
+    OrderLimitExceededError: MockOrderLimitExceededError,
+    OrderCancelForbiddenError: MockOrderCancelForbiddenError,
   }));
 
   const mod = await import('../order-actions.command.js');

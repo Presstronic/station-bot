@@ -6,14 +6,16 @@ import {
 } from 'discord.js';
 import type { ManufacturingOrder, OrderStatus } from './types.js';
 
-export const ORDER_STATUS_TAG_NAMES = [
-  'New',
-  'Accepted',
-  'Processing',
-  'Ready for Pickup',
-  'Complete',
-  'Cancelled',
-] as const;
+export const STATUS_TO_TAG: Record<OrderStatus, string> = {
+  new: 'New',
+  accepted: 'Accepted',
+  processing: 'Processing',
+  ready_for_pickup: 'Ready for Pickup',
+  complete: 'Complete',
+  cancelled: 'Cancelled',
+};
+
+export const ORDER_STATUS_TAG_NAMES: readonly string[] = Object.values(STATUS_TO_TAG);
 
 export async function ensureForumTags(channel: ForumChannel): Promise<Map<string, string>> {
   const existing = new Map(channel.availableTags.map((t) => [t.name, t.id]));
@@ -38,15 +40,6 @@ export const STATUS_LABEL: Record<OrderStatus, string> = {
   ready_for_pickup: '📬 Ready for Pickup',
   complete: '✔️ Complete',
   cancelled: '🚫 Cancelled',
-};
-
-export const STATUS_TO_TAG: Record<OrderStatus, string> = {
-  new: 'New',
-  accepted: 'Accepted',
-  processing: 'Processing',
-  ready_for_pickup: 'Ready for Pickup',
-  complete: 'Complete',
-  cancelled: 'Cancelled',
 };
 
 export function formatOrderPost(order: ManufacturingOrder): string {

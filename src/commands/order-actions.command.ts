@@ -24,7 +24,7 @@ import {
   MFG_READY_FOR_PICKUP_PREFIX,
   MFG_MARK_COMPLETE_PREFIX,
 } from '../domain/manufacturing/manufacturing.forum.js';
-import { VALID_TRANSITIONS, TERMINAL_STATUSES, InvalidStatusTransitionError, type OrderStatus } from '../domain/manufacturing/types.js';
+import { VALID_TRANSITIONS, TERMINAL_STATUSES, InvalidStatusTransitionError, type ManufacturingOrder, type OrderStatus } from '../domain/manufacturing/types.js';
 import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
@@ -48,13 +48,11 @@ function hasMfgStaffRole(interaction: ButtonInteraction): boolean {
   return (roles as GuildMemberRoleManager).cache.has(manufacturingRoleId);
 }
 
-async function applyTransition(
+async function applyPostTransition(
   interaction: ButtonInteraction,
-  orderId: number,
+  updatedOrder: ManufacturingOrder,
   toStatus: OrderStatus,
 ): Promise<void> {
-  const updatedOrder = await updateStatus(orderId, toStatus);
-
   const thread = interaction.channel as ThreadChannel;
 
   // Update forum post content and buttons
@@ -66,7 +64,7 @@ async function applyTransition(
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to edit forum post after status transition', {
-      orderId,
+      orderId: updatedOrder.id,
       toStatus,
       error: err,
     });
@@ -88,7 +86,7 @@ async function applyTransition(
     }
   } catch (err) {
     logger.error('[manufacturing] Failed to update forum thread tag after status transition', {
-      orderId,
+      orderId: updatedOrder.id,
       toStatus,
       error: err,
     });
@@ -102,11 +100,20 @@ async function applyTransition(
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to post thread reply after status transition', {
-      orderId,
+      orderId: updatedOrder.id,
       toStatus,
       error: err,
     });
   }
+}
+
+async function applyTransition(
+  interaction: ButtonInteraction,
+  orderId: number,
+  toStatus: OrderStatus,
+): Promise<void> {
+  const updatedOrder = await updateStatus(orderId, toStatus);
+  await applyPostTransition(interaction, updatedOrder, toStatus);
 }
 
 // ---------------------------------------------------------------------------
@@ -274,57 +281,21 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
         .catch(() => {});
       return;
     }
-    throw err;
-  }
-
-  const thread = interaction.channel as ThreadChannel;
-
-  try {
-    await interaction.editReply({
-      content: formatOrderPost(updatedOrder),
-      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status),
-      allowedMentions: { users: [updatedOrder.discordUserId] },
-    });
-  } catch (err) {
-    logger.error('[manufacturing] Failed to edit forum post after status transition', {
+    logger.error('[manufacturing] Failed to transition order status after deferUpdate', {
       orderId,
+      fromStatus: order.status,
       toStatus,
       error: err,
     });
     await interaction
       .followUp({
-        content: 'Status updated in the database, but the forum post could not be refreshed. Please contact staff.',
+        content: 'An unexpected error occurred while updating this order. Please try again or contact staff.',
         flags: MessageFlags.Ephemeral,
       })
       .catch(() => {});
+    return;
   }
 
-  try {
-    const parent = thread.parent;
-    if (parent && parent.type === ChannelType.GuildForum) {
-      const tagMap = await ensureForumTags(parent as any);
-      const tagId = tagMap.get(STATUS_TO_TAG[toStatus]);
-      await thread.setAppliedTags(tagId ? [tagId] : []);
-    }
-  } catch (err) {
-    logger.error('[manufacturing] Failed to update forum thread tag after status transition', {
-      orderId,
-      toStatus,
-      error: err,
-    });
-  }
-
-  try {
-    await thread.send({
-      content: formatTransitionReply(toStatus, interaction.user.id),
-      allowedMentions: { users: [updatedOrder.discordUserId, interaction.user.id] },
-    });
-  } catch (err) {
-    logger.error('[manufacturing] Failed to post thread reply after status transition', {
-      orderId,
-      toStatus,
-      error: err,
-    });
-  }
+  await applyPostTransition(interaction, updatedOrder, toStatus);
 }
 

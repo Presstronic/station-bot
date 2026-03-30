@@ -194,7 +194,14 @@ export async function transitionStatus(
       [id, fromStatus, toStatus],
     );
 
-    if (orderResult.rows.length === 0) throw new InvalidStatusTransitionError(fromStatus, toStatus);
+    if (orderResult.rows.length === 0) {
+      const existsResult = await client.query(
+        `SELECT 1 FROM manufacturing_orders WHERE id = $1`,
+        [id],
+      );
+      if (existsResult.rows.length === 0) throw new OrderNotFoundError(id);
+      throw new InvalidStatusTransitionError(fromStatus, toStatus);
+    }
 
     const itemsResult = await client.query(
       `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
