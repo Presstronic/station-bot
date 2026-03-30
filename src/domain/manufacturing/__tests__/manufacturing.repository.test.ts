@@ -391,7 +391,7 @@ describe('cancelOrder', () => {
     expect(result.status).toBe('cancelled');
     expect(result.items).toEqual([]);
     const [updateSql] = queryCalls(query);
-    expect(updateSql).toMatch(/WHERE id = \$1 AND status = ANY\(\$2\)/);
+    expect(updateSql).toMatch(/WHERE id = \$1 AND status = ANY\(\$2::text\[\]\)/);
   });
 
   it('throws InvalidStatusTransitionError when current status is not in the allowed set', async () => {

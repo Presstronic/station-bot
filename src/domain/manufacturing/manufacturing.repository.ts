@@ -235,7 +235,7 @@ export async function cancelOrder(
     const orderResult = await client.query(
       `UPDATE manufacturing_orders
        SET status = 'cancelled', updated_at = NOW()
-       WHERE id = $1 AND status = ANY($2)
+       WHERE id = $1 AND status = ANY($2::text[])
        RETURNING *`,
       [id, allowedFromStatuses],
     );
