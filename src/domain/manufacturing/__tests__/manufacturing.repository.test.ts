@@ -369,6 +369,63 @@ describe('transitionStatus', () => {
 });
 
 // ---------------------------------------------------------------------------
+// cancelOrder
+// ---------------------------------------------------------------------------
+
+describe('cancelOrder', () => {
+  it('cancels the order when the current status is in the allowed set', async () => {
+    const cancelledRow = makeOrderRow({ status: 'cancelled' });
+
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [cancelledRow] })  // UPDATE RETURNING *
+      .mockResolvedValueOnce({ rows: [] });              // SELECT items
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { cancelOrder } = await import('../manufacturing.repository.js');
+    const result = await cancelOrder(1, ['new', 'accepted']);
+
+    expect(result.status).toBe('cancelled');
+    expect(result.items).toEqual([]);
+    const [updateSql] = queryCalls(query);
+    expect(updateSql).toMatch(/WHERE id = \$1 AND status = ANY\(\$2\)/);
+  });
+
+  it('throws InvalidStatusTransitionError when current status is not in the allowed set', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [] })          // UPDATE matches nothing
+      .mockResolvedValueOnce({ rows: [{ 1: 1 }] }); // SELECT confirms order exists
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { cancelOrder } = await import('../manufacturing.repository.js');
+    const { InvalidStatusTransitionError } = await import('../types.js');
+    await expect(cancelOrder(1, ['new', 'accepted'])).rejects.toBeInstanceOf(InvalidStatusTransitionError);
+  });
+
+  it('throws OrderNotFoundError when the order does not exist', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [] })  // UPDATE matches nothing
+      .mockResolvedValueOnce({ rows: [] }); // SELECT confirms order missing
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { cancelOrder } = await import('../manufacturing.repository.js');
+    const { OrderNotFoundError } = await import('../types.js');
+    await expect(cancelOrder(999, ['new', 'accepted'])).rejects.toBeInstanceOf(OrderNotFoundError);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // updateForumThreadId
 // ---------------------------------------------------------------------------
 

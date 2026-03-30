@@ -227,6 +227,40 @@ export async function updateForumThreadId(id: number, threadId: string): Promise
   });
 }
 
+export async function cancelOrder(
+  id: number,
+  allowedFromStatuses: readonly OrderStatus[],
+): Promise<ManufacturingOrder> {
+  return withClient(async (client) => {
+    const orderResult = await client.query(
+      `UPDATE manufacturing_orders
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE id = $1 AND status = ANY($2)
+       RETURNING *`,
+      [id, allowedFromStatuses],
+    );
+
+    if (orderResult.rows.length === 0) {
+      const existsResult = await client.query(
+        `SELECT 1 FROM manufacturing_orders WHERE id = $1`,
+        [id],
+      );
+      if (existsResult.rows.length === 0) throw new OrderNotFoundError(id);
+      throw new InvalidStatusTransitionError('new', 'cancelled');
+    }
+
+    const itemsResult = await client.query(
+      `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
+      [id],
+    );
+
+    return mapOrderRow(
+      orderResult.rows[0] as Record<string, unknown>,
+      (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+    );
+  });
+}
+
 export async function findByForumThreadId(threadId: string): Promise<ManufacturingOrder | null> {
   return withClient(async (client) => {
     const orderResult = await client.query(

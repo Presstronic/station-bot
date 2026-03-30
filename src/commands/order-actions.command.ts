@@ -3,11 +3,13 @@ import {
   ChannelType,
   MessageFlags,
   PermissionFlagsBits,
+  type ForumChannel,
   type GuildMemberRoleManager,
   type ThreadChannel,
 } from 'discord.js';
-import { getManufacturingConfig } from '../config/manufacturing.config.js';
+import { getManufacturingConfig, isManufacturingEnabled } from '../config/manufacturing.config.js';
 import {
+  cancelOrder,
   findById,
   transitionStatus,
 } from '../domain/manufacturing/manufacturing.repository.js';
@@ -79,7 +81,7 @@ async function applyPostTransition(
   try {
     const parent = thread.parent;
     if (parent && parent.type === ChannelType.GuildForum) {
-      const tagMap = await ensureForumTags(parent as any);
+      const tagMap = await ensureForumTags(parent as ForumChannel);
       const tagId = tagMap.get(STATUS_TO_TAG[toStatus]);
       await thread.setAppliedTags(tagId ? [tagId] : []);
     }
@@ -139,11 +141,47 @@ async function applyTransition(
   }
 }
 
+async function applyCancellation(
+  interaction: ButtonInteraction,
+  orderId: number,
+  allowedFromStatuses: readonly OrderStatus[],
+): Promise<void> {
+  try {
+    const updatedOrder = await cancelOrder(orderId, allowedFromStatuses);
+    await applyPostTransition(interaction, updatedOrder, 'cancelled');
+  } catch (err) {
+    if (err instanceof InvalidStatusTransitionError) {
+      await interaction
+        .followUp({
+          content: 'This order was already updated by another action. Please refresh to see the current status.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(() => {});
+      return;
+    }
+    logger.error('[manufacturing] Failed to apply cancellation', {
+      orderId,
+      error: err,
+    });
+    await interaction
+      .followUp({
+        content: 'An error occurred while updating the order status. Please contact staff.',
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
+  }
+}
+
 // ---------------------------------------------------------------------------
 // handleMfgCancelOrder — member "🚫 Cancel Order" button (ISSUE-243)
 // ---------------------------------------------------------------------------
 
 export async function handleMfgCancelOrder(interaction: ButtonInteraction): Promise<void> {
+  if (!isManufacturingEnabled()) {
+    await interaction.reply({ content: 'Manufacturing is not currently enabled.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   const orderId = parseOrderId(interaction.customId);
   if (orderId === null) {
     await interaction.reply({ content: 'Invalid order reference.', flags: MessageFlags.Ephemeral });
@@ -184,7 +222,10 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
   }
 
   await interaction.deferUpdate();
-  await applyTransition(interaction, orderId, order.status, 'cancelled');
+  const allowedFromStatuses: readonly OrderStatus[] = isStaff
+    ? ['new', 'accepted', 'processing', 'ready_for_pickup']
+    : ['new', 'accepted'];
+  await applyCancellation(interaction, orderId, allowedFromStatuses);
 }
 
 // ---------------------------------------------------------------------------
@@ -192,6 +233,11 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
 // ---------------------------------------------------------------------------
 
 export async function handleMfgStaffCancel(interaction: ButtonInteraction): Promise<void> {
+  if (!isManufacturingEnabled()) {
+    await interaction.reply({ content: 'Manufacturing is not currently enabled.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   const orderId = parseOrderId(interaction.customId);
   if (orderId === null) {
     await interaction.reply({ content: 'Invalid order reference.', flags: MessageFlags.Ephemeral });
@@ -221,7 +267,7 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
   }
 
   await interaction.deferUpdate();
-  await applyTransition(interaction, orderId, order.status, 'cancelled');
+  await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup']);
 }
 
 // ---------------------------------------------------------------------------
@@ -236,6 +282,11 @@ const ADVANCE_TARGET: Record<string, OrderStatus> = {
 };
 
 export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<void> {
+  if (!isManufacturingEnabled()) {
+    await interaction.reply({ content: 'Manufacturing is not currently enabled.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   const colonIdx = interaction.customId.indexOf(':');
 
   if (colonIdx === -1) {
@@ -290,35 +341,6 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
   }
 
   await interaction.deferUpdate();
-
-  let updatedOrder;
-  try {
-    updatedOrder = await transitionStatus(orderId, order.status, toStatus);
-  } catch (err) {
-    if (err instanceof InvalidStatusTransitionError) {
-      await interaction
-        .followUp({
-          content: 'This order was already updated by another action. Please refresh to see the current status.',
-          flags: MessageFlags.Ephemeral,
-        })
-        .catch(() => {});
-      return;
-    }
-    logger.error('[manufacturing] Failed to transition order status after deferUpdate', {
-      orderId,
-      fromStatus: order.status,
-      toStatus,
-      error: err,
-    });
-    await interaction
-      .followUp({
-        content: 'An unexpected error occurred while updating this order. Please try again or contact staff.',
-        flags: MessageFlags.Ephemeral,
-      })
-      .catch(() => {});
-    return;
-  }
-
-  await applyPostTransition(interaction, updatedOrder, toStatus);
+  await applyTransition(interaction, orderId, order.status, toStatus);
 }
 

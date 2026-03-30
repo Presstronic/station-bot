@@ -84,6 +84,8 @@ async function setupMocks(overrides: {
   findById?: jest.Mock;
   updateStatus?: jest.Mock;
   transitionStatus?: jest.Mock;
+  cancelOrder?: jest.Mock;
+  manufacturingEnabled?: boolean;
 } = {}) {
   const findByIdMock = overrides.findById ?? jest.fn(async () => makeOrder());
   const updateStatusMock = overrides.updateStatus ?? jest.fn(async (_id: number, status: string) =>
@@ -92,10 +94,14 @@ async function setupMocks(overrides: {
   const transitionStatusMock = overrides.transitionStatus ?? jest.fn(async (_id: number, _from: string, status: string) =>
     makeOrder({ status: status as ManufacturingOrder['status'] }),
   );
+  const cancelOrderMock = overrides.cancelOrder ?? jest.fn(async () =>
+    makeOrder({ status: 'cancelled' }),
+  );
+  const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
 
   jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
     getManufacturingConfig: () => BASE_CONFIG,
-    isManufacturingEnabled: () => true,
+    isManufacturingEnabled: () => manufacturingEnabled,
     validateManufacturingConfig: () => [],
   }));
 
@@ -106,6 +112,7 @@ async function setupMocks(overrides: {
     countActiveByUserId: jest.fn(async () => 0),
     updateStatus: updateStatusMock,
     transitionStatus: transitionStatusMock,
+    cancelOrder: cancelOrderMock,
     updateForumThreadId: jest.fn(),
     findByForumThreadId: jest.fn(),
   }));
@@ -174,7 +181,7 @@ async function setupMocks(overrides: {
   }));
 
   const mod = await import('../order-actions.command.js');
-  return { ...mod, findByIdMock, updateStatusMock, transitionStatusMock };
+  return { ...mod, findByIdMock, updateStatusMock, transitionStatusMock, cancelOrderMock };
 }
 
 // ---------------------------------------------------------------------------
@@ -222,12 +229,20 @@ describe('handleMfgCancelOrder', () => {
     expect(btn.deferUpdate).not.toHaveBeenCalled();
   });
 
+  it('replies ephemerally when manufacturing is disabled', async () => {
+    const h = await setupMocks({ manufacturingEnabled: false });
+    const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
+    await h.handleMfgCancelOrder(btn as any);
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/not currently enabled/i) }));
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+  });
+
   it('succeeds when owner cancels their own new order', async () => {
     const h = await setupMocks();
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'new', 'cancelled');
+    expect(h.cancelOrderMock).toHaveBeenCalledWith(42, ['new', 'accepted']);
     expect(btn.editReply).toHaveBeenCalled();
   });
 
@@ -236,7 +251,7 @@ describe('handleMfgCancelOrder', () => {
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'accepted', 'cancelled');
+    expect(h.cancelOrderMock).toHaveBeenCalledWith(42, ['new', 'accepted']);
   });
 
   it('succeeds when staff cancels a processing order they do not own', async () => {
@@ -244,7 +259,7 @@ describe('handleMfgCancelOrder', () => {
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'staff-1', roles: ['mfg-role'] });
     await h.handleMfgCancelOrder(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'processing', 'cancelled');
+    expect(h.cancelOrderMock).toHaveBeenCalledWith(42, ['new', 'accepted', 'processing', 'ready_for_pickup']);
   });
 
   it('posts a thread reply on successful cancel', async () => {
@@ -284,12 +299,20 @@ describe('handleMfgStaffCancel', () => {
     expect(btn.deferUpdate).not.toHaveBeenCalled();
   });
 
+  it('replies ephemerally when manufacturing is disabled', async () => {
+    const h = await setupMocks({ manufacturingEnabled: false });
+    const btn = makeButtonInteraction('mfg-staff-cancel:42');
+    await h.handleMfgStaffCancel(btn as any);
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/not currently enabled/i) }));
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+  });
+
   it('succeeds when staff cancels a non-terminal order', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'processing' })) });
     const btn = makeButtonInteraction('mfg-staff-cancel:42');
     await h.handleMfgStaffCancel(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'processing', 'cancelled');
+    expect(h.cancelOrderMock).toHaveBeenCalledWith(42, ['new', 'accepted', 'processing', 'ready_for_pickup']);
     expect(btn.editReply).toHaveBeenCalled();
   });
 
@@ -298,7 +321,7 @@ describe('handleMfgStaffCancel', () => {
     const btn = makeButtonInteraction('mfg-staff-cancel:42', { userId: 'admin-1', roles: [], isAdmin: true });
     await h.handleMfgStaffCancel(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'new', 'cancelled');
+    expect(h.cancelOrderMock).toHaveBeenCalledWith(42, ['new', 'accepted', 'processing', 'ready_for_pickup']);
   });
 });
 
@@ -307,6 +330,14 @@ describe('handleMfgStaffCancel', () => {
 // ---------------------------------------------------------------------------
 
 describe('handleMfgAdvance', () => {
+  it('replies ephemerally when manufacturing is disabled', async () => {
+    const h = await setupMocks({ manufacturingEnabled: false });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/not currently enabled/i) }));
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+  });
+
   it('replies ephemerally when customId has no colon', async () => {
     const h = await setupMocks();
     const btn = makeButtonInteraction('mfg-accept-order-no-colon');
