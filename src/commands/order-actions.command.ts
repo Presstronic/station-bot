@@ -97,7 +97,7 @@ async function applyPostTransition(
   try {
     await thread.send({
       content: formatTransitionReply(toStatus, interaction.user.id),
-      allowedMentions: { users: [updatedOrder.discordUserId, interaction.user.id] },
+      allowedMentions: { users: [updatedOrder.discordUserId] },
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to post thread reply after status transition', {
@@ -194,14 +194,6 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
     return;
   }
 
-  if (TERMINAL_STATUSES.includes(order.status)) {
-    await interaction.reply({
-      content: `This order is already ${order.status === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
   const isStaff = hasMfgStaffRole(interaction);
   const isOwner = order.discordUserId === interaction.user.id;
 
@@ -213,12 +205,24 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
     return;
   }
 
-  if (isOwner && !isStaff && (order.status === 'processing' || order.status === 'ready_for_pickup')) {
-    await interaction.reply({
-      content: 'This order can no longer be cancelled. Please contact the manufacturing team.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
+  if (isOwner && !isStaff) {
+    // Non-staff members may only cancel orders that haven't entered production
+    if (order.status !== 'new' && order.status !== 'accepted') {
+      await interaction.reply({
+        content: 'This order can no longer be cancelled. Please contact the manufacturing team.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+  } else {
+    // Staff may only cancel non-terminal orders
+    if (TERMINAL_STATUSES.includes(order.status)) {
+      await interaction.reply({
+        content: `This order is already ${order.status === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
   }
 
   await interaction.deferUpdate();

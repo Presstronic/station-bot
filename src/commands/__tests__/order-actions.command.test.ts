@@ -213,6 +213,14 @@ describe('handleMfgCancelOrder', () => {
     expect(btn.deferUpdate).not.toHaveBeenCalled();
   });
 
+  it('replies with "no longer be cancelled" when non-staff owner tries to cancel a terminal order', async () => {
+    const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'complete' })) });
+    const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
+    await h.handleMfgCancelOrder(btn as any);
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+  });
+
   it('replies ephemerally when owner tries to cancel a processing order', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'processing' })) });
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
