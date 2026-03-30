@@ -279,6 +279,14 @@ export async function handleOrderButtonInteraction(
 
   if (prefix !== SUBMIT_ORDER_BUTTON_PREFIX) return;
 
+  if (items.length === 0) {
+    await interaction.update({
+      content: 'Please add at least one item before submitting.',
+      components: buildItemCollectionComponents(sessionId, 0, maxItemsPerOrder),
+    });
+    return;
+  }
+
   // Delete the session before any awaits — single-threaded atomicity prevents
   // a second click racing past the `if (!items)` guard above.
   const submittedItems = items;

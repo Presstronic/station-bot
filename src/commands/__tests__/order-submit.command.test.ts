@@ -382,6 +382,19 @@ describe('handleOrderButtonInteraction', () => {
     );
   });
 
+  it('updates with an error and keeps buttons when Submit Order is clicked with zero items', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'zero-items');
+    // Do not add any items — session has items: []
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:zero-items`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.update).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/at least one item/i) }),
+    );
+  });
+
   it('shows a new item modal when Add Item is clicked under the limit', async () => {
     const h = await setupMocks();
     await createSession(h, 'add-btn');
