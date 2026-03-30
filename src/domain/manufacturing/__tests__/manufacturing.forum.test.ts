@@ -1,5 +1,17 @@
 import { describe, expect, it, jest } from '@jest/globals';
-import { formatOrderPost, buildForumPostComponents, ensureForumTags, MFG_CANCEL_ORDER_PREFIX, MFG_ACCEPT_ORDER_PREFIX, MFG_STAFF_CANCEL_PREFIX } from '../manufacturing.forum.js';
+import {
+  formatOrderPost,
+  buildForumPostComponents,
+  ensureForumTags,
+  formatTransitionReply,
+  STATUS_TO_TAG,
+  MFG_CANCEL_ORDER_PREFIX,
+  MFG_ACCEPT_ORDER_PREFIX,
+  MFG_STAFF_CANCEL_PREFIX,
+  MFG_START_PROCESSING_PREFIX,
+  MFG_READY_FOR_PICKUP_PREFIX,
+  MFG_MARK_COMPLETE_PREFIX,
+} from '../manufacturing.forum.js';
 import type { ManufacturingOrder } from '../types.js';
 
 function makeOrder(overrides: Partial<ManufacturingOrder> = {}): ManufacturingOrder {
@@ -94,27 +106,93 @@ describe('formatOrderPost', () => {
 });
 
 // ---------------------------------------------------------------------------
+// formatTransitionReply
+// ---------------------------------------------------------------------------
+
+describe('formatTransitionReply', () => {
+  it('produces a cancellation message when status is cancelled', () => {
+    const reply = formatTransitionReply('cancelled', 'actor-1');
+    expect(reply).toContain('🚫 Order cancelled');
+    expect(reply).toContain('<@actor-1>');
+  });
+
+  it('produces a status-update message for non-cancelled statuses', () => {
+    const reply = formatTransitionReply('accepted', 'staff-1');
+    expect(reply).toContain('Status updated to');
+    expect(reply).toContain('✅ Accepted');
+    expect(reply).toContain('<@staff-1>');
+  });
+
+  it("includes today's date in YYYY-MM-DD format", () => {
+    const today = new Date().toISOString().substring(0, 10);
+    expect(formatTransitionReply('processing', 'actor-1')).toContain(today);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// STATUS_TO_TAG
+// ---------------------------------------------------------------------------
+
+describe('STATUS_TO_TAG', () => {
+  it('maps every order status to a tag name', () => {
+    const statuses: import('../types.js').OrderStatus[] = [
+      'new', 'accepted', 'processing', 'ready_for_pickup', 'complete', 'cancelled',
+    ];
+    for (const status of statuses) {
+      expect(STATUS_TO_TAG[status]).toBeTruthy();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // buildForumPostComponents
 // ---------------------------------------------------------------------------
 
 describe('buildForumPostComponents', () => {
-  it('returns two action rows', () => {
-    const rows = buildForumPostComponents(42);
-    expect(rows).toHaveLength(2);
+  it('returns two rows for new status', () => {
+    expect(buildForumPostComponents(42, 'new')).toHaveLength(2);
+  });
+
+  it('returns empty array for complete status', () => {
+    expect(buildForumPostComponents(42, 'complete')).toHaveLength(0);
+  });
+
+  it('returns empty array for cancelled status', () => {
+    expect(buildForumPostComponents(42, 'cancelled')).toHaveLength(0);
   });
 
   it('member row contains a cancel button with the correct customId', () => {
-    const rows = buildForumPostComponents(42);
+    const rows = buildForumPostComponents(42, 'new');
     const memberRow = rows[0];
     const cancelBtn = memberRow.components[0] as unknown as { data: { custom_id: string } };
     expect(cancelBtn.data.custom_id).toBe(`${MFG_CANCEL_ORDER_PREFIX}:42`);
   });
 
-  it('staff row contains accept and cancel buttons with the correct customIds', () => {
-    const rows = buildForumPostComponents(42);
-    const staffRow = rows[1];
-    const [acceptBtn, cancelBtn] = staffRow.components as unknown as { data: { custom_id: string } }[];
-    expect(acceptBtn.data.custom_id).toBe(`${MFG_ACCEPT_ORDER_PREFIX}:42`);
+  it('staff row for new status has Accept and Staff Cancel buttons', () => {
+    const rows = buildForumPostComponents(42, 'new');
+    const [advanceBtn, cancelBtn] = rows[1].components as unknown as { data: { custom_id: string } }[];
+    expect(advanceBtn.data.custom_id).toBe(`${MFG_ACCEPT_ORDER_PREFIX}:42`);
+    expect(cancelBtn.data.custom_id).toBe(`${MFG_STAFF_CANCEL_PREFIX}:42`);
+  });
+
+  it('staff row for accepted status has Start Processing and Staff Cancel buttons', () => {
+    const rows = buildForumPostComponents(42, 'accepted');
+    const [advanceBtn, cancelBtn] = rows[1].components as unknown as { data: { custom_id: string } }[];
+    expect(advanceBtn.data.custom_id).toBe(`${MFG_START_PROCESSING_PREFIX}:42`);
+    expect(cancelBtn.data.custom_id).toBe(`${MFG_STAFF_CANCEL_PREFIX}:42`);
+  });
+
+  it('staff row for processing status has Ready for Pickup and Staff Cancel buttons', () => {
+    const rows = buildForumPostComponents(42, 'processing');
+    const [advanceBtn, cancelBtn] = rows[1].components as unknown as { data: { custom_id: string } }[];
+    expect(advanceBtn.data.custom_id).toBe(`${MFG_READY_FOR_PICKUP_PREFIX}:42`);
+    expect(cancelBtn.data.custom_id).toBe(`${MFG_STAFF_CANCEL_PREFIX}:42`);
+  });
+
+  it('staff row for ready_for_pickup status has Mark Complete and Staff Cancel buttons', () => {
+    const rows = buildForumPostComponents(42, 'ready_for_pickup');
+    const [advanceBtn, cancelBtn] = rows[1].components as unknown as { data: { custom_id: string } }[];
+    expect(advanceBtn.data.custom_id).toBe(`${MFG_MARK_COMPLETE_PREFIX}:42`);
     expect(cancelBtn.data.custom_id).toBe(`${MFG_STAFF_CANCEL_PREFIX}:42`);
   });
 });

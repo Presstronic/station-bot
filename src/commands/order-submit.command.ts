@@ -359,7 +359,7 @@ export async function handleOrderButtonInteraction(
         name: `Order #${order.id} — ${interaction.user.username}`,
         message: {
           content: postContent,
-          components: buildForumPostComponents(order.id),
+          components: buildForumPostComponents(order.id, order.status),
           allowedMentions: { users: [order.discordUserId] },
         },
         appliedTags: newTagId ? [newTagId] : [],
