@@ -301,6 +301,21 @@ describe('handleOrderItemModal', () => {
     });
   });
 
+  it('replies with a validation error when quantity exceeds 99999', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'q-huge');
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:q-huge`, {
+      'item-name': 'Steel Plate',
+      'quantity': '100000',
+      'priority-stat': 'Ballistic resistance',
+      'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/99,999/i),
+    });
+  });
+
   it('replies with a validation error when item name is blank', async () => {
     const h = await setupMocks();
     await createSession(h, 'empty-name');
@@ -439,6 +454,64 @@ describe('handleOrderButtonInteraction', () => {
     expect(updateForumThreadIdMock).toHaveBeenCalledWith(99, 'thread-id');
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Order #99/i) }),
+    );
+  });
+
+  it('edits reply with a specific message when post content exceeds Discord message limit', async () => {
+    const longContent = 'x'.repeat(2001);
+    const h = await setupMocks();
+    const forumMod = await import('../../domain/manufacturing/manufacturing.forum.js');
+    (forumMod.formatOrderPost as jest.Mock).mockReturnValueOnce(longContent);
+
+    await createSession(h, 'long-post');
+    await addItemToSession(h, 'long-post');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:long-post`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/too long/i) }),
+    );
+  });
+
+  it('edits reply with a specific message when forum thread creation fails', async () => {
+    const h = await setupMocks();
+
+    await createSession(h, 'thread-fail');
+    await addItemToSession(h, 'thread-fail');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:thread-fail`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => ({
+            type: 15,
+            availableTags: [],
+            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+            })),
+            threads: {
+              create: jest.fn(async () => { throw new Error('Discord API error'); }),
+            },
+          })),
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/forum post could not be created/i) }),
+    );
+  });
+
+  it('edits reply with a link-failure warning when updateForumThreadId throws', async () => {
+    const updateForumThreadIdMock = jest.fn(async () => { throw new Error('DB error'); });
+    const h = await setupMocks({ updateForumThreadId: updateForumThreadIdMock });
+
+    await createSession(h, 'link-fail');
+    await addItemToSession(h, 'link-fail');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:link-fail`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/contact staff/i) }),
     );
   });
 

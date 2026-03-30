@@ -228,9 +228,9 @@ export async function handleOrderItemModal(
   }
 
   const quantity = parseInt(quantityStr, 10);
-  if (!Number.isInteger(quantity) || quantity <= 0) {
+  if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 99999) {
     await interaction.reply({
-      content: 'Quantity must be a positive whole number (e.g. 5).',
+      content: 'Quantity must be a positive whole number between 1 and 99,999.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -326,20 +326,63 @@ export async function handleOrderButtonInteraction(
     }
     const newTagId = tagIds?.get('New');
 
-    const thread = await forumChannel.threads.create({
-      name: `Order #${order.id} — ${interaction.user.username}`,
-      message: {
-        content: formatOrderPost(order),
-        components: buildForumPostComponents(order.id),
-        allowedMentions: { users: [order.discordUserId] },
-      },
-      appliedTags: newTagId ? [newTagId] : [],
-    });
+    const postContent = formatOrderPost(order);
+    const DISCORD_MESSAGE_LIMIT = 2000;
+    if (postContent.length > DISCORD_MESSAGE_LIMIT) {
+      logger.error('[manufacturing] Order post content exceeds Discord message limit', {
+        orderId: order.id,
+        contentLength: postContent.length,
+      });
+      await interaction.editReply({
+        content:
+          'Your order was saved but the forum post could not be created because it was too long. Please contact staff.',
+        components: [],
+      });
+      return;
+    }
 
-    await updateForumThreadId(order.id, thread.id);
+    let thread: { id: string };
+    try {
+      thread = await forumChannel.threads.create({
+        name: `Order #${order.id} — ${interaction.user.username}`,
+        message: {
+          content: postContent,
+          components: buildForumPostComponents(order.id),
+          allowedMentions: { users: [order.discordUserId] },
+        },
+        appliedTags: newTagId ? [newTagId] : [],
+      });
+    } catch (error) {
+      logger.error('[manufacturing] Failed to create forum thread for order', {
+        orderId: order.id,
+        error,
+      });
+      await interaction.editReply({
+        content:
+          'Your order was saved but the forum post could not be created. Please contact staff.',
+        components: [],
+      });
+      return;
+    }
+
+    let forumLinkFailed = false;
+    try {
+      await updateForumThreadId(order.id, thread.id);
+    } catch (error) {
+      forumLinkFailed = true;
+      logger.error('[manufacturing] Failed to link order to forum thread', {
+        orderId: order.id,
+        threadId: thread.id,
+        error,
+      });
+    }
+
+    const linkWarning = forumLinkFailed
+      ? '\n\nFailed to link your order to the forum thread internally. Please contact staff.'
+      : '';
 
     await interaction.editReply({
-      content: `✅ Order #${order.id} submitted! See your order in <#${thread.id}>.`,
+      content: `✅ Order #${order.id} submitted! See your order in <#${thread.id}>.${linkWarning}`,
       components: [],
     });
   } catch (error) {
