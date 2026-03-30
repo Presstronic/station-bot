@@ -1,5 +1,5 @@
 import { withClient } from '../../services/nominations/db.js';
-import { OrderLimitExceededError, OrderNotFoundError } from './types.js';
+import { InvalidStatusTransitionError, OrderLimitExceededError, OrderNotFoundError } from './types.js';
 import type { ManufacturingOrder, ManufacturingOrderItem, NewOrderItem, OrderStatus } from './types.js';
 
 function mapItemRow(row: Record<string, unknown>): ManufacturingOrderItem {
@@ -167,6 +167,34 @@ export async function updateStatus(id: number, status: OrderStatus): Promise<Man
     );
 
     if (orderResult.rows.length === 0) throw new OrderNotFoundError(id);
+
+    const itemsResult = await client.query(
+      `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
+      [id],
+    );
+
+    return mapOrderRow(
+      orderResult.rows[0] as Record<string, unknown>,
+      (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+    );
+  });
+}
+
+export async function transitionStatus(
+  id: number,
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
+): Promise<ManufacturingOrder> {
+  return withClient(async (client) => {
+    const orderResult = await client.query(
+      `UPDATE manufacturing_orders
+       SET status = $3, updated_at = NOW()
+       WHERE id = $1 AND status = $2
+       RETURNING *`,
+      [id, fromStatus, toStatus],
+    );
+
+    if (orderResult.rows.length === 0) throw new InvalidStatusTransitionError(fromStatus, toStatus);
 
     const itemsResult = await client.query(
       `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,

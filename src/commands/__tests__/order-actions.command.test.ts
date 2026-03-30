@@ -83,9 +83,13 @@ function makeButtonInteraction(
 async function setupMocks(overrides: {
   findById?: jest.Mock;
   updateStatus?: jest.Mock;
+  transitionStatus?: jest.Mock;
 } = {}) {
   const findByIdMock = overrides.findById ?? jest.fn(async () => makeOrder());
   const updateStatusMock = overrides.updateStatus ?? jest.fn(async (_id: number, status: string) =>
+    makeOrder({ status: status as ManufacturingOrder['status'] }),
+  );
+  const transitionStatusMock = overrides.transitionStatus ?? jest.fn(async (_id: number, _from: string, status: string) =>
     makeOrder({ status: status as ManufacturingOrder['status'] }),
   );
 
@@ -101,6 +105,7 @@ async function setupMocks(overrides: {
     findByUserId: jest.fn(),
     countActiveByUserId: jest.fn(async () => 0),
     updateStatus: updateStatusMock,
+    transitionStatus: transitionStatusMock,
     updateForumThreadId: jest.fn(),
     findByForumThreadId: jest.fn(),
   }));
@@ -124,6 +129,13 @@ async function setupMocks(overrides: {
     buildForumPostComponents: jest.fn(() => []),
   }));
 
+  class MockInvalidStatusTransitionError extends Error {
+    constructor(from: string, to: string) {
+      super(`Invalid status transition: ${from} → ${to}`);
+      this.name = 'InvalidStatusTransitionError';
+    }
+  }
+
   jest.unstable_mockModule('../../domain/manufacturing/types.js', () => ({
     TERMINAL_STATUSES: ['complete', 'cancelled'],
     VALID_TRANSITIONS: {
@@ -134,10 +146,11 @@ async function setupMocks(overrides: {
       complete: [],
       cancelled: [],
     },
+    InvalidStatusTransitionError: MockInvalidStatusTransitionError,
   }));
 
   const mod = await import('../order-actions.command.js');
-  return { ...mod, findByIdMock, updateStatusMock };
+  return { ...mod, findByIdMock, updateStatusMock, transitionStatusMock };
 }
 
 // ---------------------------------------------------------------------------
@@ -308,7 +321,7 @@ describe('handleMfgAdvance', () => {
     const btn = makeButtonInteraction('mfg-accept-order:42');
     await h.handleMfgAdvance(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'accepted');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'new', 'accepted');
     expect(btn.editReply).toHaveBeenCalled();
   });
 
@@ -317,7 +330,7 @@ describe('handleMfgAdvance', () => {
     const btn = makeButtonInteraction('mfg-start-processing:42');
     await h.handleMfgAdvance(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'processing');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'accepted', 'processing');
   });
 
   it('marks processing order ready for pickup (processing → ready_for_pickup)', async () => {
@@ -325,7 +338,7 @@ describe('handleMfgAdvance', () => {
     const btn = makeButtonInteraction('mfg-ready-for-pickup:42');
     await h.handleMfgAdvance(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'ready_for_pickup');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'processing', 'ready_for_pickup');
   });
 
   it('marks ready_for_pickup order complete (ready_for_pickup → complete)', async () => {
@@ -333,7 +346,43 @@ describe('handleMfgAdvance', () => {
     const btn = makeButtonInteraction('mfg-mark-complete:42');
     await h.handleMfgAdvance(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
-    expect(h.updateStatusMock).toHaveBeenCalledWith(42, 'complete');
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'ready_for_pickup', 'complete');
+  });
+
+  it('replies ephemerally when order is already terminal (complete)', async () => {
+    const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'complete' })) });
+    const btn = makeButtonInteraction('mfg-mark-complete:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+  });
+
+  it('replies ephemerally when order is already terminal (cancelled)', async () => {
+    const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'cancelled' })) });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+  });
+
+  it('uses transitionStatus (not updateStatus) for advance actions', async () => {
+    const h = await setupMocks();
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(h.transitionStatusMock).toHaveBeenCalledWith(42, 'new', 'accepted');
+    expect(h.updateStatusMock).not.toHaveBeenCalled();
+  });
+
+  it('replies with followUp when concurrent modification is detected', async () => {
+    const { InvalidStatusTransitionError } = await import('../../domain/manufacturing/types.js');
+    const h = await setupMocks({
+      transitionStatus: jest.fn(async () => { throw new InvalidStatusTransitionError('new', 'accepted'); }),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already updated/i) }));
+    expect(btn.editReply).not.toHaveBeenCalled();
   });
 
   it('posts a thread reply on successful advance', async () => {
