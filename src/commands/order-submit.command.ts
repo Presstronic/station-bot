@@ -136,7 +136,8 @@ function buildItemCollectionComponents(
       new ButtonBuilder()
         .setCustomId(`${SUBMIT_ORDER_BUTTON_PREFIX}:${sessionId}`)
         .setLabel('✓ Submit Order')
-        .setStyle(ButtonStyle.Primary),
+        .setStyle(ButtonStyle.Primary)
+        .setDisabled(itemCount === 0),
     ),
   ];
 }
