@@ -91,4 +91,4 @@ To get this out quickly, a few things have been intentionally left for a future 
 
 ## Summary
 
-In short: members place orders through a guided form, manufacturing manages them with simple commands, and everyone stays informed automatically through Discord's own notification system — no spreadsheets, no DMs back and forth, no manual status updates.
+In short: members place orders through a guided form, manufacturing manages them with simple buttons on each order's forum post, and everyone stays informed automatically through Discord's own notification system — no spreadsheets, no DMs back and forth, no manual status updates.

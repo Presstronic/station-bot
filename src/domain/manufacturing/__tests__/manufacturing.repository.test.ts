@@ -397,8 +397,8 @@ describe('cancelOrder', () => {
   it('throws InvalidStatusTransitionError when current status is not in the allowed set', async () => {
     const query = jest
       .fn<() => Promise<{ rows: unknown[] }>>()
-      .mockResolvedValueOnce({ rows: [] })          // UPDATE matches nothing
-      .mockResolvedValueOnce({ rows: [{ 1: 1 }] }); // SELECT confirms order exists
+      .mockResolvedValueOnce({ rows: [] })                            // UPDATE matches nothing
+      .mockResolvedValueOnce({ rows: [{ status: 'complete' }] });    // SELECT returns actual status
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
       withClient: makeWithClient(query),
@@ -406,7 +406,10 @@ describe('cancelOrder', () => {
 
     const { cancelOrder } = await import('../manufacturing.repository.js');
     const { InvalidStatusTransitionError } = await import('../types.js');
-    await expect(cancelOrder(1, ['new', 'accepted'])).rejects.toBeInstanceOf(InvalidStatusTransitionError);
+    const err = await cancelOrder(1, ['new', 'accepted']).catch((e) => e);
+    expect(err).toBeInstanceOf(InvalidStatusTransitionError);
+    expect(err.from).toBe('complete');
+    expect(err.to).toBe('cancelled');
   });
 
   it('throws OrderNotFoundError when the order does not exist', async () => {
