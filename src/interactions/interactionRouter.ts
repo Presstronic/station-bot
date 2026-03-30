@@ -141,6 +141,12 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleOrderItemModal(interaction);
         } else {
           logger.debug(`[cid:${correlationId}] Unrecognized modal customId: ${interaction.customId}`);
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: 'Sorry, something went wrong handling that form. Please try again.',
+              flags: MessageFlags.Ephemeral,
+            });
+          }
         }
         return;
       }
