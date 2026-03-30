@@ -1,15 +1,16 @@
 import './bootstrap.js'; // Loads dotenv and any shared setup
 
 import { createRequire } from 'node:module';
-import { Client, IntentsBitField } from 'discord.js';
+import { ChannelType, Client, ForumChannel, IntentsBitField } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
 import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
 import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
-import { validateManufacturingConfig, isManufacturingEnabled } from './config/manufacturing.config.js';
+import { validateManufacturingConfig, isManufacturingEnabled, getManufacturingConfig } from './config/manufacturing.config.js';
 import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
+import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
 import { startEventLoopMonitor, subscribeRestEvents, subscribeUndiciDiagnostics } from './utils/diagnostics.js';
@@ -119,6 +120,25 @@ client.once('clientReady', async () => {
   }
   if (readOnlyMode) {
     logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
+  }
+
+  if (!readOnlyMode && manufacturingEnabled) {
+    const { forumChannelId } = getManufacturingConfig();
+    if (forumChannelId) {
+      try {
+        const ch = await client.channels.fetch(forumChannelId);
+        if (ch && ch.type === ChannelType.GuildForum && ch instanceof ForumChannel) {
+          await ensureForumTags(ch);
+          logger.info('[manufacturing] Forum tags verified.');
+        } else if (ch) {
+          logger.warn(`[manufacturing] Configured forumChannelId=${forumChannelId} resolved to a non-forum channel. Forum tag verification skipped.`);
+        } else {
+          logger.warn(`[manufacturing] Configured forumChannelId=${forumChannelId} did not resolve to an accessible channel. Forum tag verification skipped.`);
+        }
+      } catch (error) {
+        logger.error('[manufacturing] Failed to ensure forum tags:', error);
+      }
+    }
   }
 
   if (!readOnlyMode) {
