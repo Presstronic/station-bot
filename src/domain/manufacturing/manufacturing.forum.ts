@@ -4,7 +4,7 @@ import {
   ButtonStyle,
   type ForumChannel,
 } from 'discord.js';
-import type { ManufacturingOrder } from './types.js';
+import type { ManufacturingOrder, OrderStatus } from './types.js';
 
 export const ORDER_STATUS_TAG_NAMES = [
   'New',
@@ -31,6 +31,15 @@ export async function ensureForumTags(channel: ForumChannel): Promise<Map<string
 
 const DIV = '━━━━━━━━━━━━━━━━━━';
 
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  new: '🆕 New',
+  accepted: '✅ Accepted',
+  processing: '⚙️ Processing',
+  ready_for_pickup: '📬 Ready for Pickup',
+  complete: '✔️ Complete',
+  cancelled: '🚫 Cancelled',
+};
+
 export function formatOrderPost(order: ManufacturingOrder): string {
   const itemLines = order.items.flatMap((item, i) => {
     const lines: string[] = [
@@ -51,7 +60,7 @@ export function formatOrderPost(order: ManufacturingOrder): string {
     DIV,
     ...itemLines,
     DIV,
-    'Status: 🆕 New',
+    `Status: ${STATUS_LABEL[order.status]}`,
     `Submitted: ${submittedDate}`,
     DIV,
   ].join('\n');

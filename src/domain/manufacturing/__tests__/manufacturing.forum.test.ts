@@ -64,6 +64,20 @@ describe('formatOrderPost', () => {
     expect(formatOrderPost(order)).not.toContain('↳');
   });
 
+  it('renders the correct label for each order status', () => {
+    const cases: [import('../types.js').OrderStatus, string][] = [
+      ['new', '🆕 New'],
+      ['accepted', '✅ Accepted'],
+      ['processing', '⚙️ Processing'],
+      ['ready_for_pickup', '📬 Ready for Pickup'],
+      ['complete', '✔️ Complete'],
+      ['cancelled', '🚫 Cancelled'],
+    ];
+    for (const [status, label] of cases) {
+      expect(formatOrderPost(makeOrder({ status }))).toContain(`Status: ${label}`);
+    }
+  });
+
   it('numbers multiple items sequentially', () => {
     const order = makeOrder({
       items: [
