@@ -97,11 +97,15 @@ function makeButtonInteraction(
 
 async function setupMocks(overrides: {
   hasRole?: boolean;
+  manufacturingEnabled?: boolean;
+  activeCount?: number;
   submitOrder?: jest.Mock;
   updateForumThreadId?: jest.Mock;
   configOverrides?: Partial<typeof BASE_CONFIG>;
 } = {}) {
   const hasRole = overrides.hasRole ?? true;
+  const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
+  const activeCount = overrides.activeCount ?? 0;
   const config = { ...BASE_CONFIG, ...overrides.configOverrides };
 
   jest.unstable_mockModule('../nomination.helpers.js', () => ({
@@ -118,7 +122,7 @@ async function setupMocks(overrides: {
 
   jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
     getManufacturingConfig: () => config,
-    isManufacturingEnabled: () => true,
+    isManufacturingEnabled: () => manufacturingEnabled,
     validateManufacturingConfig: () => [],
   }));
 
@@ -135,7 +139,7 @@ async function setupMocks(overrides: {
     create: jest.fn(),
     findById: jest.fn(),
     findByUserId: jest.fn(),
-    countActiveByUserId: jest.fn(),
+    countActiveByUserId: jest.fn(async () => activeCount),
     updateStatus: jest.fn(),
     updateForumThreadId: updateForumThreadIdMock,
     findByForumThreadId: jest.fn(),
@@ -186,6 +190,16 @@ async function addItemToSession(
 // ---------------------------------------------------------------------------
 
 describe('handleOrderCommand', () => {
+  it('replies with an unavailable message when manufacturing is disabled', async () => {
+    const h = await setupMocks({ manufacturingEnabled: false });
+    const i = makeSlashInteraction();
+    await h.handleOrderCommand(i as any);
+    expect((i.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/not currently available/i),
+    });
+    expect(i.showModal).not.toHaveBeenCalled();
+  });
+
   it('replies with an error when not in a guild', async () => {
     const h = await setupMocks();
     const i = makeSlashInteraction({ inGuild: () => false });
@@ -203,6 +217,16 @@ describe('handleOrderCommand', () => {
     expect((i.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/Organization Member/i),
     });
+    expect(i.showModal).not.toHaveBeenCalled();
+  });
+
+  it('replies with an active-order limit error including the count when limit is reached', async () => {
+    const h = await setupMocks({ activeCount: 5, configOverrides: { orderLimit: 5 } });
+    const i = makeSlashInteraction();
+    await h.handleOrderCommand(i as any);
+    const reply = (i.reply as jest.Mock).mock.calls[0][0] as { content: string };
+    expect(reply.content).toMatch(/5 active order/i);
+    expect(reply.content).toMatch(/limit: 5/i);
     expect(i.showModal).not.toHaveBeenCalled();
   });
 
@@ -227,6 +251,23 @@ describe('handleOrderItemModal', () => {
     await h.handleOrderItemModal(modal as any);
     expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/expired/i),
+    });
+  });
+
+  it('replies with max-items error when the session is already full', async () => {
+    const h = await setupMocks(); // maxItemsPerOrder = 3
+    await createSession(h, 'full-session');
+    for (let n = 0; n < 3; n++) await addItemToSession(h, 'full-session', `Item${n}`);
+
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:full-session`, {
+      'item-name': 'One Too Many',
+      'quantity': '1',
+      'priority-stat': 'X',
+      'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/3 items/i),
     });
   });
 
@@ -257,6 +298,36 @@ describe('handleOrderItemModal', () => {
     await h.handleOrderItemModal(modal as any);
     expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/positive whole number/i),
+    });
+  });
+
+  it('replies with a validation error when item name is blank', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'empty-name');
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:empty-name`, {
+      'item-name': '   ',
+      'quantity': '1',
+      'priority-stat': 'Ballistic resistance',
+      'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/item name and priority stat/i),
+    });
+  });
+
+  it('replies with a validation error when priority stat is blank', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'empty-stat');
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:empty-stat`, {
+      'item-name': 'Steel Plate',
+      'quantity': '1',
+      'priority-stat': '   ',
+      'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/item name and priority stat/i),
     });
   });
 
@@ -356,6 +427,37 @@ describe('handleOrderButtonInteraction', () => {
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Order #99/i) }),
     );
+  });
+
+  it('passes allowedMentions scoped to the order owner when creating the forum thread', async () => {
+    const order = makeOrder({ id: 55, discordUserId: 'owner-uid' });
+    const submitOrderMock = jest.fn(async () => order);
+    const createThreadMock = jest.fn(async () => ({ id: 'thread-id' }));
+    const h = await setupMocks({ submitOrder: submitOrderMock });
+
+    await createSession(h, 'mention-btn');
+    await addItemToSession(h, 'mention-btn');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:mention-btn`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => ({
+            type: 15,
+            availableTags: [],
+            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+            })),
+            threads: { create: createThreadMock },
+          })),
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+
+    const createCall = (createThreadMock.mock.calls[0] as unknown[])[0] as {
+      message: { allowedMentions: { users: string[] } };
+    };
+    expect(createCall.message.allowedMentions).toEqual({ users: ['owner-uid'] });
   });
 
   it('shows an active-limit error when OrderLimitExceededError is thrown', async () => {

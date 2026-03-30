@@ -13,9 +13,12 @@ import {
   TextInputStyle,
   type ForumChannel,
 } from 'discord.js';
-import { getManufacturingConfig } from '../config/manufacturing.config.js';
+import { getManufacturingConfig, isManufacturingEnabled } from '../config/manufacturing.config.js';
 import { submitOrder } from '../domain/manufacturing/manufacturing.service.js';
-import { updateForumThreadId } from '../domain/manufacturing/manufacturing.repository.js';
+import {
+  countActiveByUserId,
+  updateForumThreadId,
+} from '../domain/manufacturing/manufacturing.repository.js';
 import {
   buildForumPostComponents,
   ensureForumTags,
@@ -34,12 +37,39 @@ export const ITEM_MODAL_PREFIX = 'mfg-item-modal';
 export const ADD_ITEM_BUTTON_PREFIX = 'mfg-add-item';
 export const SUBMIT_ORDER_BUTTON_PREFIX = 'mfg-submit-order';
 
-// In-flight sessions: original slash-command interaction ID → accumulated items
-const sessions = new Map<string, NewOrderItem[]>();
+// Sessions expire after 15 minutes to prevent abandoned flows from leaking memory.
+const SESSION_TTL_MS = 15 * 60 * 1000;
+
+interface Session {
+  items: NewOrderItem[];
+  expiresAt: number;
+}
+
+const sessions = new Map<string, Session>();
+
+// Periodically prune sessions that were never completed.
+const sessionCleanupInterval = setInterval(() => {
+  const now = Date.now();
+  for (const [key, session] of sessions.entries()) {
+    if (session.expiresAt <= now) sessions.delete(key);
+  }
+}, SESSION_TTL_MS);
+sessionCleanupInterval.unref();
+
+function getSessionItems(sessionId: string): NewOrderItem[] | undefined {
+  const session = sessions.get(sessionId);
+  if (!session) return undefined;
+  if (session.expiresAt <= Date.now()) {
+    sessions.delete(sessionId);
+    return undefined;
+  }
+  return session.items;
+}
 
 export const orderCommandBuilder = new SlashCommandBuilder()
   .setName(ORDER_COMMAND_NAME)
   .setDescription('Manufacturing order commands')
+  .setDMPermission(false)
   .addSubcommand((sub) =>
     sub
       .setName(ORDER_SUBMIT_SUBCOMMAND)
@@ -57,7 +87,8 @@ function buildItemModal(customId: string, itemNumber: number): ModalBuilder {
         .setCustomId('item-name')
         .setLabel('Item Name')
         .setStyle(TextInputStyle.Short)
-        .setRequired(true),
+        .setRequired(true)
+        .setMaxLength(255),
     ),
     new ActionRowBuilder<TextInputBuilder>().addComponents(
       new TextInputBuilder()
@@ -113,6 +144,14 @@ export async function handleOrderCommand(
 ): Promise<void> {
   if (interaction.options.getSubcommand() !== ORDER_SUBMIT_SUBCOMMAND) return;
 
+  if (!isManufacturingEnabled()) {
+    await interaction.reply({
+      content: 'Manufacturing orders are not currently available.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   if (!interaction.inGuild()) {
     await interaction.reply({
       content: 'This command can only be used in a server.',
@@ -130,7 +169,23 @@ export async function handleOrderCommand(
     return;
   }
 
-  sessions.set(interaction.id, []);
+  // Eager limit check — gives the user an early error with their current count
+  // before they start the item flow. The authoritative check still happens in
+  // the repository (with advisory lock) at submit time.
+  const { orderLimit } = getManufacturingConfig();
+  const activeCount = await countActiveByUserId(interaction.user.id);
+  if (activeCount >= orderLimit) {
+    await interaction.reply({
+      content: `You have ${activeCount} active order${activeCount === 1 ? '' : 's'} (limit: ${orderLimit}). Please wait for one to complete before submitting a new one.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  sessions.set(interaction.id, {
+    items: [],
+    expiresAt: Date.now() + SESSION_TTL_MS,
+  });
   await interaction.showModal(buildItemModal(`${ITEM_MODAL_PREFIX}:${interaction.id}`, 1));
 }
 
@@ -138,11 +193,20 @@ export async function handleOrderItemModal(
   interaction: ModalSubmitInteraction,
 ): Promise<void> {
   const sessionId = interaction.customId.slice(ITEM_MODAL_PREFIX.length + 1);
-  const items = sessions.get(sessionId);
+  const items = getSessionItems(sessionId);
 
   if (!items) {
     await interaction.reply({
       content: 'Your order session has expired. Please use `/order submit` to start a new order.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const { maxItemsPerOrder } = getManufacturingConfig();
+  if (items.length >= maxItemsPerOrder) {
+    await interaction.reply({
+      content: `You can only add up to ${maxItemsPerOrder} items to an order.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -153,6 +217,14 @@ export async function handleOrderItemModal(
   const priorityStat = interaction.fields.getTextInputValue('priority-stat').trim();
   const noteRaw = interaction.fields.getTextInputValue('notes').trim();
   const note = noteRaw.length > 0 ? noteRaw : null;
+
+  if (itemName.length === 0 || priorityStat.length === 0) {
+    await interaction.reply({
+      content: 'Item name and priority stat are required and cannot be empty.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
 
   const quantity = parseInt(quantityStr, 10);
   if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -165,7 +237,6 @@ export async function handleOrderItemModal(
 
   items.push({ itemName, quantity, priorityStat, note, sortOrder: items.length });
 
-  const { maxItemsPerOrder } = getManufacturingConfig();
   await interaction.reply({
     content: `Item added (${items.length} / ${maxItemsPerOrder}). Add another item or submit your order.`,
     components: buildItemCollectionComponents(sessionId, items.length, maxItemsPerOrder),
@@ -179,7 +250,7 @@ export async function handleOrderButtonInteraction(
   const colonIdx = interaction.customId.indexOf(':');
   const prefix = interaction.customId.slice(0, colonIdx);
   const sessionId = interaction.customId.slice(colonIdx + 1);
-  const items = sessions.get(sessionId);
+  const items = getSessionItems(sessionId);
 
   if (!items) {
     await interaction.update({
@@ -237,14 +308,21 @@ export async function handleOrderButtonInteraction(
     }
 
     const forumChannel = channel as unknown as ForumChannel;
-    const tagIds = await ensureForumTags(forumChannel);
-    const newTagId = tagIds.get('New');
+
+    let tagIds: Map<string, string> | undefined;
+    try {
+      tagIds = await ensureForumTags(forumChannel);
+    } catch (error) {
+      logger.error('[manufacturing] Failed to ensure forum tags during order submission', { error });
+    }
+    const newTagId = tagIds?.get('New');
 
     const thread = await forumChannel.threads.create({
       name: `Order #${order.id} — ${interaction.user.username}`,
       message: {
         content: formatOrderPost(order),
         components: buildForumPostComponents(order.id),
+        allowedMentions: { users: [order.discordUserId] },
       },
       appliedTags: newTagId ? [newTagId] : [],
     });

@@ -130,6 +130,10 @@ client.once('clientReady', async () => {
         if (ch && ch.type === ChannelType.GuildForum && ch instanceof ForumChannel) {
           await ensureForumTags(ch);
           logger.info('[manufacturing] Forum tags verified.');
+        } else if (ch) {
+          logger.warn(`[manufacturing] Configured forumChannelId=${forumChannelId} resolved to a non-forum channel. Forum tag verification skipped.`);
+        } else {
+          logger.warn(`[manufacturing] Configured forumChannelId=${forumChannelId} did not resolve to an accessible channel. Forum tag verification skipped.`);
         }
       } catch (error) {
         logger.error('[manufacturing] Failed to ensure forum tags:', error);
