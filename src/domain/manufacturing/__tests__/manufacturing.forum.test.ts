@@ -124,8 +124,13 @@ describe('formatTransitionReply', () => {
   });
 
   it("includes today's date in YYYY-MM-DD format", () => {
-    const today = new Date().toISOString().substring(0, 10);
-    expect(formatTransitionReply('processing', 'actor-1')).toContain(today);
+    const fixedDate = new Date('2024-06-15T12:00:00.000Z');
+    jest.useFakeTimers().setSystemTime(fixedDate);
+    try {
+      expect(formatTransitionReply('processing', 'actor-1')).toContain('2024-06-15');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

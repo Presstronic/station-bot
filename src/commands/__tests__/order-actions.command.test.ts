@@ -270,6 +270,14 @@ describe('handleMfgStaffCancel', () => {
 // ---------------------------------------------------------------------------
 
 describe('handleMfgAdvance', () => {
+  it('replies ephemerally when customId has no colon', async () => {
+    const h = await setupMocks();
+    const btn = makeButtonInteraction('mfg-accept-order-no-colon');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: 'Invalid action.' }));
+    expect(btn.deferUpdate).not.toHaveBeenCalled();
+  });
+
   it('replies ephemerally when actor is not staff', async () => {
     const h = await setupMocks();
     const btn = makeButtonInteraction('mfg-accept-order:42', { userId: 'outsider', roles: [] });
@@ -282,7 +290,7 @@ describe('handleMfgAdvance', () => {
     const h = await setupMocks({ findById: jest.fn(async () => null) });
     const btn = makeButtonInteraction('mfg-accept-order:42');
     await h.handleMfgAdvance(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("could not be found") }));
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('could not be found') }));
   });
 
   it('replies ephemerally when the transition is invalid for the current status', async () => {
@@ -290,7 +298,8 @@ describe('handleMfgAdvance', () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'accepted' })) });
     const btn = makeButtonInteraction('mfg-accept-order:42');
     await h.handleMfgAdvance(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/cannot be moved/i) }));
+    // Message uses STATUS_LABEL values, not raw keys
+    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/✅ Accepted.*cannot be moved/i) }));
     expect(btn.deferUpdate).not.toHaveBeenCalled();
   });
 

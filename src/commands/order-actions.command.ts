@@ -16,6 +16,7 @@ import {
   ensureForumTags,
   formatOrderPost,
   formatTransitionReply,
+  STATUS_LABEL,
   STATUS_TO_TAG,
   MFG_ACCEPT_ORDER_PREFIX,
   MFG_START_PROCESSING_PREFIX,
@@ -74,7 +75,6 @@ async function applyTransition(
         flags: MessageFlags.Ephemeral,
       })
       .catch(() => {});
-    return;
   }
 
   // Swap forum thread tag — non-fatal if it fails
@@ -206,11 +206,19 @@ const ADVANCE_TARGET: Record<string, OrderStatus> = {
 
 export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<void> {
   const colonIdx = interaction.customId.indexOf(':');
+
+  if (colonIdx === -1) {
+    logger.debug(`[manufacturing] Malformed advance customId (no colon): ${interaction.customId}`);
+    await interaction.reply({ content: 'Invalid action.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   const prefix = interaction.customId.slice(0, colonIdx);
   const toStatus = ADVANCE_TARGET[prefix];
 
   if (!toStatus) {
     logger.debug(`[manufacturing] Unrecognised advance prefix: ${prefix}`);
+    await interaction.reply({ content: 'Invalid action.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -236,7 +244,7 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
 
   if (!VALID_TRANSITIONS[order.status].includes(toStatus)) {
     await interaction.reply({
-      content: `This order is in **${order.status}** status and cannot be moved to **${toStatus}** from here.`,
+      content: `This order is in **${STATUS_LABEL[order.status]}** status and cannot be moved to **${STATUS_LABEL[toStatus]}** from here.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
