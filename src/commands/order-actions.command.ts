@@ -9,6 +9,7 @@ import {
 import { getManufacturingConfig } from '../config/manufacturing.config.js';
 import {
   findById,
+  transitionStatus,
   updateStatus,
 } from '../domain/manufacturing/manufacturing.repository.js';
 import {
@@ -23,7 +24,7 @@ import {
   MFG_READY_FOR_PICKUP_PREFIX,
   MFG_MARK_COMPLETE_PREFIX,
 } from '../domain/manufacturing/manufacturing.forum.js';
-import { VALID_TRANSITIONS, TERMINAL_STATUSES, type OrderStatus } from '../domain/manufacturing/types.js';
+import { VALID_TRANSITIONS, TERMINAL_STATUSES, InvalidStatusTransitionError, type OrderStatus } from '../domain/manufacturing/types.js';
 import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
@@ -242,6 +243,14 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
+  if (TERMINAL_STATUSES.includes(order.status)) {
+    await interaction.reply({
+      content: `This order is already ${order.status === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   if (!VALID_TRANSITIONS[order.status].includes(toStatus)) {
     await interaction.reply({
       content: `This order is in **${STATUS_LABEL[order.status]}** status and cannot be moved to **${STATUS_LABEL[toStatus]}** from here.`,
@@ -251,6 +260,71 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
   }
 
   await interaction.deferUpdate();
-  await applyTransition(interaction, orderId, toStatus);
+
+  let updatedOrder;
+  try {
+    updatedOrder = await transitionStatus(orderId, order.status, toStatus);
+  } catch (err) {
+    if (err instanceof InvalidStatusTransitionError) {
+      await interaction
+        .followUp({
+          content: 'This order was already updated by another action. Please refresh to see the current status.',
+          flags: MessageFlags.Ephemeral,
+        })
+        .catch(() => {});
+      return;
+    }
+    throw err;
+  }
+
+  const thread = interaction.channel as ThreadChannel;
+
+  try {
+    await interaction.editReply({
+      content: formatOrderPost(updatedOrder),
+      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status),
+      allowedMentions: { users: [updatedOrder.discordUserId] },
+    });
+  } catch (err) {
+    logger.error('[manufacturing] Failed to edit forum post after status transition', {
+      orderId,
+      toStatus,
+      error: err,
+    });
+    await interaction
+      .followUp({
+        content: 'Status updated in the database, but the forum post could not be refreshed. Please contact staff.',
+        flags: MessageFlags.Ephemeral,
+      })
+      .catch(() => {});
+  }
+
+  try {
+    const parent = thread.parent;
+    if (parent && parent.type === ChannelType.GuildForum) {
+      const tagMap = await ensureForumTags(parent as any);
+      const tagId = tagMap.get(STATUS_TO_TAG[toStatus]);
+      await thread.setAppliedTags(tagId ? [tagId] : []);
+    }
+  } catch (err) {
+    logger.error('[manufacturing] Failed to update forum thread tag after status transition', {
+      orderId,
+      toStatus,
+      error: err,
+    });
+  }
+
+  try {
+    await thread.send({
+      content: formatTransitionReply(toStatus, interaction.user.id),
+      allowedMentions: { users: [updatedOrder.discordUserId, interaction.user.id] },
+    });
+  } catch (err) {
+    logger.error('[manufacturing] Failed to post thread reply after status transition', {
+      orderId,
+      toStatus,
+      error: err,
+    });
+  }
 }
 
