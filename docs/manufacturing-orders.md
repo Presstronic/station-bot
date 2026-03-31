@@ -46,7 +46,7 @@ The manufacturing team manages all orders entirely through buttons on the forum 
 | **⚙️ Start Processing** | Marks the order as actively being crafted |
 | **📦 Ready for Pickup** | Notifies that the order is complete and ready for the member to collect |
 | **✔️ Mark Complete** | Closes the order once the member has collected their items |
-| **🚫 Cancel** | Cancels an order at any stage (staff only) |
+| **🚫 Cancel** | Cancels an order at any non-terminal stage (staff only) |
 
 Every time the manufacturing team advances an order, two things happen automatically:
 

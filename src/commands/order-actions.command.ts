@@ -104,7 +104,7 @@ async function applyPostTransition(
   try {
     await thread.send({
       content: formatTransitionReply(toStatus, interaction.user.id),
-      allowedMentions: { users: [updatedOrder.discordUserId] },
+      allowedMentions: { users: [updatedOrder.discordUserId, interaction.user.id] },
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to post thread reply after status transition', {
