@@ -4,8 +4,8 @@ import { getLogger } from '../utils/logger.js';
 const logger = getLogger();
 
 const DEFAULT_ROLE_ENV = process.env.DEFAULT_ROLES || 'Verified,Temporary Member,Potential Applicant';
-const REQUIRED_ROLES = DEFAULT_ROLE_ENV.split(',').map((r) => r.trim());
-const VERIFIED_ROLE_NAME = REQUIRED_ROLES[0] ?? 'Verified';
+const REQUIRED_ROLES = DEFAULT_ROLE_ENV.split(',').map((r) => r.trim()).filter((r) => r.length > 0);
+const VERIFIED_ROLE_NAME = REQUIRED_ROLES[0] || 'Verified';
 
 /**
  * Assigns the "Verified" role to a user.

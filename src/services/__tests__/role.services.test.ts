@@ -104,6 +104,15 @@ describe('assignVerifiedRole', () => {
     const guild = makeGuild({ roleNames: ['SomeOtherRole'] });
     expect(await assignVerifiedRole(makeInteraction(guild), 'user-1')).toBe(false);
   });
+
+  it('falls back to "Verified" when DEFAULT_ROLES contains only empty entries', async () => {
+    process.env.DEFAULT_ROLES = ',  , ';
+    const { assignVerifiedRole } = await import('../role.services.js');
+    const member = makeMember();
+    const guild = makeGuild({ roleNames: ['Verified'], member });
+    expect(await assignVerifiedRole(makeInteraction(guild), 'user-1')).toBe(true);
+    expect(member.roles.add).toHaveBeenCalledWith(expect.objectContaining({ name: 'Verified' }));
+  });
 });
 
 // ---------------------------------------------------------------------------
