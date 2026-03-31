@@ -41,10 +41,10 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
 
   const rsiInGameName = userData.rsiProfileName;
 
-  const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
-  logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
-
   try {
+    const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
+    logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
+
     if (rsiProfileVerified) {
       const success = await assignVerifiedRole(interaction, interaction.user.id);
       logger.debug(`Role assignment success: ${success}`);

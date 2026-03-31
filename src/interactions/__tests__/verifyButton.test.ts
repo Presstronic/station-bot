@@ -7,13 +7,18 @@ beforeEach(() => {
 async function loadHandlerWithMocks({
   userData,
   rsiProfileVerified = false,
+  rsiProfileError,
 }: {
   userData: { rsiProfileName: string; dreadnoughtValidationCode: string } | undefined;
   rsiProfileVerified?: boolean;
+  rsiProfileError?: Error;
 }) {
   const getUserVerificationData = jest.fn(() => userData);
   const clearUserVerificationData = jest.fn();
-  const verifyRSIProfile = jest.fn(async () => rsiProfileVerified);
+  const verifyRSIProfile = jest.fn(async () => {
+    if (rsiProfileError) throw rsiProfileError;
+    return rsiProfileVerified;
+  });
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
 
@@ -159,5 +164,18 @@ describe('handleVerifyButtonInteraction', () => {
     expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
     expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
     expect(callOrder.indexOf('editReply')).toBeLessThan(callOrder.indexOf('clear'));
+  });
+
+  it('clears the verification session even if verifyRSIProfile throws', async () => {
+    const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileError: new Error('network failure'),
+    });
+    const interaction = makeButtonInteraction();
+
+    await expect(handleVerifyButtonInteraction(interaction)).rejects.toThrow('network failure');
+
+    expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
+    expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
   });
 });
