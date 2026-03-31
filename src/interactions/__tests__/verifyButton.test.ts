@@ -127,27 +127,37 @@ describe('handleVerifyButtonInteraction', () => {
     expect(content).toContain('verify');
   });
 
-  it('clears the verification session after a successful verification', async () => {
+  it('clears the verification session only after the reply is sent on success', async () => {
     const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
       userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileVerified: true,
     });
+    const callOrder: string[] = [];
     const interaction = makeButtonInteraction();
+    (interaction.editReply as jest.Mock).mockImplementation(async () => { callOrder.push('editReply'); });
+    (clearUserVerificationData as jest.Mock).mockImplementation(() => { callOrder.push('clear'); });
+
     await handleVerifyButtonInteraction(interaction);
 
     expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
     expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
+    expect(callOrder.indexOf('editReply')).toBeLessThan(callOrder.indexOf('clear'));
   });
 
-  it('clears the verification session after a failed verification', async () => {
+  it('clears the verification session only after the reply is sent on failure', async () => {
     const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
       userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileVerified: false,
     });
+    const callOrder: string[] = [];
     const interaction = makeButtonInteraction();
+    (interaction.editReply as jest.Mock).mockImplementation(async () => { callOrder.push('editReply'); });
+    (clearUserVerificationData as jest.Mock).mockImplementation(() => { callOrder.push('clear'); });
+
     await handleVerifyButtonInteraction(interaction);
 
     expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
     expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
+    expect(callOrder.indexOf('editReply')).toBeLessThan(callOrder.indexOf('clear'));
   });
 });

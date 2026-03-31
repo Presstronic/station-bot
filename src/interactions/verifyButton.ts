@@ -42,37 +42,40 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
   const rsiInGameName = userData.rsiProfileName;
 
   const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
-  clearUserVerificationData(interaction.user.id);
   logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
 
-  if (rsiProfileVerified) {
-    const success = await assignVerifiedRole(interaction, interaction.user.id);
-    logger.debug(`Role assignment success: ${success}`);
+  try {
+    if (rsiProfileVerified) {
+      const success = await assignVerifiedRole(interaction, interaction.user.id);
+      logger.debug(`Role assignment success: ${success}`);
 
-    if (success) {
-      logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
-      await respond(
-        i18n.__mf(
-          { phrase: 'commands.verify.responses.success', locale },
-          { rsiName: rsiInGameName, username: interaction.user.username }
-        )
-      );
-    } else {
-      await respond(
-        i18n.__mf(
-          { phrase: 'commands.verify.responses.assignFailed', locale },
-          { rsiName: rsiInGameName, username: interaction.user.username }
-        )
-      );
+      if (success) {
+        logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
+        await respond(
+          i18n.__mf(
+            { phrase: 'commands.verify.responses.success', locale },
+            { rsiName: rsiInGameName, username: interaction.user.username }
+          )
+        );
+      } else {
+        await respond(
+          i18n.__mf(
+            { phrase: 'commands.verify.responses.assignFailed', locale },
+            { rsiName: rsiInGameName, username: interaction.user.username }
+          )
+        );
+      }
+      return;
     }
-    return;
-  }
 
-  await removeVerifiedRole(interaction, interaction.user.id);
-  await respond(
-    i18n.__mf(
-      { phrase: 'commands.verify.responses.verificationFailed', locale },
-      { rsiName: rsiInGameName, username: interaction.user.username }
-    )
-  );
+    await removeVerifiedRole(interaction, interaction.user.id);
+    await respond(
+      i18n.__mf(
+        { phrase: 'commands.verify.responses.verificationFailed', locale },
+        { rsiName: rsiInGameName, username: interaction.user.username }
+      )
+    );
+  } finally {
+    clearUserVerificationData(interaction.user.id);
+  }
 }
