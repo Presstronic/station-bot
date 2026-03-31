@@ -14,13 +14,16 @@ let worker: Worker | null = null;
 let nextId = 0;
 const pending = new Map<number, PendingEntry>();
 
-function rejectByWorker(w: Worker, err: Error): void {
+function rejectByWorker(w: Worker, err: Error): boolean {
+  let found = false;
   for (const [id, entry] of pending) {
     if (entry.worker === w) {
       pending.delete(id);
       entry.reject(err);
+      found = true;
     }
   }
+  return found;
 }
 
 function spawnWorker(): Worker {
@@ -74,15 +77,12 @@ function spawnWorker(): Worker {
     // Reject only in-flight requests that were sent to *this* worker — a new
     // worker may have already been spawned and have its own pending items in the
     // map; those must not be rejected here.
-    const hasOwned = [...pending.values()].some((e) => e.worker === w);
-    if (hasOwned) {
-      const message = code !== 0
-        ? `html-parse worker exited unexpectedly (code ${code})`
-        : 'html-parse worker exited while requests were pending';
-      if (code !== 0) {
-        logger.warn(message);
-      }
-      rejectByWorker(w, new Error(message));
+    const message = code !== 0
+      ? `html-parse worker exited unexpectedly (code ${code})`
+      : 'html-parse worker exited while requests were pending';
+    const hadOwned = rejectByWorker(w, new Error(message));
+    if (hadOwned && code !== 0) {
+      logger.warn(message);
     }
   });
 
