@@ -7,7 +7,6 @@ import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
-const DISCORD_NICKNAME_MAX_LENGTH = 32;
 
 export async function handleVerifyButtonInteraction(interaction: ButtonInteraction) {
   if (interaction.customId !== 'verify') {
@@ -54,9 +53,6 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
         logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
 
         try {
-          if (rsiInGameName.length > DISCORD_NICKNAME_MAX_LENGTH) {
-            throw new Error(`RSI handle "${rsiInGameName}" exceeds the Discord nickname limit of ${DISCORD_NICKNAME_MAX_LENGTH} characters`);
-          }
           const member = await interaction.guild!.members.fetch(interaction.user.id);
           await member.setNickname(rsiInGameName);
           logger.debug(`Nickname set to "${rsiInGameName}" for user ID: ${interaction.user.id}`);

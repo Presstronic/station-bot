@@ -143,16 +143,15 @@ describe('handleVerifyButtonInteraction', () => {
     expect(content).not.toContain('verified');
   });
 
-  it('treats an RSI handle longer than 32 characters as a nicknameFailed hard failure', async () => {
-    const longHandle = 'A'.repeat(60);
+  it('replies with nicknameFailed when Discord rejects the nickname (e.g. handle too long)', async () => {
     const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
-      userData: { rsiProfileName: longHandle, dreadnoughtValidationCode: 'abc123' },
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileVerified: true,
     });
-    const { interaction, setNickname } = makeButtonInteraction();
+    const { interaction, setNickname } = makeButtonInteraction('verify', new Error('Invalid Form Body'));
     await handleVerifyButtonInteraction(interaction);
 
-    expect(setNickname).not.toHaveBeenCalled();
+    expect(setNickname).toHaveBeenCalledTimes(1);
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
     expect(content).toContain('nickname');
     expect(content).toContain('administrator');
