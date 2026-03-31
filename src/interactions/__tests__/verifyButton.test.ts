@@ -143,6 +143,20 @@ describe('handleVerifyButtonInteraction', () => {
     expect(content).not.toContain('verified');
   });
 
+  it('truncates nickname to 32 characters when RSI handle exceeds Discord limit', async () => {
+    const longHandle = 'A'.repeat(60);
+    const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: longHandle, dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: true,
+    });
+    const { interaction, setNickname } = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(setNickname).toHaveBeenCalledWith('A'.repeat(32));
+    const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
+    expect(content).toContain('verified');
+  });
+
   it('does not set nickname when verification fails', async () => {
     const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
       userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },

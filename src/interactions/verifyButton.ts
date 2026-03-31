@@ -7,6 +7,7 @@ import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
+const DISCORD_NICKNAME_MAX_LENGTH = 32;
 
 export async function handleVerifyButtonInteraction(interaction: ButtonInteraction) {
   if (interaction.customId !== 'verify') {
@@ -54,8 +55,12 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
 
         try {
           const member = await interaction.guild!.members.fetch(interaction.user.id);
-          await member.setNickname(rsiInGameName);
-          logger.debug(`Nickname set to "${rsiInGameName}" for user ID: ${interaction.user.id}`);
+          const nickname = rsiInGameName.slice(0, DISCORD_NICKNAME_MAX_LENGTH);
+          if (nickname.length < rsiInGameName.length) {
+            logger.warn(`RSI handle "${rsiInGameName}" exceeds ${DISCORD_NICKNAME_MAX_LENGTH} characters; nickname truncated to "${nickname}" for user ID: ${interaction.user.id}`);
+          }
+          await member.setNickname(nickname);
+          logger.debug(`Nickname set to "${nickname}" for user ID: ${interaction.user.id}`);
         } catch (error) {
           logger.error(`Failed to set nickname for user ID: ${interaction.user.id}`, { error });
           await respond(
