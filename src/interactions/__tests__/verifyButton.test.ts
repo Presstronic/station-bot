@@ -7,12 +7,18 @@ beforeEach(() => {
 async function loadHandlerWithMocks({
   userData,
   rsiProfileVerified = false,
+  rsiProfileError,
 }: {
   userData: { rsiProfileName: string; dreadnoughtValidationCode: string } | undefined;
   rsiProfileVerified?: boolean;
+  rsiProfileError?: Error;
 }) {
   const getUserVerificationData = jest.fn(() => userData);
-  const verifyRSIProfile = jest.fn(async () => rsiProfileVerified);
+  const clearUserVerificationData = jest.fn();
+  const verifyRSIProfile = jest.fn(async () => {
+    if (rsiProfileError) throw rsiProfileError;
+    return rsiProfileVerified;
+  });
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
 
@@ -21,6 +27,7 @@ async function loadHandlerWithMocks({
   }));
   await jest.unstable_mockModule('../../commands/verify.js', () => ({
     getUserVerificationData,
+    clearUserVerificationData,
   }));
   await jest.unstable_mockModule('../../services/rsi.services.js', () => ({
     verifyRSIProfile,
@@ -35,6 +42,7 @@ async function loadHandlerWithMocks({
   return {
     handleVerifyButtonInteraction,
     getUserVerificationData,
+    clearUserVerificationData,
     verifyRSIProfile,
     assignVerifiedRole,
     removeVerifiedRole,
@@ -122,5 +130,52 @@ describe('handleVerifyButtonInteraction', () => {
     expect(removeVerifiedRole).toHaveBeenCalledTimes(1);
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
     expect(content).toContain('verify');
+  });
+
+  it('clears the verification session only after the reply is sent on success', async () => {
+    const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: true,
+    });
+    const callOrder: string[] = [];
+    const interaction = makeButtonInteraction();
+    (interaction.editReply as jest.Mock).mockImplementation(async () => { callOrder.push('editReply'); });
+    (clearUserVerificationData as jest.Mock).mockImplementation(() => { callOrder.push('clear'); });
+
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
+    expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
+    expect(callOrder.indexOf('editReply')).toBeLessThan(callOrder.indexOf('clear'));
+  });
+
+  it('clears the verification session only after the reply is sent on failure', async () => {
+    const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: false,
+    });
+    const callOrder: string[] = [];
+    const interaction = makeButtonInteraction();
+    (interaction.editReply as jest.Mock).mockImplementation(async () => { callOrder.push('editReply'); });
+    (clearUserVerificationData as jest.Mock).mockImplementation(() => { callOrder.push('clear'); });
+
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
+    expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
+    expect(callOrder.indexOf('editReply')).toBeLessThan(callOrder.indexOf('clear'));
+  });
+
+  it('clears the verification session even if verifyRSIProfile throws', async () => {
+    const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileError: new Error('network failure'),
+    });
+    const interaction = makeButtonInteraction();
+
+    await expect(handleVerifyButtonInteraction(interaction)).rejects.toThrow('network failure');
+
+    expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
+    expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
   });
 });

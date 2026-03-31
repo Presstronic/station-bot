@@ -24,6 +24,7 @@ describe('handleInteraction in read-only mode', () => {
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -102,6 +103,7 @@ describe('handleInteraction in read-only mode', () => {
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -181,6 +183,7 @@ describe('handleInteraction in read-only mode', () => {
       handleVerifyCommand,
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -258,6 +261,7 @@ describe('handleInteraction in read-only mode', () => {
       handleVerifyCommand,
       handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -339,6 +343,7 @@ describe('handleInteraction error handling', () => {
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand: jest.fn(),
       getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -422,6 +427,7 @@ describe('handleInteraction error handling', () => {
       handleVerifyCommand: jest.fn(),
       handleHealthcheckCommand: jest.fn(),
       getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
