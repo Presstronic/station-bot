@@ -1,5 +1,5 @@
 import { ButtonInteraction, MessageFlags } from 'discord.js';
-import { getUserVerificationData } from '../commands/verify.js';
+import { getUserVerificationData, clearUserVerificationData } from '../commands/verify.js';
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
 import { verifyRSIProfile } from '../services/rsi.services.js';
@@ -42,6 +42,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
   const rsiInGameName = userData.rsiProfileName;
 
   const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
+  clearUserVerificationData(interaction.user.id);
   logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
 
   if (rsiProfileVerified) {

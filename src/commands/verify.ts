@@ -117,6 +117,10 @@ export function getUserVerificationData(userId: string) {
   return verificationCodes.get(userId);
 }
 
+export function clearUserVerificationData(userId: string): void {
+  verificationCodes.delete(userId);
+}
+
 export function getRegisteredCommandNames(): string[] {
   const registeredCommandNames = getRegisteredCommandNamesState();
   if (registeredCommandNames.length > 0) {

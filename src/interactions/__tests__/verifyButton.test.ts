@@ -12,6 +12,7 @@ async function loadHandlerWithMocks({
   rsiProfileVerified?: boolean;
 }) {
   const getUserVerificationData = jest.fn(() => userData);
+  const clearUserVerificationData = jest.fn();
   const verifyRSIProfile = jest.fn(async () => rsiProfileVerified);
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
@@ -21,6 +22,7 @@ async function loadHandlerWithMocks({
   }));
   await jest.unstable_mockModule('../../commands/verify.js', () => ({
     getUserVerificationData,
+    clearUserVerificationData,
   }));
   await jest.unstable_mockModule('../../services/rsi.services.js', () => ({
     verifyRSIProfile,
@@ -35,6 +37,7 @@ async function loadHandlerWithMocks({
   return {
     handleVerifyButtonInteraction,
     getUserVerificationData,
+    clearUserVerificationData,
     verifyRSIProfile,
     assignVerifiedRole,
     removeVerifiedRole,
@@ -122,5 +125,29 @@ describe('handleVerifyButtonInteraction', () => {
     expect(removeVerifiedRole).toHaveBeenCalledTimes(1);
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
     expect(content).toContain('verify');
+  });
+
+  it('clears the verification session after a successful verification', async () => {
+    const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: true,
+    });
+    const interaction = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
+    expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
+  });
+
+  it('clears the verification session after a failed verification', async () => {
+    const { handleVerifyButtonInteraction, clearUserVerificationData } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: false,
+    });
+    const interaction = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(clearUserVerificationData).toHaveBeenCalledTimes(1);
+    expect(clearUserVerificationData).toHaveBeenCalledWith('user-123');
   });
 });
