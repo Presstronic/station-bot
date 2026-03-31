@@ -7,18 +7,23 @@ const logger = getLogger();
 type PendingEntry = {
   resolve: (value: string) => void;
   reject: (reason: Error) => void;
+  worker: Worker;
 };
 
 let worker: Worker | null = null;
 let nextId = 0;
 const pending = new Map<number, PendingEntry>();
 
-function rejectAll(err: Error): void {
-  const entries = [...pending.values()];
-  pending.clear();
-  for (const entry of entries) {
-    entry.reject(err);
+function rejectByWorker(w: Worker, err: Error): boolean {
+  let found = false;
+  for (const [id, entry] of pending) {
+    if (entry.worker === w) {
+      pending.delete(id);
+      entry.reject(err);
+      found = true;
+    }
   }
+  return found;
 }
 
 function spawnWorker(): Worker {
@@ -55,11 +60,11 @@ function spawnWorker(): Worker {
 
   w.on('error', (err) => {
     // Node fires 'error' then 'exit' for uncaught worker exceptions.
-    // Null the reference and reject here; the 'exit' handler will see an
-    // empty pending map and a null worker reference and skip its cleanup.
+    // Reject only this worker's pending items here; 'exit' will fire next but
+    // by then those entries are already gone, so it becomes a no-op.
     logger.error(`html-parse worker error: ${String(err)}`);
     worker = null;
-    rejectAll(err);
+    rejectByWorker(w, err);
   });
 
   w.on('exit', (code) => {
@@ -69,17 +74,15 @@ function spawnWorker(): Worker {
       worker = null;
     }
 
-    // Reject any in-flight requests — they can't be fulfilled by a dead worker.
-    // This also covers the code-0 case (intentional shutdown while requests
-    // were still pending), not just abnormal exits.
-    if (pending.size > 0) {
-      const message = code !== 0
-        ? `html-parse worker exited unexpectedly (code ${code})`
-        : 'html-parse worker exited while requests were pending';
-      if (code !== 0) {
-        logger.warn(message);
-      }
-      rejectAll(new Error(message));
+    // Reject only in-flight requests that were sent to *this* worker — a new
+    // worker may have already been spawned and have its own pending items in the
+    // map; those must not be rejected here.
+    const message = code !== 0
+      ? `html-parse worker exited unexpectedly (code ${code})`
+      : 'html-parse worker exited while requests were pending';
+    const hadOwned = rejectByWorker(w, new Error(message));
+    if (hadOwned && code !== 0) {
+      logger.warn(message);
     }
   });
 
@@ -96,9 +99,10 @@ function getWorker(): Worker {
 function sendToWorker(request: ParseRequestBody): Promise<string> {
   const id = nextId++;
   return new Promise<string>((resolve, reject) => {
-    pending.set(id, { resolve, reject });
     try {
-      getWorker().postMessage({ ...request, id });
+      const w = getWorker();
+      pending.set(id, { resolve, reject, worker: w });
+      w.postMessage({ ...request, id });
     } catch (err) {
       pending.delete(id);
       const error = err instanceof Error ? err : new Error(String(err));

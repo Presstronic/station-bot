@@ -39,6 +39,42 @@ function makeMockWorker() {
   return worker;
 }
 
+describe('worker crash / exit race condition', () => {
+  it('does not reject a new worker\'s pending items when a dead worker\'s exit fires after respawn', async () => {
+    const workerA = makeMockWorker();
+    const workerB = makeMockWorker();
+    let callCount = 0;
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => (callCount++ === 0 ? workerA : workerB)),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseOrgOutcomeInWorker } = await import('../html-parse.pool.js');
+
+    // 1. Send a request — lands on Worker A
+    const promiseA = parseOrgOutcomeInWorker('<html/>');
+
+    // 2. Worker A crashes: error fires → Worker A's item rejected, worker ref cleared
+    workerA.emit.error(new Error('Worker A crashed'));
+    await expect(promiseA).rejects.toThrow('Worker A crashed');
+
+    // 3. New request comes in — Worker B is spawned
+    const promiseB = parseOrgOutcomeInWorker('<html/>');
+
+    // 4. Worker A's exit fires (Node always fires exit after error)
+    workerA.emit.exit(1);
+
+    // 5. Worker B's item must NOT have been rejected by Worker A's exit handler
+    const idB = workerB.posted[0].id;
+    workerB.emit.message({ id: idB, ok: true, value: 'in_org' });
+
+    await expect(promiseB).resolves.toBe('in_org');
+  });
+});
+
 describe('parseOrgOutcomeInWorker', () => {
   it('sends an orgOutcome request to the worker and resolves with the returned value', async () => {
     const mockWorker = makeMockWorker();
