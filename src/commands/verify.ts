@@ -103,7 +103,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   );
 
   logger.info(
-    `Verification initiated by ${interaction.user.tag} in guild "${interaction.guild?.name}" | RSI: ${rsiProfileName} | Code: ${dreadnoughtValidationCode}`
+    `Verification initiated by ${interaction.user.username} in guild "${interaction.guild?.name}" | RSI: ${rsiProfileName} | Code: ${dreadnoughtValidationCode}`
   );
 
   await interaction.reply({
@@ -146,7 +146,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
     return;
   }
 
-  const botTag = interaction.client.user?.tag ?? 'unknown-bot';
+  const botUsername = interaction.client.user?.username ?? 'unknown-bot';
   const currentUtc = toDateString(new Date().toISOString());
   const activeCommands = getRegisteredCommandNames().map((name) => `/${name}`).join(', ');
   const readOnlyStatus = isReadOnlyMode()
@@ -157,7 +157,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
     content: i18n.__mf(
       { phrase: 'commands.healthcheck.responses.status', locale },
       {
-        botTag,
+        botTag: botUsername,
         currentUtc,
         readOnlyStatus,
         activeCommands,
