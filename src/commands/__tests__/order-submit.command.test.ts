@@ -157,11 +157,17 @@ async function setupMocks(overrides: {
 
   jest.unstable_mockModule('../../domain/manufacturing/manufacturing.forum.js', () => ({
     ORDER_STATUS_TAG_NAMES: ['New', 'Accepted', 'Processing', 'Ready for Pickup', 'Complete', 'Cancelled'],
+    STATUS_LABEL: { new: '🆕 New', accepted: '✅ Accepted', processing: '⚙️ Processing', ready_for_pickup: '📬 Ready for Pickup', complete: '✔️ Complete', cancelled: '🚫 Cancelled' },
+    STATUS_TO_TAG: { new: 'New', accepted: 'Accepted', processing: 'Processing', ready_for_pickup: 'Ready for Pickup', complete: 'Complete', cancelled: 'Cancelled' },
     MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
     MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
     MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+    MFG_START_PROCESSING_PREFIX: 'mfg-start-processing',
+    MFG_READY_FOR_PICKUP_PREFIX: 'mfg-ready-for-pickup',
+    MFG_MARK_COMPLETE_PREFIX: 'mfg-mark-complete',
     ensureForumTags: jest.fn(async () => new Map([['New', 'tag-new-id']])),
     formatOrderPost: jest.fn(() => 'post content'),
+    formatTransitionReply: jest.fn(() => 'transition reply'),
     buildForumPostComponents: jest.fn(() => []),
   }));
 

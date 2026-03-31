@@ -1,5 +1,5 @@
 import { withClient } from '../../services/nominations/db.js';
-import { OrderLimitExceededError, OrderNotFoundError } from './types.js';
+import { InvalidStatusTransitionError, OrderLimitExceededError, OrderNotFoundError } from './types.js';
 import type { ManufacturingOrder, ManufacturingOrderItem, NewOrderItem, OrderStatus } from './types.js';
 
 function mapItemRow(row: Record<string, unknown>): ManufacturingOrderItem {
@@ -180,6 +180,42 @@ export async function updateStatus(id: number, status: OrderStatus): Promise<Man
   });
 }
 
+export async function transitionStatus(
+  id: number,
+  fromStatus: OrderStatus,
+  toStatus: OrderStatus,
+): Promise<ManufacturingOrder> {
+  return withClient(async (client) => {
+    const orderResult = await client.query(
+      `UPDATE manufacturing_orders
+       SET status = $3, updated_at = NOW()
+       WHERE id = $1 AND status = $2
+       RETURNING *`,
+      [id, fromStatus, toStatus],
+    );
+
+    if (orderResult.rows.length === 0) {
+      const existsResult = await client.query(
+        `SELECT status FROM manufacturing_orders WHERE id = $1`,
+        [id],
+      );
+      if (existsResult.rows.length === 0) throw new OrderNotFoundError(id);
+      const currentStatus = String((existsResult.rows[0] as Record<string, unknown>).status) as OrderStatus;
+      throw new InvalidStatusTransitionError(currentStatus, toStatus);
+    }
+
+    const itemsResult = await client.query(
+      `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
+      [id],
+    );
+
+    return mapOrderRow(
+      orderResult.rows[0] as Record<string, unknown>,
+      (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+    );
+  });
+}
+
 export async function updateForumThreadId(id: number, threadId: string): Promise<void> {
   await withClient(async (client) => {
     const result = await client.query(
@@ -189,6 +225,41 @@ export async function updateForumThreadId(id: number, threadId: string): Promise
       [id, threadId],
     );
     if ((result.rowCount ?? 0) === 0) throw new OrderNotFoundError(id);
+  });
+}
+
+export async function cancelOrder(
+  id: number,
+  allowedFromStatuses: readonly OrderStatus[],
+): Promise<ManufacturingOrder> {
+  return withClient(async (client) => {
+    const orderResult = await client.query(
+      `UPDATE manufacturing_orders
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE id = $1 AND status = ANY($2::text[])
+       RETURNING *`,
+      [id, allowedFromStatuses],
+    );
+
+    if (orderResult.rows.length === 0) {
+      const existsResult = await client.query(
+        `SELECT status FROM manufacturing_orders WHERE id = $1`,
+        [id],
+      );
+      if (existsResult.rows.length === 0) throw new OrderNotFoundError(id);
+      const currentStatus = String((existsResult.rows[0] as Record<string, unknown>).status) as OrderStatus;
+      throw new InvalidStatusTransitionError(currentStatus, 'cancelled');
+    }
+
+    const itemsResult = await client.query(
+      `SELECT * FROM manufacturing_order_items WHERE order_id = $1 ORDER BY sort_order`,
+      [id],
+    );
+
+    return mapOrderRow(
+      orderResult.rows[0] as Record<string, unknown>,
+      (itemsResult.rows as Record<string, unknown>[]).map(mapItemRow),
+    );
   });
 }
 

@@ -43,9 +43,17 @@ import {
   SUBMIT_ORDER_BUTTON_PREFIX,
 } from '../commands/order-submit.command.js';
 import {
+  handleMfgCancelOrder,
+  handleMfgStaffCancel,
+  handleMfgAdvance,
+} from '../commands/order-actions.command.js';
+import {
   MFG_CANCEL_ORDER_PREFIX,
   MFG_ACCEPT_ORDER_PREFIX,
   MFG_STAFF_CANCEL_PREFIX,
+  MFG_START_PROCESSING_PREFIX,
+  MFG_READY_FOR_PICKUP_PREFIX,
+  MFG_MARK_COMPLETE_PREFIX,
 } from '../domain/manufacturing/manufacturing.forum.js';
 import i18n from '../utils/i18n-config.js';
 import { isReadOnlyMode } from '../config/runtime-flags.js';
@@ -157,13 +165,17 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           interaction.customId.startsWith(`${SUBMIT_ORDER_BUTTON_PREFIX}:`)
         ) {
           await handleOrderButtonInteraction(interaction);
+        } else if (interaction.customId.startsWith(`${MFG_CANCEL_ORDER_PREFIX}:`)) {
+          await handleMfgCancelOrder(interaction);
+        } else if (interaction.customId.startsWith(`${MFG_STAFF_CANCEL_PREFIX}:`)) {
+          await handleMfgStaffCancel(interaction);
         } else if (
-          interaction.customId.startsWith(`${MFG_CANCEL_ORDER_PREFIX}:`) ||
           interaction.customId.startsWith(`${MFG_ACCEPT_ORDER_PREFIX}:`) ||
-          interaction.customId.startsWith(`${MFG_STAFF_CANCEL_PREFIX}:`)
+          interaction.customId.startsWith(`${MFG_START_PROCESSING_PREFIX}:`) ||
+          interaction.customId.startsWith(`${MFG_READY_FOR_PICKUP_PREFIX}:`) ||
+          interaction.customId.startsWith(`${MFG_MARK_COMPLETE_PREFIX}:`)
         ) {
-          // Handlers for these forum post buttons are implemented in ISSUE-242/243.
-          await interaction.reply({ content: 'Order management is not yet available.', flags: MessageFlags.Ephemeral });
+          await handleMfgAdvance(interaction);
         } else {
           await handleVerifyButtonInteraction(interaction);
         }
