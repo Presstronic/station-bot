@@ -3,8 +3,13 @@ import { getLogger } from '../utils/logger.js';
 
 const logger = getLogger();
 
-const DEFAULT_ROLE_ENV = process.env.DEFAULT_ROLES || 'Verified,Temporary Member,Potential Applicant';
-const REQUIRED_ROLES = DEFAULT_ROLE_ENV.split(',').map((r) => r.trim());
+const DEFAULT_ROLE_NAMES = ['Verified', 'Temporary Member', 'Potential Applicant'];
+const PARSED_ROLES = (process.env.DEFAULT_ROLES ?? '')
+  .split(',')
+  .map((r) => r.trim())
+  .filter((r) => r.length > 0);
+const REQUIRED_ROLES = PARSED_ROLES.length > 0 ? PARSED_ROLES : DEFAULT_ROLE_NAMES;
+const VERIFIED_ROLE_NAME = REQUIRED_ROLES[0];
 
 /**
  * Assigns the "Verified" role to a user.
@@ -26,15 +31,15 @@ export async function assignVerifiedRole(
     return false;
   }
 
-  const verifiedRole = guild.roles.cache.find((role) => role.name === 'Verified');
+  const verifiedRole = guild.roles.cache.find((role) => role.name === VERIFIED_ROLE_NAME);
   if (!verifiedRole) {
-    logger.error('"Verified" role not found.');
+    logger.error(`"${VERIFIED_ROLE_NAME}" role not found.`);
     return false;
   }
 
   try {
     await member.roles.add(verifiedRole);
-    logger.debug(`Assigned "Verified" role to user ${member.user.tag}`);
+    logger.debug(`Assigned "${VERIFIED_ROLE_NAME}" role to user ${member.user.tag}`);
     return true;
   } catch (error) {
     logger.error(`Error assigning role: ${error}`);
@@ -62,15 +67,15 @@ export async function removeVerifiedRole(
     return false;
   }
 
-  const verifiedRole = guild.roles.cache.find((role) => role.name === 'Verified');
+  const verifiedRole = guild.roles.cache.find((role) => role.name === VERIFIED_ROLE_NAME);
   if (!verifiedRole) {
-    logger.error('"Verified" role not found.');
+    logger.error(`"${VERIFIED_ROLE_NAME}" role not found.`);
     return false;
   }
 
   try {
     await member.roles.remove(verifiedRole);
-    logger.debug(`Removed "Verified" role from user ${member.user.tag}`);
+    logger.debug(`Removed "${VERIFIED_ROLE_NAME}" role from user ${member.user.tag}`);
     return true;
   } catch (error) {
     logger.error(`Error removing role: ${error}`);
