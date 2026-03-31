@@ -161,6 +161,15 @@ describe('removeVerifiedRole', () => {
     expect(await removeVerifiedRole(makeInteraction(guild), 'user-1')).toBe(true);
     expect(member.roles.remove).toHaveBeenCalledWith(expect.objectContaining({ name: 'CustomVerified' }));
   });
+
+  it('falls back to "Verified" when DEFAULT_ROLES contains only empty entries', async () => {
+    process.env.DEFAULT_ROLES = ',  , ';
+    const { removeVerifiedRole } = await import('../role.services.js');
+    const member = makeMember();
+    const guild = makeGuild({ roleNames: ['Verified'], member });
+    expect(await removeVerifiedRole(makeInteraction(guild), 'user-1')).toBe(true);
+    expect(member.roles.remove).toHaveBeenCalledWith(expect.objectContaining({ name: 'Verified' }));
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -210,5 +219,16 @@ describe('addMissingDefaultRoles', () => {
     const stub = makeGuild();
     stub.roles.fetch.mockRejectedValueOnce(new Error('API error'));
     await expect(addMissingDefaultRoles(stub as unknown as Guild, makeClient())).rejects.toThrow('API error');
+  });
+
+  it('falls back to default role set when DEFAULT_ROLES contains only empty entries', async () => {
+    process.env.DEFAULT_ROLES = ',  , ';
+    const { addMissingDefaultRoles } = await import('../role.services.js');
+    const stub = makeGuild({ roleNames: [] });
+    await addMissingDefaultRoles(stub as unknown as Guild, makeClient());
+    expect(stub.roles.create).toHaveBeenCalledTimes(3);
+    expect(stub.roles.create).toHaveBeenCalledWith(expect.objectContaining({ name: 'Verified' }));
+    expect(stub.roles.create).toHaveBeenCalledWith(expect.objectContaining({ name: 'Temporary Member' }));
+    expect(stub.roles.create).toHaveBeenCalledWith(expect.objectContaining({ name: 'Potential Applicant' }));
   });
 });
