@@ -54,13 +54,12 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
         logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
 
         try {
-          const member = await interaction.guild!.members.fetch(interaction.user.id);
-          const nickname = rsiInGameName.slice(0, DISCORD_NICKNAME_MAX_LENGTH);
-          if (nickname.length < rsiInGameName.length) {
-            logger.warn(`RSI handle "${rsiInGameName}" exceeds ${DISCORD_NICKNAME_MAX_LENGTH} characters; nickname truncated to "${nickname}" for user ID: ${interaction.user.id}`);
+          if (rsiInGameName.length > DISCORD_NICKNAME_MAX_LENGTH) {
+            throw new Error(`RSI handle "${rsiInGameName}" exceeds the Discord nickname limit of ${DISCORD_NICKNAME_MAX_LENGTH} characters`);
           }
-          await member.setNickname(nickname);
-          logger.debug(`Nickname set to "${nickname}" for user ID: ${interaction.user.id}`);
+          const member = await interaction.guild!.members.fetch(interaction.user.id);
+          await member.setNickname(rsiInGameName);
+          logger.debug(`Nickname set to "${rsiInGameName}" for user ID: ${interaction.user.id}`);
         } catch (error) {
           logger.error(`Failed to set nickname for user ID: ${interaction.user.id}`, { error });
           await respond(
