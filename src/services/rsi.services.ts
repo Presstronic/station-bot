@@ -11,7 +11,7 @@ const logger = getLogger();
  * @param userId - Discord user ID; the RSI handle is retrieved via getUserVerificationData
  * @returns true if the user's dreadnought validation code is found in their RSI bio
  */
-export async function verifyRSIProfile(userId: string): Promise<boolean>{
+export async function verifyRSIProfile(userId: string): Promise<boolean> {
     logger.debug(`Verifying RSI Profile for user ID: ${userId}`);
     try {
 
