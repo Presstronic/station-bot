@@ -56,7 +56,7 @@ describe('healthcheck command', () => {
       inGuild: () => true,
       memberPermissions: { has: () => false },
       reply,
-      client: { user: { tag: 'station-bot#0001' } },
+      client: { user: { username: 'station-bot' } },
     } as any;
 
     await expect(handleHealthcheckCommand(interaction)).resolves.toBeUndefined();
@@ -91,13 +91,13 @@ describe('healthcheck command', () => {
       inGuild: () => true,
       memberPermissions: { has: () => true },
       reply,
-      client: { user: { tag: 'station-bot#0001' } },
+      client: { user: { username: 'station-bot' } },
     } as any;
 
     await expect(handleHealthcheckCommand(interaction)).resolves.toBeUndefined();
     expect(reply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringContaining('station-bot#0001'),
+        content: expect.stringContaining('station-bot'),
         flags: 64,
       })
     );
@@ -138,7 +138,7 @@ describe('healthcheck command', () => {
       inGuild: () => false,
       memberPermissions: { has: () => true },
       reply,
-      client: { user: { tag: 'station-bot#0001' } },
+      client: { user: { username: 'station-bot' } },
     } as any;
 
     await expect(handleHealthcheckCommand(interaction)).resolves.toBeUndefined();

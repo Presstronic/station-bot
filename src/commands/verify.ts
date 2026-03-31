@@ -146,7 +146,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
     return;
   }
 
-  const botTag = interaction.client.user?.tag ?? 'unknown-bot';
+  const botUsername = interaction.client.user?.username ?? 'unknown-bot';
   const currentUtc = toDateString(new Date().toISOString());
   const activeCommands = getRegisteredCommandNames().map((name) => `/${name}`).join(', ');
   const readOnlyStatus = isReadOnlyMode()
@@ -157,7 +157,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
     content: i18n.__mf(
       { phrase: 'commands.healthcheck.responses.status', locale },
       {
-        botTag,
+        botTag: botUsername,
         currentUtc,
         readOnlyStatus,
         activeCommands,
