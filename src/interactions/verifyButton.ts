@@ -39,7 +39,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
 
-  const rsiInGameName = userData.rsiProfileName?.split('/').pop() ?? 'Unknown';
+  const rsiInGameName = userData.rsiProfileName;
 
   const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
   logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);

@@ -74,27 +74,6 @@ describe('verifyRSIProfile', () => {
     expect(await verifyRSIProfile('user-1')).toBe(false);
   });
 
-  it('strips leading URL segments and uses only the final path component as the handle', async () => {
-    const scrapeAndCheckValueSpecific = jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true);
-    jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
-      getUserVerificationData: jest.fn(() => ({
-        rsiProfileName: 'https://robertsspaceindustries.com/citizens/TestHandle',
-        dreadnoughtValidationCode: 'ABC-123',
-      })),
-    }));
-    jest.unstable_mockModule('../web-scraping.services.js', () => ({ scrapeAndCheckValueSpecific }));
-
-    const { verifyRSIProfile } = await import('../rsi.services.js');
-    await verifyRSIProfile('user-1');
-    expect(scrapeAndCheckValueSpecific).toHaveBeenCalledWith(
-      'https://robertsspaceindustries.com/en/citizens/TestHandle',
-      expect.any(String),
-      expect.any(String),
-      expect.any(String)
-    );
-  });
-
   it('makes no direct axios calls (no redundant HEAD check)', async () => {
     const scrapeAndCheckValueSpecific = jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true);
     const axiosHead = jest.fn();
