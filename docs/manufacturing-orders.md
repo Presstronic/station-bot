@@ -63,7 +63,7 @@ Every order moves through clearly defined stages:
 New → Accepted → Processing → Ready for Pickup → Complete
 ```
 
-Any order can be cancelled at any stage by the manufacturing team. Members can cancel their own orders as long as production hasn't started yet.
+Any order in a non-terminal stage can be cancelled by the manufacturing team. Members can cancel their own orders as long as production hasn't started yet.
 
 ---
 

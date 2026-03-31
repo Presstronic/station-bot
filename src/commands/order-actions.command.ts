@@ -83,7 +83,14 @@ async function applyPostTransition(
     if (parent && parent.type === ChannelType.GuildForum) {
       const tagMap = await ensureForumTags(parent as ForumChannel);
       const tagId = tagMap.get(STATUS_TO_TAG[toStatus]);
-      await thread.setAppliedTags(tagId ? [tagId] : []);
+      if (!tagId) {
+        logger.warn('[manufacturing] Status tag not found; skipping forum thread tag update', {
+          orderId: updatedOrder.id,
+          toStatus,
+        });
+      } else {
+        await thread.setAppliedTags([tagId]);
+      }
     }
   } catch (err) {
     logger.error('[manufacturing] Failed to update forum thread tag after status transition', {
