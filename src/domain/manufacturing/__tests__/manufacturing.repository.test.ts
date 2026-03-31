@@ -337,11 +337,11 @@ describe('transitionStatus', () => {
     expect(updateSql).toMatch(/WHERE id = \$1 AND status = \$2/);
   });
 
-  it('throws InvalidStatusTransitionError when the current status does not match', async () => {
+  it('throws InvalidStatusTransitionError with current status when the status does not match', async () => {
     const query = jest
       .fn<() => Promise<{ rows: unknown[] }>>()
-      .mockResolvedValueOnce({ rows: [] })          // UPDATE matches nothing
-      .mockResolvedValueOnce({ rows: [{ 1: 1 }] }); // SELECT confirms order exists
+      .mockResolvedValueOnce({ rows: [] })                               // UPDATE matches nothing
+      .mockResolvedValueOnce({ rows: [{ status: 'processing' }] });     // SELECT returns actual status
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
       withClient: makeWithClient(query),
@@ -349,7 +349,10 @@ describe('transitionStatus', () => {
 
     const { transitionStatus } = await import('../manufacturing.repository.js');
     const { InvalidStatusTransitionError } = await import('../types.js');
-    await expect(transitionStatus(1, 'new', 'accepted')).rejects.toBeInstanceOf(InvalidStatusTransitionError);
+    const err = await transitionStatus(1, 'new', 'accepted').catch((e) => e);
+    expect(err).toBeInstanceOf(InvalidStatusTransitionError);
+    expect(err.from).toBe('processing');
+    expect(err.to).toBe('accepted');
   });
 
   it('throws OrderNotFoundError when the order does not exist', async () => {

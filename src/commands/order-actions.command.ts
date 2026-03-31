@@ -119,12 +119,10 @@ async function applyTransition(
     await applyPostTransition(interaction, updatedOrder, toStatus);
   } catch (err) {
     if (err instanceof InvalidStatusTransitionError) {
-      await interaction
-        .followUp({
-          content: 'This order was already updated by another action. Please refresh to see the current status.',
-          flags: MessageFlags.Ephemeral,
-        })
-        .catch(() => {});
+      const content = TERMINAL_STATUSES.includes(err.from)
+        ? `This order is already ${err.from === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`
+        : 'This order was already updated by another action. Please refresh to see the current status.';
+      await interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
       return;
     }
     logger.error('[manufacturing] Failed to apply status transition', {
@@ -151,12 +149,10 @@ async function applyCancellation(
     await applyPostTransition(interaction, updatedOrder, 'cancelled');
   } catch (err) {
     if (err instanceof InvalidStatusTransitionError) {
-      await interaction
-        .followUp({
-          content: 'This order was already updated by another action. Please refresh to see the current status.',
-          flags: MessageFlags.Ephemeral,
-        })
-        .catch(() => {});
+      const content = TERMINAL_STATUSES.includes(err.from)
+        ? `This order is already ${err.from === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`
+        : 'This order was already updated by another action. Please refresh to see the current status.';
+      await interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
       return;
     }
     logger.error('[manufacturing] Failed to apply cancellation', {

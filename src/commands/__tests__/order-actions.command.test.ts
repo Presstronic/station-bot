@@ -137,9 +137,13 @@ async function setupMocks(overrides: {
   }));
 
   class MockInvalidStatusTransitionError extends Error {
+    readonly from: string;
+    readonly to: string;
     constructor(from: string, to: string) {
       super(`Invalid status transition: ${from} → ${to}`);
       this.name = 'InvalidStatusTransitionError';
+      this.from = from;
+      this.to = to;
     }
   }
 
@@ -436,15 +440,39 @@ describe('handleMfgAdvance', () => {
     expect(h.updateStatusMock).not.toHaveBeenCalled();
   });
 
-  it('replies with followUp when concurrent modification is detected', async () => {
+  it('replies with followUp when concurrent modification is detected (non-terminal)', async () => {
     const { InvalidStatusTransitionError } = await import('../../domain/manufacturing/types.js');
     const h = await setupMocks({
-      transitionStatus: jest.fn(async () => { throw new InvalidStatusTransitionError('new', 'accepted'); }),
+      transitionStatus: jest.fn(async () => { throw new InvalidStatusTransitionError('processing', 'accepted'); }),
     });
     const btn = makeButtonInteraction('mfg-accept-order:42');
     await h.handleMfgAdvance(btn as any);
     expect(btn.deferUpdate).toHaveBeenCalled();
     expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already updated/i) }));
+    expect(btn.editReply).not.toHaveBeenCalled();
+  });
+
+  it('replies with terminal message when order became terminal during concurrent advance', async () => {
+    const { InvalidStatusTransitionError } = await import('../../domain/manufacturing/types.js');
+    const h = await setupMocks({
+      transitionStatus: jest.fn(async () => { throw new InvalidStatusTransitionError('cancelled', 'accepted'); }),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already cancelled/i) }));
+    expect(btn.editReply).not.toHaveBeenCalled();
+  });
+
+  it('replies with terminal message when order became terminal during concurrent staff cancel', async () => {
+    const { InvalidStatusTransitionError } = await import('../../domain/manufacturing/types.js');
+    const h = await setupMocks({
+      cancelOrder: jest.fn(async () => { throw new InvalidStatusTransitionError('complete', 'cancelled'); }),
+    });
+    const btn = makeButtonInteraction('mfg-staff-cancel:42');
+    await h.handleMfgStaffCancel(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already complete/i) }));
     expect(btn.editReply).not.toHaveBeenCalled();
   });
 

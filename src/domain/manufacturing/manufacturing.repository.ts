@@ -196,11 +196,12 @@ export async function transitionStatus(
 
     if (orderResult.rows.length === 0) {
       const existsResult = await client.query(
-        `SELECT 1 FROM manufacturing_orders WHERE id = $1`,
+        `SELECT status FROM manufacturing_orders WHERE id = $1`,
         [id],
       );
       if (existsResult.rows.length === 0) throw new OrderNotFoundError(id);
-      throw new InvalidStatusTransitionError(fromStatus, toStatus);
+      const currentStatus = String((existsResult.rows[0] as Record<string, unknown>).status) as OrderStatus;
+      throw new InvalidStatusTransitionError(currentStatus, toStatus);
     }
 
     const itemsResult = await client.query(
