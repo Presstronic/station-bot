@@ -95,8 +95,11 @@ describe('verifyRSIProfile', () => {
     );
   });
 
-  it('makes exactly one HTTP request (no redundant HEAD check)', async () => {
+  it('makes no direct axios calls (no redundant HEAD check)', async () => {
     const scrapeAndCheckValueSpecific = jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true);
+    const axiosHead = jest.fn();
+    const axiosGet = jest.fn();
+    jest.unstable_mockModule('axios', () => ({ default: { head: axiosHead, get: axiosGet } }));
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
     jest.unstable_mockModule('../../commands/verify.js', () => ({
       getUserVerificationData: jest.fn(() => ({
@@ -109,7 +112,9 @@ describe('verifyRSIProfile', () => {
     const { verifyRSIProfile } = await import('../rsi.services.js');
     await verifyRSIProfile('user-1');
 
-    // scrapeAndCheckValueSpecific encapsulates the single GET — called exactly once
+    // rsi.services must not call axios directly — all HTTP goes through scrapeAndCheckValueSpecific
+    expect(axiosHead).not.toHaveBeenCalled();
+    expect(axiosGet).not.toHaveBeenCalled();
     expect(scrapeAndCheckValueSpecific).toHaveBeenCalledTimes(1);
   });
 });
