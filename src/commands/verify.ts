@@ -103,7 +103,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   );
 
   logger.info(
-    `Verification initiated by ${interaction.user.tag} in guild "${interaction.guild?.name}" | RSI: ${rsiProfileName} | Code: ${dreadnoughtValidationCode}`
+    `Verification initiated by ${interaction.user.username} in guild "${interaction.guild?.name}" | RSI: ${rsiProfileName} | Code: ${dreadnoughtValidationCode}`
   );
 
   await interaction.reply({
