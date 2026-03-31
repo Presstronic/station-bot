@@ -193,9 +193,11 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
     return;
   }
 
+  await interaction.deferUpdate();
+
   const order = await findById(orderId);
   if (!order) {
-    await interaction.reply({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
     return;
   }
 
@@ -203,7 +205,7 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
   const isOwner = order.discordUserId === interaction.user.id;
 
   if (!isOwner && !isStaff) {
-    await interaction.reply({
+    await interaction.followUp({
       content: 'You do not have permission to cancel this order.',
       flags: MessageFlags.Ephemeral,
     });
@@ -213,7 +215,7 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
   if (isOwner && !isStaff) {
     // Non-staff members may only cancel orders that haven't entered production
     if (order.status !== 'new' && order.status !== 'accepted') {
-      await interaction.reply({
+      await interaction.followUp({
         content: 'This order can no longer be cancelled. Please contact the manufacturing team.',
         flags: MessageFlags.Ephemeral,
       });
@@ -222,7 +224,7 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
   } else {
     // Staff may only cancel non-terminal orders
     if (TERMINAL_STATUSES.includes(order.status)) {
-      await interaction.reply({
+      await interaction.followUp({
         content: `This order is already ${order.status === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`,
         flags: MessageFlags.Ephemeral,
       });
@@ -230,7 +232,6 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
     }
   }
 
-  await interaction.deferUpdate();
   const allowedFromStatuses: readonly OrderStatus[] = isStaff
     ? ['new', 'accepted', 'processing', 'ready_for_pickup']
     : ['new', 'accepted'];
@@ -261,21 +262,22 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
+  await interaction.deferUpdate();
+
   const order = await findById(orderId);
   if (!order) {
-    await interaction.reply({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (TERMINAL_STATUSES.includes(order.status)) {
-    await interaction.reply({
+    await interaction.followUp({
       content: `This order is already ${order.status === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  await interaction.deferUpdate();
   await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup']);
 }
 
@@ -327,14 +329,16 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
+  await interaction.deferUpdate();
+
   const order = await findById(orderId);
   if (!order) {
-    await interaction.reply({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (TERMINAL_STATUSES.includes(order.status)) {
-    await interaction.reply({
+    await interaction.followUp({
       content: `This order is already ${order.status === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`,
       flags: MessageFlags.Ephemeral,
     });
@@ -342,14 +346,13 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
   }
 
   if (!VALID_TRANSITIONS[order.status].includes(toStatus)) {
-    await interaction.reply({
+    await interaction.followUp({
       content: `This order is in **${STATUS_LABEL[order.status]}** status and cannot be moved to **${STATUS_LABEL[toStatus]}** from here.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  await interaction.deferUpdate();
   await applyTransition(interaction, orderId, order.status, toStatus);
 }
 

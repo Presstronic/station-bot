@@ -197,48 +197,48 @@ describe('handleMfgCancelOrder', () => {
     const h = await setupMocks({ findById: jest.fn(async () => null) });
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1' });
     await h.handleMfgCancelOrder(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("could not be found") }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("could not be found") }));
   });
 
   it('replies ephemerally when order is already terminal', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'cancelled' })) });
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1' });
     await h.handleMfgCancelOrder(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
   });
 
   it('replies ephemerally when actor is not owner and not staff', async () => {
     const h = await setupMocks();
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'outsider', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/permission/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/permission/i) }));
   });
 
   it('replies with "no longer be cancelled" when non-staff owner tries to cancel a terminal order', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'complete' })) });
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
   });
 
   it('replies ephemerally when owner tries to cancel a processing order', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'processing' })) });
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
   });
 
   it('replies ephemerally when owner tries to cancel a ready_for_pickup order', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'ready_for_pickup' })) });
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
     await h.handleMfgCancelOrder(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
   });
 
   it('replies ephemerally when manufacturing is disabled', async () => {
@@ -312,15 +312,16 @@ describe('handleMfgStaffCancel', () => {
     const h = await setupMocks({ findById: jest.fn(async () => null) });
     const btn = makeButtonInteraction('mfg-staff-cancel:42');
     await h.handleMfgStaffCancel(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("could not be found") }));
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining("could not be found") }));
   });
 
   it('replies ephemerally when order is already terminal', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'complete' })) });
     const btn = makeButtonInteraction('mfg-staff-cancel:42');
     await h.handleMfgStaffCancel(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
   });
 
   it('replies ephemerally when manufacturing is disabled', async () => {
@@ -382,7 +383,8 @@ describe('handleMfgAdvance', () => {
     const h = await setupMocks({ findById: jest.fn(async () => null) });
     const btn = makeButtonInteraction('mfg-accept-order:42');
     await h.handleMfgAdvance(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('could not be found') }));
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringContaining('could not be found') }));
   });
 
   it('replies ephemerally when the transition is invalid for the current status', async () => {
@@ -391,8 +393,8 @@ describe('handleMfgAdvance', () => {
     const btn = makeButtonInteraction('mfg-accept-order:42');
     await h.handleMfgAdvance(btn as any);
     // Message uses STATUS_LABEL values, not raw keys
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/✅ Accepted.*cannot be moved/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/✅ Accepted.*cannot be moved/i) }));
   });
 
   it('accepts a new order (new → accepted)', async () => {
@@ -432,16 +434,16 @@ describe('handleMfgAdvance', () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'complete' })) });
     const btn = makeButtonInteraction('mfg-mark-complete:42');
     await h.handleMfgAdvance(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
   });
 
   it('replies ephemerally when order is already terminal (cancelled)', async () => {
     const h = await setupMocks({ findById: jest.fn(async () => makeOrder({ status: 'cancelled' })) });
     const btn = makeButtonInteraction('mfg-accept-order:42');
     await h.handleMfgAdvance(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/already/i) }));
   });
 
   it('uses transitionStatus (not updateStatus) for advance actions', async () => {
