@@ -51,6 +51,19 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
 
       if (success) {
         logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
+
+        try {
+          const member = await interaction.guild!.members.fetch(interaction.user.id);
+          await member.setNickname(rsiInGameName);
+          logger.debug(`Nickname set to "${rsiInGameName}" for user ID: ${interaction.user.id}`);
+        } catch (error) {
+          logger.error(`Failed to set nickname for user ID: ${interaction.user.id}`, { error });
+          await respond(
+            i18n.__({ phrase: 'commands.verify.responses.nicknameFailed', locale })
+          );
+          return;
+        }
+
         await respond(
           i18n.__mf(
             { phrase: 'commands.verify.responses.success', locale },

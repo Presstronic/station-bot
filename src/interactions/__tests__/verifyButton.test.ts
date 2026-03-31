@@ -49,19 +49,24 @@ async function loadHandlerWithMocks({
   };
 }
 
-function makeButtonInteraction(customId = 'verify') {
+function makeButtonInteraction(customId = 'verify', nicknameError?: Error) {
+  const setNickname = nicknameError
+    ? jest.fn(async () => { throw nicknameError; })
+    : jest.fn(async () => undefined);
+  const member = { setNickname };
   const interaction = {
     customId,
     deferred: false,
     replied: false,
     locale: 'en-US',
     user: { id: 'user-123', username: 'TestUser' },
+    guild: { members: { fetch: jest.fn(async () => member) } },
     deferReply: jest.fn(async () => { interaction.deferred = true; }),
     editReply: jest.fn(async () => undefined),
     reply: jest.fn(async () => undefined),
     followUp: jest.fn(async () => undefined),
   };
-  return interaction as unknown as import('discord.js').ButtonInteraction;
+  return { interaction: interaction as unknown as import('discord.js').ButtonInteraction, setNickname };
 }
 
 describe('handleVerifyButtonInteraction', () => {
@@ -69,7 +74,7 @@ describe('handleVerifyButtonInteraction', () => {
     const { handleVerifyButtonInteraction, verifyRSIProfile } = await loadHandlerWithMocks({
       userData: undefined,
     });
-    const interaction = makeButtonInteraction('not-verify');
+    const { interaction } = makeButtonInteraction('not-verify');
     await handleVerifyButtonInteraction(interaction);
     expect(verifyRSIProfile).not.toHaveBeenCalled();
   });
@@ -78,7 +83,7 @@ describe('handleVerifyButtonInteraction', () => {
     const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
       userData: undefined,
     });
-    const interaction = makeButtonInteraction();
+    const { interaction } = makeButtonInteraction();
     await handleVerifyButtonInteraction(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledTimes(1);
@@ -89,7 +94,7 @@ describe('handleVerifyButtonInteraction', () => {
     const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
       userData: undefined,
     });
-    const interaction = makeButtonInteraction();
+    const { interaction } = makeButtonInteraction();
     await handleVerifyButtonInteraction(interaction);
 
     expect(interaction.editReply).toHaveBeenCalledTimes(1);
@@ -102,21 +107,51 @@ describe('handleVerifyButtonInteraction', () => {
     const { handleVerifyButtonInteraction, verifyRSIProfile } = await loadHandlerWithMocks({
       userData: undefined,
     });
-    await handleVerifyButtonInteraction(makeButtonInteraction());
+    const { interaction } = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
     expect(verifyRSIProfile).not.toHaveBeenCalled();
   });
 
-  it('assigns role and replies with success when verification passes', async () => {
+  it('assigns role, sets nickname, and replies with success when verification passes', async () => {
     const { handleVerifyButtonInteraction, assignVerifiedRole } = await loadHandlerWithMocks({
-      userData: { rsiProfileName: 'https://robertsspaceindustries.com/en/citizens/PilotOne', dreadnoughtValidationCode: 'abc123' },
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileVerified: true,
     });
-    const interaction = makeButtonInteraction();
+    const { interaction, setNickname } = makeButtonInteraction();
     await handleVerifyButtonInteraction(interaction);
 
     expect(assignVerifiedRole).toHaveBeenCalledTimes(1);
+    expect(setNickname).toHaveBeenCalledTimes(1);
+    expect(setNickname).toHaveBeenCalledWith('PilotOne');
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
     expect(content).toContain('verified');
+  });
+
+  it('replies with nicknameFailed and does not send success when setNickname throws', async () => {
+    const { handleVerifyButtonInteraction, assignVerifiedRole } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: true,
+    });
+    const { interaction, setNickname } = makeButtonInteraction('verify', new Error('Missing Permissions'));
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(assignVerifiedRole).toHaveBeenCalledTimes(1);
+    expect(setNickname).toHaveBeenCalledTimes(1);
+    const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
+    expect(content).toContain('nickname');
+    expect(content).toContain('administrator');
+    expect(content).not.toContain('verified');
+  });
+
+  it('does not set nickname when verification fails', async () => {
+    const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: false,
+    });
+    const { interaction, setNickname } = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(setNickname).not.toHaveBeenCalled();
   });
 
   it('replies with verificationFailed and removes role when verification fails', async () => {
@@ -124,7 +159,7 @@ describe('handleVerifyButtonInteraction', () => {
       userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileVerified: false,
     });
-    const interaction = makeButtonInteraction();
+    const { interaction } = makeButtonInteraction();
     await handleVerifyButtonInteraction(interaction);
 
     expect(removeVerifiedRole).toHaveBeenCalledTimes(1);
@@ -138,7 +173,7 @@ describe('handleVerifyButtonInteraction', () => {
       rsiProfileVerified: true,
     });
     const callOrder: string[] = [];
-    const interaction = makeButtonInteraction();
+    const { interaction } = makeButtonInteraction();
     (interaction.editReply as jest.Mock).mockImplementation(async () => { callOrder.push('editReply'); });
     (clearUserVerificationData as jest.Mock).mockImplementation(() => { callOrder.push('clear'); });
 
@@ -155,7 +190,7 @@ describe('handleVerifyButtonInteraction', () => {
       rsiProfileVerified: false,
     });
     const callOrder: string[] = [];
-    const interaction = makeButtonInteraction();
+    const { interaction } = makeButtonInteraction();
     (interaction.editReply as jest.Mock).mockImplementation(async () => { callOrder.push('editReply'); });
     (clearUserVerificationData as jest.Mock).mockImplementation(() => { callOrder.push('clear'); });
 
@@ -171,7 +206,7 @@ describe('handleVerifyButtonInteraction', () => {
       userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileError: new Error('network failure'),
     });
-    const interaction = makeButtonInteraction();
+    const { interaction } = makeButtonInteraction();
 
     await expect(handleVerifyButtonInteraction(interaction)).rejects.toThrow('network failure');
 

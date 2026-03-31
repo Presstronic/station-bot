@@ -30,7 +30,8 @@
         "assignFailed": "❌ Could not assign the \"Verified\" role for Discord member {username} for RSI profile {rsiName}. Please try again.",
         "verificationFailed": "❌ Could not verify citizenship for Discord member {username} for RSI profile {rsiName}. Please try again.",
         "sessionExpired": "❌ Your verification session has expired. Please run /verify again to start a new session.",
-        "invalidHandle": "❌ Please enter your RSI handle only (e.g. Testhandle123), not a full URL."
+        "invalidHandle": "❌ Please enter your RSI handle only (e.g. Testhandle123), not a full URL.",
+        "nicknameFailed": "❌ Verification succeeded but your server nickname could not be updated. Please contact a server administrator."
       }
     },
     "healthcheck": {
