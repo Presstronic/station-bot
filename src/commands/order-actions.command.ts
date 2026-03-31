@@ -151,7 +151,9 @@ async function applyCancellation(
     if (err instanceof InvalidStatusTransitionError) {
       const content = TERMINAL_STATUSES.includes(err.from)
         ? `This order is already ${err.from === 'cancelled' ? 'cancelled' : 'complete'} and cannot be updated.`
-        : 'This order was already updated by another action. Please refresh to see the current status.';
+        : !allowedFromStatuses.includes(err.from)
+          ? 'This order can no longer be cancelled. Please contact the manufacturing team.'
+          : 'This order was already updated by another action. Please refresh to see the current status.';
       await interaction.followUp({ content, flags: MessageFlags.Ephemeral }).catch(() => {});
       return;
     }

@@ -274,6 +274,18 @@ describe('handleMfgCancelOrder', () => {
     expect(h.cancelOrderMock).toHaveBeenCalledWith(42, ['new', 'accepted', 'processing', 'ready_for_pickup']);
   });
 
+  it('replies with "no longer be cancelled" when non-staff cancel races past the cutoff', async () => {
+    const { InvalidStatusTransitionError } = await import('../../domain/manufacturing/types.js');
+    const h = await setupMocks({
+      cancelOrder: jest.fn(async () => { throw new InvalidStatusTransitionError('processing', 'cancelled'); }),
+    });
+    const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
+    await h.handleMfgCancelOrder(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalled();
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/no longer be cancelled/i) }));
+    expect(btn.editReply).not.toHaveBeenCalled();
+  });
+
   it('posts a thread reply on successful cancel', async () => {
     const h = await setupMocks();
     const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
