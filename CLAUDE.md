@@ -49,6 +49,18 @@
 - Every PR must include unit tests for changed/new logic and integration tests where a critical system boundary is introduced or modified.
 - Tests live in a `__tests__/` directory co-located with the module they cover.
 
+## Issues
+Every GitHub issue you create must follow this format without exception:
+
+- **User Story** — `As a <role>, I want <capability> so that <outcome>.` Use Tech Story instead when there is no direct user-facing benefit (e.g. refactors, chores, infra).
+- **Tech Story** — For non-user-facing work: describe the current state, what is wrong or missing, and what the correct state should be. Include file paths and line numbers where the problem lives.
+- **Technical Elaboration** — List every file expected to change (new or existing), with a bullet-point breakdown of the specific changes in each file. Include relevant code snippets showing current code and/or the expected shape of the change. For migrations, show the scaffold command and the column definition. For new files, describe exports and their signatures.
+- **Definition of Done** — A checklist of verifiable completion criteria. Every item must be independently checkable. Always include: behaviour correct, tests written and passing, `npm run quality` passes.
+- **Dependencies** — List any issues that must be merged before this one, any issues that this one blocks, and any issues that touch the same files (coordination notes). If none, write "None."
+- **Labels** — Apply the most appropriate label from the repo's label set (`bug`, `enhancement`, `documentation`, `good first issue`, etc.) when creating the issue.
+
+Issues that are too large to implement in a single focused PR must be split. A good split follows a natural seam (e.g. infrastructure then feature, or config then logic) so each part can be merged and verified independently.
+
 ## Incidents / Production Bugs
 - Production bugs get a `bug/ISSUE-{n}` branch — never hotfix directly to main
 
