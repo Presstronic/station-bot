@@ -31,7 +31,7 @@ Once verified, remove the code from your RSI bio. It's no longer needed.
 
 - The bot's reply is only visible to you
 - Your server nickname will be set to your RSI handle automatically
-- If the session expires before you click Verify, just run `/verify` again
+- If you see a "session has expired" message, just run `/verify` again
 - If your nickname couldn't be updated, contact a server administrator
 
 ---
@@ -41,5 +41,5 @@ Once verified, remove the code from your RSI bio. It's no longer needed.
 | Problem | Fix |
 |---|---|
 | "Could not verify citizenship" | Make sure the code is saved in your **short bio**, not your biography |
-| "Invalid handle" | Enter your handle only — not a full URL |
+| "Please enter your RSI handle only (e.g. Testhandle123), not a full URL." | Enter your handle only — not a full URL |
 | Session expired | Run `/verify` again and complete within the session window |

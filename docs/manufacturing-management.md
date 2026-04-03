@@ -34,15 +34,15 @@ Each status change automatically:
 
 ## Member Limits
 
-- Max **5 active orders** per member at a time
-- Max **10 items** per order
-- Members can self-cancel if production hasn't started yet
+- Default max **5 active orders** per member at a time (`MANUFACTURING_ORDER_LIMIT`)
+- Default max **10 items** per order (`MANUFACTURING_MAX_ITEMS_PER_ORDER`)
+- Members can self-cancel if the order is **New** or **Accepted** (before Processing)
 
 ---
 
 ## Notes
 
 - Only members with the **Organization Member** role can place orders
-- Staff can cancel orders at any stage; members can only cancel at **New** status
+- Staff can cancel orders at any stage; members can cancel at **New** or **Accepted** status (before **Processing**)
 - Orders at **Complete** or **Cancelled** are terminal — no further actions available
-- The manufacturing role is pinged automatically when a new order is posted
+- New order posts do not automatically ping the manufacturing role
