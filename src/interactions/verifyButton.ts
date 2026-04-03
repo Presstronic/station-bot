@@ -13,8 +13,11 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
 
-  if (!interaction.deferred && !interaction.replied) {
+  try {
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  } catch (error) {
+    logger.error('Failed to defer verify button reply', { userId: interaction.user.id, error });
+    return;
   }
 
   async function respond(content: string): Promise<void> {

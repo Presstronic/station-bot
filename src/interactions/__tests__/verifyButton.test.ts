@@ -22,8 +22,9 @@ async function loadHandlerWithMocks({
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
 
+  const loggerError = jest.fn();
   await jest.unstable_mockModule('../../utils/logger.js', () => ({
-    getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
+    getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: loggerError }),
   }));
   await jest.unstable_mockModule('../../commands/verify.js', () => ({
     getUserVerificationData,
@@ -46,6 +47,7 @@ async function loadHandlerWithMocks({
     verifyRSIProfile,
     assignVerifiedRole,
     removeVerifiedRole,
+    loggerError,
   };
 }
 
@@ -70,6 +72,24 @@ function makeButtonInteraction(customId = 'verify', nicknameError?: Error) {
 }
 
 describe('handleVerifyButtonInteraction', () => {
+  it('logs an error and returns early when deferReply throws', async () => {
+    const { handleVerifyButtonInteraction, verifyRSIProfile, clearUserVerificationData, loggerError } =
+      await loadHandlerWithMocks({ userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc' } });
+    const { interaction } = makeButtonInteraction();
+    const deferError = new Error('Unknown interaction');
+    (interaction.deferReply as jest.Mock).mockImplementation(async () => { throw deferError; });
+
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(loggerError).toHaveBeenCalledTimes(1);
+    const [message, meta] = (loggerError as jest.Mock).mock.calls[0] as [string, { userId: string; error: Error }];
+    expect(message).toContain('defer');
+    expect(meta.userId).toBe('user-123');
+    expect(meta.error).toBe(deferError);
+    expect(verifyRSIProfile).not.toHaveBeenCalled();
+    expect(clearUserVerificationData).not.toHaveBeenCalled();
+  });
+
   it('ignores interactions with a different customId', async () => {
     const { handleVerifyButtonInteraction, verifyRSIProfile } = await loadHandlerWithMocks({
       userData: undefined,
