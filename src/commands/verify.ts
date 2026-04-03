@@ -62,7 +62,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
 
   if (!isVerificationEnabled()) {
     await interaction.reply({
-      content: 'Verification is not available on this server.',
+      content: i18n.__({ phrase: 'commands.verify.responses.disabled', locale }),
       flags: MessageFlags.Ephemeral,
     });
     return;

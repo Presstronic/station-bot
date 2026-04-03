@@ -4,7 +4,7 @@ beforeEach(() => {
   jest.resetModules();
 });
 
-async function loadHandleVerifyCommand() {
+async function loadHandleVerifyCommand({ verificationEnabled = true }: { verificationEnabled?: boolean } = {}) {
   jest.unstable_mockModule('../../utils/logger.js', () => ({
     getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
   }));
@@ -13,6 +13,12 @@ async function loadHandleVerifyCommand() {
   }));
   jest.unstable_mockModule('../../services/verification-code.services.js', () => ({
     generateDrdntVerificationCode: jest.fn(() => 'TEST-CODE-123'),
+  }));
+  jest.unstable_mockModule('../../config/runtime-flags.js', () => ({
+    isVerificationEnabled: jest.fn(() => verificationEnabled),
+    isReadOnlyMode: jest.fn(() => false),
+    isPurgeJobsEnabled: jest.fn(() => false),
+    isManufacturingEnabled: jest.fn(() => false),
   }));
 
   const { handleVerifyCommand } = await import('../verify.js');
@@ -31,6 +37,19 @@ function makeVerifyInteraction(inGameName: string) {
     reply,
   } as unknown as import('discord.js').ChatInputCommandInteraction;
 }
+
+describe('handleVerifyCommand — verification disabled', () => {
+  it('replies ephemerally with the i18n disabled message when verification is off', async () => {
+    const handleVerifyCommand = await loadHandleVerifyCommand({ verificationEnabled: false });
+    const interaction = makeVerifyInteraction('Testhandle123');
+    await handleVerifyCommand(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledTimes(1);
+    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(64); // MessageFlags.Ephemeral
+    expect(call.content).toContain('not available on this server');
+  });
+});
 
 describe('handleVerifyCommand — handle validation', () => {
   it('accepts a valid plain handle and proceeds to verification', async () => {
