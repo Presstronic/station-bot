@@ -12,12 +12,21 @@ beforeEach(() => {
 
 function makeMember() {
   return {
-    user: { tag: 'TestUser#1234' },
+    user: { username: 'TestUser' },
     roles: {
       add: jest.fn(async () => {}),
       remove: jest.fn(async () => {}),
     },
   };
+}
+
+async function loadRoleServicesWithLogger() {
+  const loggerError = jest.fn();
+  jest.unstable_mockModule('../../utils/logger.js', () => ({
+    getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: loggerError }),
+  }));
+  const mod = await import('../role.services.js');
+  return { ...mod, loggerError };
 }
 
 type Member = ReturnType<typeof makeMember>;
@@ -90,6 +99,16 @@ describe('assignVerifiedRole', () => {
     expect(await assignVerifiedRole(makeInteraction(guild), 'user-1')).toBe(false);
   });
 
+  it('passes the error object as structured metadata when roles.add throws', async () => {
+    const { assignVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
+    const member = makeMember();
+    const assignError = new Error('Permission denied');
+    member.roles.add = jest.fn(async () => { throw assignError; });
+    const guild = makeGuild({ member });
+    await assignVerifiedRole(makeInteraction(guild), 'user-1');
+    expect(loggerError).toHaveBeenCalledWith('Error assigning role', { error: assignError });
+  });
+
   it('uses the first role from DEFAULT_ROLES env var', async () => {
     process.env.DEFAULT_ROLES = 'CustomVerified,Temp,Potential';
     const { assignVerifiedRole } = await import('../role.services.js');
@@ -153,6 +172,16 @@ describe('removeVerifiedRole', () => {
     expect(await removeVerifiedRole(makeInteraction(guild), 'user-1')).toBe(false);
   });
 
+  it('passes the error object as structured metadata when roles.remove throws', async () => {
+    const { removeVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
+    const member = makeMember();
+    const removeError = new Error('Permission denied');
+    member.roles.remove = jest.fn(async () => { throw removeError; });
+    const guild = makeGuild({ member });
+    await removeVerifiedRole(makeInteraction(guild), 'user-1');
+    expect(loggerError).toHaveBeenCalledWith('Error removing role', { error: removeError });
+  });
+
   it('uses the first role from DEFAULT_ROLES env var', async () => {
     process.env.DEFAULT_ROLES = 'CustomVerified,Temp,Potential';
     const { removeVerifiedRole } = await import('../role.services.js');
@@ -177,7 +206,7 @@ describe('removeVerifiedRole', () => {
 // ---------------------------------------------------------------------------
 
 describe('addMissingDefaultRoles', () => {
-  const makeClient = () => ({ user: { tag: 'Bot#0000' } }) as unknown as Client;
+  const makeClient = () => ({ user: { username: 'TestBot' } }) as unknown as Client;
 
   it('creates all roles when none exist', async () => {
     const { addMissingDefaultRoles } = await import('../role.services.js');

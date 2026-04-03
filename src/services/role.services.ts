@@ -39,10 +39,10 @@ export async function assignVerifiedRole(
 
   try {
     await member.roles.add(verifiedRole);
-    logger.debug(`Assigned "${VERIFIED_ROLE_NAME}" role to user ${member.user.tag}`);
+    logger.debug(`Assigned "${VERIFIED_ROLE_NAME}" role to user ${member.user.username}`);
     return true;
   } catch (error) {
-    logger.error(`Error assigning role: ${error}`);
+    logger.error('Error assigning role', { error });
     return false;
   }
 }
@@ -75,10 +75,10 @@ export async function removeVerifiedRole(
 
   try {
     await member.roles.remove(verifiedRole);
-    logger.debug(`Removed "${VERIFIED_ROLE_NAME}" role from user ${member.user.tag}`);
+    logger.debug(`Removed "${VERIFIED_ROLE_NAME}" role from user ${member.user.username}`);
     return true;
   } catch (error) {
-    logger.error(`Error removing role: ${error}`);
+    logger.error('Error removing role', { error });
     return false;
   }
 }
@@ -98,7 +98,7 @@ export async function addMissingDefaultRoles(guild: Guild, client: Client): Prom
       if (!exists) {
         await guild.roles.create({
           name: roleName,
-          reason: `Initial setup by ${client.user?.tag}`,
+          reason: `Initial setup by ${client.user?.username}`,
         });
         logger.info(`[${guild.name}] Created missing role: ${roleName}`);
       }
