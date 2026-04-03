@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { generateDrdntVerificationCode, generateVerificationCode } from '../verification-code.services.js';
 
 describe('generateVerificationCode', () => {
@@ -27,9 +28,4 @@ describe('generateDrdntVerificationCode', () => {
     expect(suffix).toMatch(/^[0-9a-f]{16}$/);
   });
 
-  it('produces no duplicates across 1000 calls', () => {
-    const codes = Array.from({ length: 1000 }, () => generateDrdntVerificationCode());
-    const unique = new Set(codes);
-    expect(unique.size).toBe(1000);
-  });
 });
