@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { MessageFlags } from 'discord.js';
 
 beforeEach(() => {
   jest.resetModules();
@@ -22,8 +23,10 @@ async function loadHandlerWithMocks({
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
 
+  const loggerWarn = jest.fn();
+  const loggerError = jest.fn();
   await jest.unstable_mockModule('../../utils/logger.js', () => ({
-    getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() }),
+    getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: loggerWarn, error: loggerError }),
   }));
   await jest.unstable_mockModule('../../commands/verify.js', () => ({
     getUserVerificationData,
@@ -46,6 +49,8 @@ async function loadHandlerWithMocks({
     verifyRSIProfile,
     assignVerifiedRole,
     removeVerifiedRole,
+    loggerWarn,
+    loggerError,
   };
 }
 
@@ -70,6 +75,82 @@ function makeButtonInteraction(customId = 'verify', nicknameError?: Error) {
 }
 
 describe('handleVerifyButtonInteraction', () => {
+  it('logs at error level and rethrows when deferReply throws an unexpected error', async () => {
+    const { handleVerifyButtonInteraction, verifyRSIProfile, clearUserVerificationData, loggerError, loggerWarn } =
+      await loadHandlerWithMocks({ userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc' } });
+    const { interaction } = makeButtonInteraction();
+    const deferError = new TypeError('Something unexpected');
+    (interaction.deferReply as jest.Mock).mockImplementation(async () => { throw deferError; });
+
+    await expect(handleVerifyButtonInteraction(interaction)).rejects.toThrow('Something unexpected');
+
+    expect(loggerError).toHaveBeenCalledTimes(1);
+    expect(loggerWarn).not.toHaveBeenCalled();
+    const [message, meta] = (loggerError as jest.Mock).mock.calls[0] as [string, { userId: string; error: Error }];
+    expect(message).toContain('defer');
+    expect(meta.userId).toBe('user-123');
+    expect(meta.error).toBe(deferError);
+    expect(verifyRSIProfile).not.toHaveBeenCalled();
+    expect(clearUserVerificationData).not.toHaveBeenCalled();
+  });
+
+  it('logs at warn level (not error) and rethrows when deferReply fails with a transport error', async () => {
+    const { handleVerifyButtonInteraction, loggerWarn, loggerError } =
+      await loadHandlerWithMocks({ userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc' } });
+    const { interaction } = makeButtonInteraction();
+    const transportError = Object.assign(new Error('Connect Timeout Error'), { name: 'ConnectTimeoutError' });
+    (interaction.deferReply as jest.Mock).mockImplementation(async () => { throw transportError; });
+
+    await expect(handleVerifyButtonInteraction(interaction)).rejects.toThrow(transportError);
+
+    expect(loggerWarn).toHaveBeenCalledTimes(1);
+    expect(loggerError).not.toHaveBeenCalled();
+    const [message, meta] = (loggerWarn as jest.Mock).mock.calls[0] as [string, { userId: string; error: Error }];
+    expect(message).toContain('defer');
+    expect(meta.userId).toBe('user-123');
+    expect(meta.error).toBe(transportError);
+  });
+
+  it('logs at warn level (not error) and rethrows when deferReply fails with an expired token', async () => {
+    const { handleVerifyButtonInteraction, loggerWarn, loggerError } =
+      await loadHandlerWithMocks({ userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc' } });
+    const { interaction } = makeButtonInteraction();
+    const { DiscordAPIError, RESTJSONErrorCodes } = await import('discord.js');
+    const tokenExpiredError = Object.assign(
+      new DiscordAPIError(
+        { code: RESTJSONErrorCodes.UnknownInteraction, message: 'Unknown interaction' } as never,
+        RESTJSONErrorCodes.UnknownInteraction,
+        404,
+        'POST',
+        '',
+        {}
+      ),
+      { code: RESTJSONErrorCodes.UnknownInteraction }
+    );
+    (interaction.deferReply as jest.Mock).mockImplementation(async () => { throw tokenExpiredError; });
+
+    await expect(handleVerifyButtonInteraction(interaction)).rejects.toThrow(tokenExpiredError);
+
+    expect(loggerWarn).toHaveBeenCalledTimes(1);
+    expect(loggerError).not.toHaveBeenCalled();
+    const [message, meta] = (loggerWarn as jest.Mock).mock.calls[0] as [string, { userId: string; error: Error }];
+    expect(message).toContain('defer');
+    expect(meta.userId).toBe('user-123');
+    expect(meta.error).toBe(tokenExpiredError);
+  });
+
+  it('skips deferReply when interaction is already deferred', async () => {
+    const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({ userData: undefined });
+    const { interaction } = makeButtonInteraction();
+    interaction.deferred = true as unknown as typeof interaction.deferred;
+
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(interaction.deferReply).not.toHaveBeenCalled();
+    // Processing continues — session expired path uses editReply (already deferred)
+    expect(interaction.editReply).toHaveBeenCalledTimes(1);
+  });
+
   it('ignores interactions with a different customId', async () => {
     const { handleVerifyButtonInteraction, verifyRSIProfile } = await loadHandlerWithMocks({
       userData: undefined,
@@ -87,7 +168,7 @@ describe('handleVerifyButtonInteraction', () => {
     await handleVerifyButtonInteraction(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledTimes(1);
-    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: MessageFlags.Ephemeral });
   });
 
   it('replies with sessionExpired message when no session data exists', async () => {

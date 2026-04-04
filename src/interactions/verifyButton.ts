@@ -1,4 +1,4 @@
-import { ButtonInteraction, MessageFlags } from 'discord.js';
+import { ButtonInteraction, DiscordAPIError, MessageFlags, RESTJSONErrorCodes } from 'discord.js';
 import { getUserVerificationData, clearUserVerificationData } from '../commands/verify.js';
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
@@ -8,13 +8,39 @@ import i18n from '../utils/i18n-config.js';
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
+// Mirrors the transport error names recognised by interactionRouter — these are
+// infrastructure failures where a fallback reply attempt would also fail.
+const TRANSPORT_ERROR_NAMES = new Set([
+  'ConnectTimeoutError',
+  'HeadersTimeoutError',
+  'BodyTimeoutError',
+  'SocketError',
+  'UndiciError',
+  'AbortError',
+]);
+
 export async function handleVerifyButtonInteraction(interaction: ButtonInteraction) {
   if (interaction.customId !== 'verify') {
     return;
   }
 
   if (!interaction.deferred && !interaction.replied) {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    try {
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    } catch (error) {
+      // Mirror the router's log-level taxonomy so expected operational failures
+      // (expired token, transport outage) don't produce a spurious high-severity
+      // log in addition to the router's own warn entry.
+      const isOperational =
+        (error instanceof DiscordAPIError && error.code === RESTJSONErrorCodes.UnknownInteraction) ||
+        (error instanceof Error && TRANSPORT_ERROR_NAMES.has(error.name));
+      if (isOperational) {
+        logger.warn('Failed to defer verify button reply', { userId: interaction.user.id, error });
+      } else {
+        logger.error('Failed to defer verify button reply', { userId: interaction.user.id, error });
+      }
+      throw error;
+    }
   }
 
   async function respond(content: string): Promise<void> {
