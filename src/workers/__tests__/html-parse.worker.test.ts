@@ -20,10 +20,18 @@ describe('parseOrgOutcome', () => {
     expect(parseOrgOutcome(html)).toBe('in_org');
   });
 
-  it('returns undetermined when /orgs/ link is outside .orgs-content (page chrome)', async () => {
+  it('returns not_in_org when .orgs-content is present but contains no org links', async () => {
     const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    // Empty .orgs-content container = member exists but has no org membership.
+    const html = '<html><body><div class="orgs-content"></div></body></html>';
+    expect(parseOrgOutcome(html)).toBe('not_in_org');
+  });
+
+  it('returns not_in_org when nav contains /orgs/ link (page chrome) but .orgs-content is empty', async () => {
+    const { parseOrgOutcome } = await import('../html-parse.worker.js');
+    // Nav /orgs/ links must not be mistaken for org membership; the container check drives the result.
     const html = '<html><body><nav><a href="/orgs/SOMEORG">Browse</a></nav><div class="orgs-content"></div></body></html>';
-    expect(parseOrgOutcome(html)).toBe('undetermined');
+    expect(parseOrgOutcome(html)).toBe('not_in_org');
   });
 
   it('returns in_org when .orgs-content has an /orgs/ link even if body contains "no affiliation"', async () => {

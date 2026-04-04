@@ -32,6 +32,11 @@ export function parseOrgOutcome(html: string): OrgOutcome {
     return 'in_org';
   }
 
+  // Container present but no org links → definitively not in an org.
+  if ($('.orgs-content').length > 0) {
+    return 'not_in_org';
+  }
+
   const bodyText = $('body').text().toLowerCase();
   if (
     bodyText.includes('no organizations') ||
