@@ -4,6 +4,11 @@ import { parseSelectorCheckInWorker } from '../workers/html-parse.pool.js';
 
 const logger = getLogger();
 
+export async function fetchHtml(url: string): Promise<string> {
+    const { data } = await axios.get<string>(url);
+    return data;
+}
+
 export async function scrapeAndCheckValueSpecific(
     url: string,
     parentSelector: string,
@@ -13,7 +18,7 @@ export async function scrapeAndCheckValueSpecific(
     try {
         logger.debug(`Scraping ${url} for ${searchValue}`);
 
-        const { data } = await axios.get<string>(url);
+        const data = await fetchHtml(url);
 
         return await parseSelectorCheckInWorker(data, parentSelector, childSelector, searchValue);
     } catch (error) {

@@ -8,17 +8,19 @@ beforeEach(() => {
 async function loadHandlerWithMocks({
   userData,
   rsiProfileVerified = false,
+  rsiCanonicalHandle = 'PilotOne',
   rsiProfileError,
 }: {
   userData: { rsiProfileName: string; dreadnoughtValidationCode: string } | undefined;
   rsiProfileVerified?: boolean;
+  rsiCanonicalHandle?: string;
   rsiProfileError?: Error;
 }) {
   const getUserVerificationData = jest.fn(() => userData);
   const clearUserVerificationData = jest.fn();
   const verifyRSIProfile = jest.fn(async () => {
     if (rsiProfileError) throw rsiProfileError;
-    return rsiProfileVerified;
+    return { verified: rsiProfileVerified, canonicalHandle: rsiCanonicalHandle };
   });
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
@@ -206,6 +208,19 @@ describe('handleVerifyButtonInteraction', () => {
     expect(setNickname).toHaveBeenCalledWith('PilotOne');
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
     expect(content).toContain('verified');
+  });
+
+  it('sets nickname to canonical handle from RSI page, not the typed input', async () => {
+    const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'pilotone', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: true,
+      rsiCanonicalHandle: 'PilotOne',
+    });
+    const { interaction, setNickname } = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(setNickname).toHaveBeenCalledWith('PilotOne');
+    expect(setNickname).not.toHaveBeenCalledWith('pilotone');
   });
 
   it('replies with nicknameFailed and does not send success when setNickname throws', async () => {
