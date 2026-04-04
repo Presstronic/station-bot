@@ -23,9 +23,13 @@ function makeDefaultI18n() {
 
 async function loadHandleVerifyCommand({
   verificationEnabled = true,
+  rateLimitPerMinute = 1,
+  rateLimitPerHour = 10,
   i18nMock,
 }: {
   verificationEnabled?: boolean;
+  rateLimitPerMinute?: number;
+  rateLimitPerHour?: number;
   i18nMock?: ReturnType<typeof jest.fn>;
 } = {}) {
   jest.unstable_mockModule('../../utils/logger.js', () => ({
@@ -42,6 +46,8 @@ async function loadHandleVerifyCommand({
     isReadOnlyMode: jest.fn(() => false),
     isPurgeJobsEnabled: jest.fn(() => false),
     isManufacturingEnabled: jest.fn(() => false),
+    verifyRateLimitPerMinute: jest.fn(() => rateLimitPerMinute),
+    verifyRateLimitPerHour: jest.fn(() => rateLimitPerHour),
   }));
 
   const effectiveI18n = i18nMock ?? makeDefaultI18n();
@@ -50,7 +56,7 @@ async function loadHandleVerifyCommand({
       __: effectiveI18n,
       __mf: jest.fn(
         (_opts: unknown, vars: Record<string, string>) =>
-          `${vars.user ?? ''} code:${vars.code ?? ''} ${vars.verifyButtonLabel ?? ''}`.trim()
+          `${vars.user ?? ''} code:${vars.code ?? ''} seconds:${vars.seconds ?? ''} minutes:${vars.minutes ?? ''} ${vars.verifyButtonLabel ?? ''}`.trim()
       ),
     },
   }));
@@ -142,5 +148,139 @@ describe('handleVerifyCommand — handle validation', () => {
     const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
     expect(call.flags).toBe(MessageFlags.Ephemeral);
     expect(call.content).toContain('RSI handle only');
+  });
+});
+
+describe('handleVerifyCommand — rate limiting', () => {
+  it('first invocation within a fresh window passes through', async () => {
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 10 });
+    const interaction = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction);
+
+    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content?: string; components?: unknown[]; flags?: number }])[0];
+    expect(call.components).toBeDefined();
+    expect(call.content).toContain('TEST-CODE-123');
+  });
+
+  it('second invocation within 60 seconds is rejected with per-minute message and remaining seconds', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    const base = 1_700_000_000_000;
+    nowSpy.mockReturnValueOnce(base).mockReturnValueOnce(base + 30_000);
+
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 10 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne')); // first: passes
+    const interaction2 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction2); // second: blocked
+
+    const call = ((interaction2.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(MessageFlags.Ephemeral);
+    expect(call.content).toContain('seconds:30');
+    nowSpy.mockRestore();
+  });
+
+  it('invocation after the hourly cap is reached is rejected with the hourly message and remaining minutes', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    const base = 1_700_000_000_000;
+    // Three calls spaced 90 s apart (past per-minute window, within per-hour window)
+    nowSpy
+      .mockReturnValueOnce(base)
+      .mockReturnValueOnce(base + 90_000)
+      .mockReturnValueOnce(base + 180_000)
+      .mockReturnValueOnce(base + 270_000); // 4th call — should be blocked
+
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 3 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    const interaction4 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction4); // 4th: blocked by hourly cap
+
+    const call = ((interaction4.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(MessageFlags.Ephemeral);
+    // oldestTimestamp=base, reset at base+3600000, now=base+270000 → 56 minutes remaining
+    expect(call.content).toContain('minutes:56');
+    nowSpy.mockRestore();
+  });
+
+  it('per-minute cap=2: first two calls pass; third within 60 s is blocked with correct seconds', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    const base = 1_700_000_000_000;
+    nowSpy
+      .mockReturnValueOnce(base)             // call 1 passes
+      .mockReturnValueOnce(base + 10_000)    // call 2 passes
+      .mockReturnValueOnce(base + 20_000);   // call 3 blocked
+
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 2, rateLimitPerHour: 10 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    const interaction3 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction3);
+
+    const call = ((interaction3.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(MessageFlags.Ephemeral);
+    // limitingTimestamp = recentTimestamps[2-2=0] = base; reset at base+60000; now=base+20000 → 40 s
+    expect(call.content).toContain('seconds:40');
+    nowSpy.mockRestore();
+  });
+
+  it('hourly cap=2: first two calls pass; third within the hour is blocked with correct minutes', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    const base = 1_700_000_000_000;
+    // Calls spaced 90 s apart so each clears the per-minute window
+    nowSpy
+      .mockReturnValueOnce(base)
+      .mockReturnValueOnce(base + 90_000)
+      .mockReturnValueOnce(base + 180_000); // blocked by hourly cap
+
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 2 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    const interaction3 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction3);
+
+    const call = ((interaction3.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(MessageFlags.Ephemeral);
+    // limitingTimestamp = timestamps[2-2=0] = base; reset at base+3600000; now=base+180000 → 57 min
+    expect(call.content).toContain('minutes:57');
+    nowSpy.mockRestore();
+  });
+
+  it('timestamps older than 60 minutes are pruned and the invocation proceeds', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    const base = 1_700_000_000_000;
+    nowSpy
+      .mockReturnValueOnce(base)               // call 1: pushes base
+      .mockReturnValueOnce(base + 3_601_000);  // call 2: base is >60 min old, pruned
+
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 1 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne')); // fills the hourly slot
+    const interaction2 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction2); // old entry pruned → passes
+
+    const call = ((interaction2.reply as jest.Mock).mock.calls[0] as [{ content?: string; components?: unknown[] }])[0];
+    expect(call.components).toBeDefined(); // proceeded to verification, not rate-limited
+    nowSpy.mockRestore();
+  });
+
+  it('periodic sweep removes entries whose newest timestamp is older than 60 minutes', async () => {
+    jest.useFakeTimers();
+    const base = 1_700_000_000_000;
+    jest.setSystemTime(base);
+
+    // rateLimitPerHour:1 so that the first call fills the hourly window
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 1 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne')); // stores timestamp at base
+
+    // Advance time by just over 60 minutes — triggers the sweep interval
+    jest.advanceTimersByTime(60 * 60 * 1000 + 1);
+    // Date.now() is now base + 3_600_001; the stored entry (base) is stale → swept
+
+    const interaction2 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction2); // map was cleared → should proceed
+
+    const call = ((interaction2.reply as jest.Mock).mock.calls[0] as [{ content?: string; components?: unknown[] }])[0];
+    expect(call.components).toBeDefined(); // verification proceeded, not rate-limited
+
+    jest.useRealTimers();
   });
 });
