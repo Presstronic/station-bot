@@ -53,6 +53,15 @@ const verificationCodes = new Map<
 
 const verifyInvocationTimestamps = new Map<string, number[]>();
 
+setInterval(() => {
+  const cutoff = Date.now() - 60 * 60 * 1000;
+  for (const [userId, timestamps] of verifyInvocationTimestamps) {
+    if (timestamps[timestamps.length - 1] <= cutoff) {
+      verifyInvocationTimestamps.delete(userId);
+    }
+  }
+}, 60 * 60 * 1000).unref();
+
 export async function registerCommands() {
   // Backward-compatible wrapper for older imports.
   const { registerAllCommands } = await import('./register-commands.js');

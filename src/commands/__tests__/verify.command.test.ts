@@ -261,4 +261,26 @@ describe('handleVerifyCommand — rate limiting', () => {
     expect(call.components).toBeDefined(); // proceeded to verification, not rate-limited
     nowSpy.mockRestore();
   });
+
+  it('periodic sweep removes entries whose newest timestamp is older than 60 minutes', async () => {
+    jest.useFakeTimers();
+    const base = 1_700_000_000_000;
+    jest.setSystemTime(base);
+
+    // rateLimitPerHour:1 so that the first call fills the hourly window
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 1 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne')); // stores timestamp at base
+
+    // Advance time by just over 60 minutes — triggers the sweep interval
+    jest.advanceTimersByTime(60 * 60 * 1000 + 1);
+    // Date.now() is now base + 3_600_001; the stored entry (base) is stale → swept
+
+    const interaction2 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction2); // map was cleared → should proceed
+
+    const call = ((interaction2.reply as jest.Mock).mock.calls[0] as [{ content?: string; components?: unknown[] }])[0];
+    expect(call.components).toBeDefined(); // verification proceeded, not rate-limited
+
+    jest.useRealTimers();
+  });
 });
