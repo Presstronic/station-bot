@@ -1,15 +1,8 @@
 import { ButtonInteraction, Client, Guild } from 'discord.js';
 import { getLogger } from '../utils/logger.js';
+import { REQUIRED_ROLES, VERIFIED_ROLE_NAME } from '../config/roles.config.js';
 
 const logger = getLogger();
-
-const DEFAULT_ROLE_NAMES = ['Verified', 'Temporary Member', 'Potential Applicant'];
-const PARSED_ROLES = (process.env.DEFAULT_ROLES ?? '')
-  .split(',')
-  .map((r) => r.trim())
-  .filter((r) => r.length > 0);
-const REQUIRED_ROLES = PARSED_ROLES.length > 0 ? PARSED_ROLES : DEFAULT_ROLE_NAMES;
-const VERIFIED_ROLE_NAME = REQUIRED_ROLES[0];
 
 /**
  * Assigns the "Verified" role to a user.

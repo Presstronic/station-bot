@@ -2,20 +2,14 @@ import cron from 'node-cron';
 import { Client, Guild } from 'discord.js';
 import { getLogger } from '../../utils/logger.js';
 import i18n from 'i18n';
+import { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME } from '../../config/roles.config.js';
+
+export { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME };
 
 const logger = getLogger();
 
 const temporaryMemberPurgeCronSchedule = process.env.TEMPORARY_MEMBER_PURGE_CRON_SCHEDULE || '0 3 * * *';
 const potentialApplicantPurgeCronSchedule = process.env.POTENTIAL_APPLICANT_PURGE_CRON_SCHEDULE || '0 4 * * *';
-
-const DEFAULT_ROLE_NAMES = ['Verified', 'Temporary Member', 'Potential Applicant'];
-const PARSED_ROLES = (process.env.DEFAULT_ROLES ?? '')
-  .split(',')
-  .map((r) => r.trim())
-  .filter((r) => r.length > 0);
-const REQUIRED_ROLES = PARSED_ROLES.length > 0 ? PARSED_ROLES : DEFAULT_ROLE_NAMES;
-export const TEMP_MEMBER_ROLE_NAME = REQUIRED_ROLES[1] ?? DEFAULT_ROLE_NAMES[1];
-export const POTENTIAL_APPLICANT_ROLE_NAME = REQUIRED_ROLES[2] ?? DEFAULT_ROLE_NAMES[2];
 
 /**
  * Kicks members with a given role who have exceeded the time limit.
