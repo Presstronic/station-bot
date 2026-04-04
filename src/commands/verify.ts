@@ -76,11 +76,17 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   const oneMinuteAgo = now - 60 * 1000;
 
   const timestamps = (verifyInvocationTimestamps.get(userId) ?? []).filter(t => t > oneHourAgo);
+  if (timestamps.length > 0) {
+    verifyInvocationTimestamps.set(userId, timestamps);
+  } else {
+    verifyInvocationTimestamps.delete(userId);
+  }
 
   const recentTimestamps = timestamps.filter(t => t > oneMinuteAgo);
-  if (recentTimestamps.length >= verifyRateLimitPerMinute()) {
-    const oldestRecent = recentTimestamps[0];
-    const secondsRemaining = Math.ceil((oldestRecent + 60 * 1000 - now) / 1000);
+  const perMinuteLimit = verifyRateLimitPerMinute();
+  if (recentTimestamps.length >= perMinuteLimit) {
+    const limitingTimestamp = recentTimestamps[recentTimestamps.length - perMinuteLimit];
+    const secondsRemaining = Math.ceil((limitingTimestamp + 60 * 1000 - now) / 1000);
     await interaction.reply({
       content: i18n.__mf(
         { phrase: 'commands.verify.responses.rateLimitMinute', locale },
@@ -91,9 +97,10 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
     return;
   }
 
-  if (timestamps.length >= verifyRateLimitPerHour()) {
-    const oldestTimestamp = timestamps[0];
-    const minutesRemaining = Math.ceil((oldestTimestamp + 60 * 60 * 1000 - now) / (60 * 1000));
+  const perHourLimit = verifyRateLimitPerHour();
+  if (timestamps.length >= perHourLimit) {
+    const limitingTimestamp = timestamps[timestamps.length - perHourLimit];
+    const minutesRemaining = Math.ceil((limitingTimestamp + 60 * 60 * 1000 - now) / (60 * 1000));
     await interaction.reply({
       content: i18n.__mf(
         { phrase: 'commands.verify.responses.rateLimitHour', locale },

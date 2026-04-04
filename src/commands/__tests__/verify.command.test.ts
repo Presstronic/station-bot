@@ -202,6 +202,49 @@ describe('handleVerifyCommand — rate limiting', () => {
     nowSpy.mockRestore();
   });
 
+  it('per-minute cap=2: first two calls pass; third within 60 s is blocked with correct seconds', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    const base = 1_700_000_000_000;
+    nowSpy
+      .mockReturnValueOnce(base)             // call 1 passes
+      .mockReturnValueOnce(base + 10_000)    // call 2 passes
+      .mockReturnValueOnce(base + 20_000);   // call 3 blocked
+
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 2, rateLimitPerHour: 10 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    const interaction3 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction3);
+
+    const call = ((interaction3.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(MessageFlags.Ephemeral);
+    // limitingTimestamp = recentTimestamps[2-2=0] = base; reset at base+60000; now=base+20000 → 40 s
+    expect(call.content).toContain('seconds:40');
+    nowSpy.mockRestore();
+  });
+
+  it('hourly cap=2: first two calls pass; third within the hour is blocked with correct minutes', async () => {
+    const nowSpy = jest.spyOn(Date, 'now');
+    const base = 1_700_000_000_000;
+    // Calls spaced 90 s apart so each clears the per-minute window
+    nowSpy
+      .mockReturnValueOnce(base)
+      .mockReturnValueOnce(base + 90_000)
+      .mockReturnValueOnce(base + 180_000); // blocked by hourly cap
+
+    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 2 });
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    const interaction3 = makeVerifyInteraction('PilotOne');
+    await handleVerifyCommand(interaction3);
+
+    const call = ((interaction3.reply as jest.Mock).mock.calls[0] as [{ content: string; flags: number }])[0];
+    expect(call.flags).toBe(MessageFlags.Ephemeral);
+    // limitingTimestamp = timestamps[2-2=0] = base; reset at base+3600000; now=base+180000 → 57 min
+    expect(call.content).toContain('minutes:57');
+    nowSpy.mockRestore();
+  });
+
   it('timestamps older than 60 minutes are pruned and the invocation proceeds', async () => {
     const nowSpy = jest.spyOn(Date, 'now');
     const base = 1_700_000_000_000;
