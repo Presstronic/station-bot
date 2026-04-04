@@ -39,10 +39,8 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
 
-  const rsiInGameName = userData.rsiProfileName;
-
   try {
-    const rsiProfileVerified = await verifyRSIProfile(interaction.user.id);
+    const { verified: rsiProfileVerified, canonicalHandle } = await verifyRSIProfile(interaction.user.id);
     logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
 
     if (rsiProfileVerified) {
@@ -54,8 +52,8 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
 
         try {
           const member = await interaction.guild!.members.fetch(interaction.user.id);
-          await member.setNickname(rsiInGameName);
-          logger.debug(`Nickname set to "${rsiInGameName}" for user ID: ${interaction.user.id}`);
+          await member.setNickname(canonicalHandle);
+          logger.debug(`Nickname set to "${canonicalHandle}" for user ID: ${interaction.user.id}`);
         } catch (error) {
           logger.error(`Failed to set nickname for user ID: ${interaction.user.id}`, { error });
           await respond(
@@ -67,14 +65,14 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
         await respond(
           i18n.__mf(
             { phrase: 'commands.verify.responses.success', locale },
-            { rsiName: rsiInGameName, username: interaction.user.username }
+            { rsiName: canonicalHandle, username: interaction.user.username }
           )
         );
       } else {
         await respond(
           i18n.__mf(
             { phrase: 'commands.verify.responses.assignFailed', locale },
-            { rsiName: rsiInGameName, username: interaction.user.username }
+            { rsiName: canonicalHandle, username: interaction.user.username }
           )
         );
       }
@@ -85,7 +83,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     await respond(
       i18n.__mf(
         { phrase: 'commands.verify.responses.verificationFailed', locale },
-        { rsiName: rsiInGameName, username: interaction.user.username }
+        { rsiName: canonicalHandle, username: interaction.user.username }
       )
     );
   } finally {
