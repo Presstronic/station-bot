@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { MessageFlags } from 'discord.js';
 
 beforeEach(() => {
   jest.resetModules();
@@ -72,14 +73,14 @@ function makeButtonInteraction(customId = 'verify', nicknameError?: Error) {
 }
 
 describe('handleVerifyButtonInteraction', () => {
-  it('logs an error and returns early when deferReply throws', async () => {
+  it('logs an error and rethrows when deferReply throws', async () => {
     const { handleVerifyButtonInteraction, verifyRSIProfile, clearUserVerificationData, loggerError } =
       await loadHandlerWithMocks({ userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc' } });
     const { interaction } = makeButtonInteraction();
     const deferError = new Error('Unknown interaction');
     (interaction.deferReply as jest.Mock).mockImplementation(async () => { throw deferError; });
 
-    await handleVerifyButtonInteraction(interaction);
+    await expect(handleVerifyButtonInteraction(interaction)).rejects.toThrow('Unknown interaction');
 
     expect(loggerError).toHaveBeenCalledTimes(1);
     const [message, meta] = (loggerError as jest.Mock).mock.calls[0] as [string, { userId: string; error: Error }];
@@ -88,6 +89,18 @@ describe('handleVerifyButtonInteraction', () => {
     expect(meta.error).toBe(deferError);
     expect(verifyRSIProfile).not.toHaveBeenCalled();
     expect(clearUserVerificationData).not.toHaveBeenCalled();
+  });
+
+  it('skips deferReply when interaction is already deferred', async () => {
+    const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({ userData: undefined });
+    const { interaction } = makeButtonInteraction();
+    interaction.deferred = true as unknown as typeof interaction.deferred;
+
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(interaction.deferReply).not.toHaveBeenCalled();
+    // Processing continues — session expired path uses editReply (already deferred)
+    expect(interaction.editReply).toHaveBeenCalledTimes(1);
   });
 
   it('ignores interactions with a different customId', async () => {
@@ -107,7 +120,7 @@ describe('handleVerifyButtonInteraction', () => {
     await handleVerifyButtonInteraction(interaction);
 
     expect(interaction.deferReply).toHaveBeenCalledTimes(1);
-    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: 64 }); // MessageFlags.Ephemeral
+    expect(interaction.deferReply).toHaveBeenCalledWith({ flags: MessageFlags.Ephemeral });
   });
 
   it('replies with sessionExpired message when no session data exists', async () => {
