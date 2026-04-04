@@ -42,6 +42,7 @@ async function loadHandleVerifyCommand({
     isReadOnlyMode: jest.fn(() => false),
     isPurgeJobsEnabled: jest.fn(() => false),
     isManufacturingEnabled: jest.fn(() => false),
+    rsiHttpTimeoutMs: jest.fn(() => 12_000),
   }));
 
   const effectiveI18n = i18nMock ?? makeDefaultI18n();

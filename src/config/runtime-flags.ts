@@ -31,3 +31,14 @@ export function isVerificationEnabled(): boolean {
 export function isPurgeJobsEnabled(): boolean {
   return envFlag('PURGE_JOBS_ENABLED', false);
 }
+
+function envInt(name: string, defaultValue: number): number {
+  const raw = process.env[name];
+  if (!raw) return defaultValue;
+  const parsed = parseInt(raw, 10);
+  return isNaN(parsed) || parsed <= 0 ? defaultValue : parsed;
+}
+
+export function rsiHttpTimeoutMs(): number {
+  return envInt('RSI_HTTP_TIMEOUT_MS', 12_000);
+}
