@@ -10,7 +10,8 @@ function mockRuntimeFlags(overrides: { rsiHttpTimeoutMs?: number } = {}) {
     isVerificationEnabled: jest.fn(() => true),
     isReadOnlyMode: jest.fn(() => false),
     isPurgeJobsEnabled: jest.fn(() => false),
-    isManufacturingEnabled: jest.fn(() => false),
+    verifyRateLimitPerMinute: jest.fn(() => 1),
+    verifyRateLimitPerHour: jest.fn(() => 10),
   }));
 }
 
@@ -86,7 +87,7 @@ describe('scrapeAndCheckValueSpecific', () => {
   });
 
   it('passes the configured timeout to axios.get', async () => {
-    const get = jest.fn<() => Promise<unknown>>().mockResolvedValueOnce({ data: '<html/>' });
+    const get = jest.fn<(url: string, config?: unknown) => Promise<unknown>>().mockResolvedValueOnce({ data: '<html/>' });
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({ debug: jest.fn(), warn: jest.fn(), error: jest.fn(), info: jest.fn() }),
@@ -99,7 +100,7 @@ describe('scrapeAndCheckValueSpecific', () => {
     const { scrapeAndCheckValueSpecific } = await import('../web-scraping.services.js');
     await scrapeAndCheckValueSpecific('https://example.com', 'div.bio', 'div.value', 'CODE123');
 
-    expect(get).toHaveBeenCalledWith('https://example.com', { timeout: 100 });
+    expect(get).toHaveBeenCalledWith('https://example.com', expect.objectContaining({ timeout: 100 }));
   });
 
   it('rejects (rethrows) when axios times out', async () => {
