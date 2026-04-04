@@ -11,9 +11,13 @@ const logger = getLogger();
  *
  * @param userId - Discord user ID; the RSI handle and validation code are retrieved
  *   via getUserVerificationData
- * @returns `{ verified, canonicalHandle }` — verified is true when the code is found
- *   in the bio; canonicalHandle is the span.nick value from the profile page, falling
- *   back to the typed input if the element is absent or the fetch fails.
+ * @returns `{ verified, canonicalHandle }`:
+ *   - `verified` is true when the validation code is found in the bio.
+ *   - `canonicalHandle` is the `span.nick` value from the profile page, falling back
+ *     to the typed input on fetch or parse failure.
+ *   - If no verification session exists for the user, returns
+ *     `{ verified: false, canonicalHandle: '' }`. Callers are expected to guard
+ *     against the no-session case before invoking this function.
  */
 export async function verifyRSIProfile(userId: string): Promise<{ verified: boolean; canonicalHandle: string }> {
     logger.debug(`Verifying RSI Profile for user ID: ${userId}`);
@@ -40,7 +44,7 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
         ]);
         return { verified, canonicalHandle };
     } catch (error) {
-        logger.error(`Error checking RSI profile: ${error}`);
+        logger.error('Error checking RSI profile', { error, userId, url });
         return { verified: false, canonicalHandle: rsiProfileName };
     }
 }
