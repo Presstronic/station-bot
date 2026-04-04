@@ -1,6 +1,13 @@
 const trueValues = new Set(['1', 'true', 'yes', 'on']);
 const falseValues = new Set(['0', 'false', 'no', 'off']);
 
+function envInt(name: string, defaultValue: number): number {
+  const raw = process.env[name];
+  if (!raw) return defaultValue;
+  const parsed = parseInt(raw, 10);
+  return isNaN(parsed) || parsed <= 0 ? defaultValue : parsed;
+}
+
 function envFlag(name: string, defaultValue = false): boolean {
   const rawValue = process.env[name];
   if (!rawValue) {
@@ -30,4 +37,12 @@ export function isVerificationEnabled(): boolean {
 
 export function isPurgeJobsEnabled(): boolean {
   return envFlag('PURGE_JOBS_ENABLED', false);
+}
+
+export function verifyRateLimitPerMinute(): number {
+  return envInt('VERIFY_RATE_LIMIT_PER_MINUTE', 1);
+}
+
+export function verifyRateLimitPerHour(): number {
+  return envInt('VERIFY_RATE_LIMIT_PER_HOUR', 10);
 }

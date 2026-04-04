@@ -10,7 +10,7 @@ import {
 import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
 import { getLogger } from '../utils/logger.js';
 import i18n from '../utils/i18n-config.js';
-import { isReadOnlyMode, isVerificationEnabled } from '../config/runtime-flags.js';
+import { isReadOnlyMode, isVerificationEnabled, verifyRateLimitPerMinute, verifyRateLimitPerHour } from '../config/runtime-flags.js';
 import { getRegisteredCommandNamesState } from './registration-state.js';
 import { toDateString } from '../utils/date.js';
 
@@ -51,6 +51,8 @@ const verificationCodes = new Map<
   { rsiProfileName: string; dreadnoughtValidationCode: string }
 >();
 
+const verifyInvocationTimestamps = new Map<string, number[]>();
+
 export async function registerCommands() {
   // Backward-compatible wrapper for older imports.
   const { registerAllCommands } = await import('./register-commands.js');
@@ -67,6 +69,43 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
     });
     return;
   }
+
+  const userId = interaction.user.id;
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+  const oneMinuteAgo = now - 60 * 1000;
+
+  const timestamps = (verifyInvocationTimestamps.get(userId) ?? []).filter(t => t > oneHourAgo);
+
+  const recentTimestamps = timestamps.filter(t => t > oneMinuteAgo);
+  if (recentTimestamps.length >= verifyRateLimitPerMinute()) {
+    const oldestRecent = recentTimestamps[0];
+    const secondsRemaining = Math.ceil((oldestRecent + 60 * 1000 - now) / 1000);
+    await interaction.reply({
+      content: i18n.__mf(
+        { phrase: 'commands.verify.responses.rateLimitMinute', locale },
+        { seconds: String(secondsRemaining) }
+      ),
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (timestamps.length >= verifyRateLimitPerHour()) {
+    const oldestTimestamp = timestamps[0];
+    const minutesRemaining = Math.ceil((oldestTimestamp + 60 * 60 * 1000 - now) / (60 * 1000));
+    await interaction.reply({
+      content: i18n.__mf(
+        { phrase: 'commands.verify.responses.rateLimitHour', locale },
+        { minutes: String(minutesRemaining) }
+      ),
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  timestamps.push(now);
+  verifyInvocationTimestamps.set(userId, timestamps);
 
   const optionName = i18n.__({ phrase: inGameNameKey, locale: defaultLocale });
   const rsiProfileName = interaction.options.getString(optionName, true).trim();
