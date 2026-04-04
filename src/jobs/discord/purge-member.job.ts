@@ -8,6 +8,15 @@ const logger = getLogger();
 const temporaryMemberPurgeCronSchedule = process.env.TEMPORARY_MEMBER_PURGE_CRON_SCHEDULE || '0 3 * * *';
 const potentialApplicantPurgeCronSchedule = process.env.POTENTIAL_APPLICANT_PURGE_CRON_SCHEDULE || '0 4 * * *';
 
+const DEFAULT_ROLE_NAMES = ['Verified', 'Temporary Member', 'Potential Applicant'];
+const PARSED_ROLES = (process.env.DEFAULT_ROLES ?? '')
+  .split(',')
+  .map((r) => r.trim())
+  .filter((r) => r.length > 0);
+const REQUIRED_ROLES = PARSED_ROLES.length > 0 ? PARSED_ROLES : DEFAULT_ROLE_NAMES;
+export const TEMP_MEMBER_ROLE_NAME = REQUIRED_ROLES[1] ?? DEFAULT_ROLE_NAMES[1];
+export const POTENTIAL_APPLICANT_ROLE_NAME = REQUIRED_ROLES[2] ?? DEFAULT_ROLE_NAMES[2];
+
 /**
  * Kicks members with a given role who have exceeded the time limit.
  */
@@ -61,13 +70,12 @@ export async function purgeMembers(
 }
 
 /**
- * Cleanup task for "Temporary Member" role.
+ * Cleanup task for temporary member role (configured via DEFAULT_ROLES[1]).
  */
 export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTask {
-  const TEMPORARY_ROLE_NAME = 'Temporary Member';
   const HOURS_TO_EXPIRE = 48;
 
-  logger.info(`SCHEDTEMPMBR: Bot is in ${client.guilds.cache.size} guild(s).`);
+  logger.info(`SCHEDTEMPMBR: Bot is in ${client.guilds.cache.size} guild(s). Role: "${TEMP_MEMBER_ROLE_NAME}"`);
 
   return cron.schedule(temporaryMemberPurgeCronSchedule, async () => {
     logger.info('[Job] Running Temporary Member Cleanup');
@@ -75,7 +83,7 @@ export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTa
 
     for (const guild of client.guilds.cache.values()) {
       try {
-        const locale = guild.preferredLocale || 'en';
+        const locale = guild.preferredLocale?.substring(0, 2) || 'en';
         const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
 
         const message = i18n.__mf(
@@ -88,7 +96,7 @@ export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTa
 
         const kicked = await purgeMembers(
           guild,
-          TEMPORARY_ROLE_NAME,
+          TEMP_MEMBER_ROLE_NAME,
           HOURS_TO_EXPIRE,
           'TEMPORARY MEMBERS TIME LIMIT',
           message
@@ -103,13 +111,12 @@ export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTa
 }
 
 /**
- * Cleanup task for "Potential Applicant" role.
+ * Cleanup task for potential applicant role (configured via DEFAULT_ROLES[2]).
  */
 export function schedulePotentialApplicantCleanup(client: Client): cron.ScheduledTask {
-  const ROLE_NAME = 'Potential Applicant';
   const HOURS_TO_EXPIRE = 720; // 30 days
 
-  logger.info(`SCHEDPOTAPP: Bot is in ${client.guilds.cache.size} guild(s).`);
+  logger.info(`SCHEDPOTAPP: Bot is in ${client.guilds.cache.size} guild(s). Role: "${POTENTIAL_APPLICANT_ROLE_NAME}"`);
 
   return cron.schedule(potentialApplicantPurgeCronSchedule, async () => {
     logger.info('[Job] Running Potential Applicant Cleanup');
@@ -117,7 +124,7 @@ export function schedulePotentialApplicantCleanup(client: Client): cron.Schedule
 
     for (const guild of client.guilds.cache.values()) {
       try {
-        const locale = guild.preferredLocale || 'en';
+        const locale = guild.preferredLocale?.substring(0, 2) || 'en';
         const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
         const message = i18n.__mf(
           { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
@@ -129,7 +136,7 @@ export function schedulePotentialApplicantCleanup(client: Client): cron.Schedule
 
         const kicked = await purgeMembers(
           guild,
-          ROLE_NAME,
+          POTENTIAL_APPLICANT_ROLE_NAME,
           HOURS_TO_EXPIRE,
           'POTENTIAL APPLICANT TIME LIMIT',
           message
