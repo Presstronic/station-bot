@@ -42,9 +42,14 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
             parseSelectorCheckInWorker(html, parentSelector, childSelector, userData.dreadnoughtValidationCode),
             parseCanonicalHandleInWorker(html, rsiProfileName),
         ]);
+        logger.info('RSI profile verification completed', {
+            userId,
+            rsiHandle: rsiProfileName,
+            outcome: verified ? 'passed' : 'failed',
+        });
         return { verified, canonicalHandle };
     } catch (error) {
-        logger.error('Error checking RSI profile', { error, userId, url });
+        logger.error('RSI profile verification error', { userId, rsiHandle: rsiProfileName, error });
         return { verified: false, canonicalHandle: rsiProfileName };
     }
 }
