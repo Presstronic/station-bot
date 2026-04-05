@@ -46,11 +46,16 @@ export const healthcheckCommandBuilder = new SlashCommandBuilder()
 
 const commands = [verifyCommandBuilder, healthcheckCommandBuilder];
 
+// IN-PROCESS STORE — not persisted across restarts and not shared across instances.
+// Users mid-verification will receive a session-expired response after a bot restart.
+// Multi-instance deployments require a shared store (e.g. Redis or Postgres) — see follow-on issue.
 const verificationCodes = new Map<
   string,
   { rsiProfileName: string; dreadnoughtValidationCode: string }
 >();
 
+// IN-PROCESS STORE — not persisted across restarts and not shared across instances.
+// Rate-limit windows reset on bot restart; multi-instance deployments require a shared store.
 const verifyInvocationTimestamps = new Map<string, number[]>();
 
 setInterval(() => {
