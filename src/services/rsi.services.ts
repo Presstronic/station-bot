@@ -30,13 +30,15 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
     }
 
     const rsiProfileName = userData.rsiProfileName.trim();
-    const url = buildCitizenUrl(rsiProfileName);
-    const { bioParentSelector, bioChildSelector } = getRsiConfig();
 
     logger.debug(`Verifying RSI Profile: ${rsiProfileName}`);
-    logger.debug(`RSI Profile URL: ${url}`);
 
     try {
+        const url = buildCitizenUrl(rsiProfileName);
+        const { bioParentSelector, bioChildSelector } = getRsiConfig();
+
+        logger.debug(`RSI Profile URL: ${url}`);
+
         const html = await fetchHtml(url);
         const [verified, canonicalHandle] = await Promise.all([
             parseSelectorCheckInWorker(html, bioParentSelector, bioChildSelector, userData.dreadnoughtValidationCode),

@@ -110,6 +110,28 @@ describe('verifyRSIProfile', () => {
     expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'TestHandle' });
   });
 
+  it('returns verified:false and typed-input canonicalHandle when buildCitizenUrl throws (misconfigured pattern)', async () => {
+    jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
+    jest.unstable_mockModule('../../commands/verify.js', () => ({
+      getUserVerificationData: jest.fn(() => ({
+        rsiProfileName: 'TestHandle',
+        dreadnoughtValidationCode: 'ABC-123',
+      })),
+    }));
+    jest.unstable_mockModule('../../config/rsi.config.js', () => ({
+      getRsiConfig: jest.fn(() => ({ citizenUrlPattern: 'https://example.com/MISSING', bioParentSelector: 'div.entry.bio', bioChildSelector: 'div.value' })),
+      buildCitizenUrl: jest.fn(() => { throw new Error('Invalid RSI_CITIZEN_URL_PATTERN configuration: expected the pattern to contain the "{handle}" placeholder.'); }),
+    }));
+    jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml: jest.fn() }));
+    jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
+      parseSelectorCheckInWorker: jest.fn(),
+      parseCanonicalHandleInWorker: jest.fn(),
+    }));
+
+    const { verifyRSIProfile } = await import('../rsi.services.js');
+    expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'TestHandle' });
+  });
+
   it('logs info with outcome:passed when the validation code is found', async () => {
     const logger = makeLogger();
     const fetchHtml = jest.fn<() => Promise<string>>().mockResolvedValueOnce('<html>page</html>');
@@ -182,11 +204,11 @@ describe('verifyRSIProfile', () => {
     const { verifyRSIProfile } = await import('../rsi.services.js');
     await verifyRSIProfile('user-1');
 
-    expect(logger.error).toHaveBeenCalledWith('RSI profile verification error', {
+    expect(logger.error).toHaveBeenCalledWith('RSI profile verification error', expect.objectContaining({
       userId: 'user-1',
       rsiHandle: 'TestHandle',
       error: networkError,
-    });
+    }));
   });
 
   it('makes no direct axios calls — all HTTP goes through fetchHtml', async () => {
@@ -200,6 +222,10 @@ describe('verifyRSIProfile', () => {
         rsiProfileName: 'TestHandle',
         dreadnoughtValidationCode: 'ABC-123',
       })),
+    }));
+    jest.unstable_mockModule('../../config/rsi.config.js', () => ({
+      getRsiConfig: jest.fn(() => ({ citizenUrlPattern: 'https://robertsspaceindustries.com/en/citizens/{handle}', bioParentSelector: 'div.entry.bio', bioChildSelector: 'div.value' })),
+      buildCitizenUrl: jest.fn((h: string) => `https://robertsspaceindustries.com/en/citizens/${h}`),
     }));
     jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
