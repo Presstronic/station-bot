@@ -52,12 +52,12 @@ async function loadModule() {
 
 describe('checkBotPermissions', () => {
   it('returns [] when all required permissions are present', async () => {
-    const { checkBotPermissions } = await import('../permission-check.js');
+    const { checkBotPermissions } = await loadModule();
     expect(checkBotPermissions(asGuild(makeGuild()), allFlags)).toEqual([]);
   });
 
   it('returns missing ManageNicknames when verificationEnabled and perm absent', async () => {
-    const { checkBotPermissions } = await import('../permission-check.js');
+    const { checkBotPermissions } = await loadModule();
     const guild = makeGuild({ me: makeMe(['ManageRoles', 'KickMembers', 'ManageChannels']) });
     const missing = checkBotPermissions(asGuild(guild), allFlags);
     expect(missing).toContain('ManageNicknames');
@@ -65,21 +65,21 @@ describe('checkBotPermissions', () => {
   });
 
   it('does not include KickMembers when purgeJobsEnabled is false', async () => {
-    const { checkBotPermissions } = await import('../permission-check.js');
+    const { checkBotPermissions } = await loadModule();
     const guild = makeGuild({ me: makeMe(['ManageRoles', 'ManageNicknames', 'ManageChannels']) });
     const missing = checkBotPermissions(asGuild(guild), { ...allFlags, purgeJobsEnabled: false });
     expect(missing).not.toContain('KickMembers');
   });
 
   it('does not include ManageChannels when manufacturingEnabled is false', async () => {
-    const { checkBotPermissions } = await import('../permission-check.js');
+    const { checkBotPermissions } = await loadModule();
     const guild = makeGuild({ me: makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers']) });
     const missing = checkBotPermissions(asGuild(guild), { ...allFlags, manufacturingEnabled: false });
     expect(missing).not.toContain('ManageChannels');
   });
 
   it('returns all required permissions as missing when guild.members.me is null', async () => {
-    const { checkBotPermissions } = await import('../permission-check.js');
+    const { checkBotPermissions } = await loadModule();
     const missing = checkBotPermissions(asGuild(makeGuild({ me: null })), allFlags);
     expect(missing).toContain('ManageRoles');
     expect(missing).toContain('ManageNicknames');
@@ -88,7 +88,7 @@ describe('checkBotPermissions', () => {
   });
 
   it('returns [] when no features are enabled', async () => {
-    const { checkBotPermissions } = await import('../permission-check.js');
+    const { checkBotPermissions } = await loadModule();
     expect(
       checkBotPermissions(asGuild(makeGuild({ me: makeMe([]) })), {
         verificationEnabled: false,

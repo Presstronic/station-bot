@@ -1,8 +1,14 @@
-import { Guild, PermissionFlagsBits } from 'discord.js';
+import { PermissionFlagsBits } from 'discord.js';
+import type { Guild } from 'discord.js';
 import { getLogger } from './logger.js';
 
-const logger = getLogger();
-
+/**
+ * String keys of PermissionFlagsBits (e.g. 'ManageRoles') rather than the
+ * underlying bigint values. This representation is intentional: it lets us
+ * look up human-readable labels via PERMISSION_LABELS and index directly into
+ * PermissionFlagsBits for the has() check — avoiding a second reverse-lookup
+ * that bigint-based APIs would require.
+ */
 type PermissionKey = keyof typeof PermissionFlagsBits;
 
 const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
@@ -62,6 +68,6 @@ export async function notifyOwnerOfMissingPermissions(
     const dm = await owner.createDM();
     await dm.send(message);
   } catch (error) {
-    logger.warn('Failed to DM guild owner about missing permissions', { guildId: guild.id, error });
+    getLogger().warn('Failed to DM guild owner about missing permissions', { guildId: guild.id, error });
   }
 }

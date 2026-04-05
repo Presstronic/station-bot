@@ -22,13 +22,13 @@ function cpLength(s: string): number {
 
 function cpPadEnd(s: string, width: number): string {
   const len = cpLength(s);
-  return len >= width ? s : s + " ".repeat(width - len);
+  return len >= width ? s : s + ' '.repeat(width - len);
 }
 
 function truncateToInner(text: string): string {
   const codepoints = [...text];
   if (codepoints.length <= INNER_WIDTH) return text;
-  return codepoints.slice(0, INNER_WIDTH - 1).join("") + "…";
+  return codepoints.slice(0, INNER_WIDTH - 1).join('') + '…';
 }
 
 function row(label: string, value: string): string {
@@ -40,7 +40,7 @@ function centered(text: string): string {
   const safe = truncateToInner(text);
   const totalPadding = INNER_WIDTH - cpLength(safe);
   const left = Math.floor(totalPadding / 2);
-  return cpPadEnd(" ".repeat(left) + safe, INNER_WIDTH);
+  return cpPadEnd(' '.repeat(left) + safe, INNER_WIDTH);
 }
 
 export function buildStartupBanner(options: StartupBannerOptions): string {
@@ -60,25 +60,25 @@ export function buildStartupBanner(options: StartupBannerOptions): string {
     startedAt,
   } = options;
 
-  const hr = "═".repeat(INNER_WIDTH);
+  const hr = '═'.repeat(INNER_WIDTH);
 
   return [
     `╔${hr}╗`,
-    `║${centered("S T A T I O N   B O T")}║`,
+    `║${centered('S T A T I O N   B O T')}║`,
     `╠${hr}╣`,
-    row("Version", version),
-    row("Node.js", nodeVersion),
-    row("Environment", environment),
-    row("Log level", logLevel),
-    row("Read-only mode", String(readOnlyMode)),
-    row("DB configured", String(dbConfigured)),
-    row("Nom. worker", nominationWorkerActive ? "enabled" : "disabled"),
-    row("Purge jobs", purgeJobsEnabled ? "enabled" : "disabled"),
-    row("RSI Verification", rsiVerificationEnabled ? "enabled" : "disabled"),
-    row("Mfg. Orders", manufacturingOrdersEnabled ? "enabled" : "disabled"),
-    row("Guilds", String(guildCount)),
-    row("Logged in as", botTag),
-    row("Started at", startedAt),
+    row('Version', version),
+    row('Node.js', nodeVersion),
+    row('Environment', environment),
+    row('Log level', logLevel),
+    row('Read-only mode', String(readOnlyMode)),
+    row('DB configured', String(dbConfigured)),
+    row('Nom. worker', nominationWorkerActive ? 'enabled' : 'disabled'),
+    row('Purge jobs', purgeJobsEnabled ? 'enabled' : 'disabled'),
+    row('RSI Verification', rsiVerificationEnabled ? 'enabled' : 'disabled'),
+    row('Mfg. Orders', manufacturingOrdersEnabled ? 'enabled' : 'disabled'),
+    row('Guilds', String(guildCount)),
+    row('Logged in as', botTag),
+    row('Started at', startedAt),
     `╚${hr}╝`,
-  ].join("\n");
+  ].join('\n');
 }

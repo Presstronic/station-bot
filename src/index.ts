@@ -1,50 +1,41 @@
-import "./bootstrap.js"; // Loads dotenv and any shared setup
+import './bootstrap.js'; // Loads dotenv and any shared setup
 
-import { createRequire } from "node:module";
-import { ChannelType, Client, ForumChannel, IntentsBitField } from "discord.js";
-import { registerAllCommands } from "./commands/register-commands.js";
-import {
-  handleInteraction,
-  attemptFallbackReply,
-} from "./interactions/interactionRouter.js";
+import { createRequire } from 'node:module';
+import { ChannelType, Client, ForumChannel, IntentsBitField } from 'discord.js';
+import { registerAllCommands } from './commands/register-commands.js';
+import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
 import {
   scheduleTemporaryMemberCleanup,
   schedulePotentialApplicantCleanup,
-} from "./jobs/discord/purge-member.job.js";
-import { addMissingDefaultRoles } from "./services/role.services.js";
-import { getLogger } from "./utils/logger.js";
-import {
-  isReadOnlyMode,
-  isVerificationEnabled,
-  isPurgeJobsEnabled,
-} from "./config/runtime-flags.js";
+} from './jobs/discord/purge-member.job.js';
+import { addMissingDefaultRoles } from './services/role.services.js';
+import { getLogger } from './utils/logger.js';
+import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
 import {
   validateManufacturingConfig,
   isManufacturingEnabled,
   getManufacturingConfig,
-} from "./config/manufacturing.config.js";
+} from './config/manufacturing.config.js';
 import {
   endDbPoolIfInitialized,
   ensureNominationsSchema,
   isDatabaseConfigured,
-} from "./services/nominations/db.js";
-import { ensureForumTags } from "./domain/manufacturing/manufacturing.forum.js";
-import { startNominationCheckWorkerLoop } from "./services/nominations/job-worker.service.js";
-import { buildStartupBanner } from "./utils/startup-banner.js";
+} from './services/nominations/db.js';
+import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
+import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
+import { buildStartupBanner } from './utils/startup-banner.js';
 import {
   startEventLoopMonitor,
   subscribeRestEvents,
   subscribeUndiciDiagnostics,
-} from "./utils/diagnostics.js";
+} from './utils/diagnostics.js';
 import {
   checkBotPermissions,
   notifyOwnerOfMissingPermissions,
-} from "./utils/permission-check.js";
+} from './utils/permission-check.js';
 
 const _require = createRequire(import.meta.url);
-const { version: appVersion } = _require("../package.json") as {
-  version: string;
-};
+const { version: appVersion } = _require('../package.json') as { version: string };
 
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
@@ -52,33 +43,29 @@ const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
 let manufacturingEnabled = isManufacturingEnabled();
 
-const manufacturingConfigErrors = manufacturingEnabled
-  ? validateManufacturingConfig()
-  : [];
+const manufacturingConfigErrors = manufacturingEnabled ? validateManufacturingConfig() : [];
 if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   for (const error of manufacturingConfigErrors) {
     logger.error(`[manufacturing] Configuration error: ${error}`);
   }
   logger.error(
-    "[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.",
+    '[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.',
   );
   manufacturingEnabled = false;
 }
 
-process.on("uncaughtException", (error) => {
+process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, error);
   process.exit(1);
 });
 
-process.on("unhandledRejection", (reason, promise) => {
+process.on('unhandledRejection', (reason, promise) => {
   logger.error(`Unhandled Rejection at: ${promise}`, reason);
 });
 
 const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 if (!DISCORD_BOT_TOKEN) {
-  logger.error(
-    "Bot token is missing. Please set DISCORD_BOT_TOKEN in your .env file.",
-  );
+  logger.error('Bot token is missing. Please set DISCORD_BOT_TOKEN in your .env file.');
   process.exit(1);
 }
 
@@ -101,7 +88,7 @@ subscribeUndiciDiagnostics();
 const shutdown = () => {
   if (shuttingDown) return;
   shuttingDown = true;
-  logger.info("Graceful shutdown initiated.");
+  logger.info('Graceful shutdown initiated.');
   process.exitCode = 0;
   if (workerHandle !== null) {
     clearInterval(workerHandle);
@@ -122,10 +109,10 @@ const shutdown = () => {
   forceExit.unref();
 };
 
-process.once("SIGTERM", shutdown);
-process.once("SIGINT", shutdown);
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);
 
-client.once("clientReady", async () => {
+client.once('clientReady', async () => {
   loopMonitorHandle = startEventLoopMonitor();
   subscribeRestEvents(client);
   logger.info(`Bot logged in as ${client.user?.tag}`);
@@ -136,10 +123,8 @@ client.once("clientReady", async () => {
     try {
       await ensureNominationsSchema();
     } catch (error) {
-      logger.error("Failed to initialize nominations database schema", error);
-      logger.error(
-        "DATABASE_URL is set but schema is not healthy. Aborting startup.",
-      );
+      logger.error('Failed to initialize nominations database schema', error);
+      logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
       process.exit(1);
       return;
     }
@@ -147,14 +132,10 @@ client.once("clientReady", async () => {
 
   const commandRegistration = await registerAllCommands();
   if (commandRegistration.failed.length > 0) {
-    logger.warn(
-      `Some slash commands failed registration: ${commandRegistration.failed.join(", ")}`,
-    );
+    logger.warn(`Some slash commands failed registration: ${commandRegistration.failed.join(', ')}`);
   }
   if (readOnlyMode) {
-    logger.warn(
-      "Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.",
-    );
+    logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
   }
 
   if (!readOnlyMode && manufacturingEnabled) {
@@ -162,13 +143,9 @@ client.once("clientReady", async () => {
     if (forumChannelId) {
       try {
         const ch = await client.channels.fetch(forumChannelId);
-        if (
-          ch &&
-          ch.type === ChannelType.GuildForum &&
-          ch instanceof ForumChannel
-        ) {
+        if (ch && ch.type === ChannelType.GuildForum && ch instanceof ForumChannel) {
           await ensureForumTags(ch);
-          logger.info("[manufacturing] Forum tags verified.");
+          logger.info('[manufacturing] Forum tags verified.');
         } else if (ch) {
           logger.warn(
             `[manufacturing] Configured forumChannelId=${forumChannelId} resolved to a non-forum channel. Forum tag verification skipped.`,
@@ -179,7 +156,7 @@ client.once("clientReady", async () => {
           );
         }
       } catch (error) {
-        logger.error("[manufacturing] Failed to ensure forum tags:", error);
+        logger.error('[manufacturing] Failed to ensure forum tags:', error);
       }
     }
   }
@@ -191,56 +168,55 @@ client.once("clientReady", async () => {
           try {
             await addMissingDefaultRoles(guild, client);
           } catch (error) {
-            logger.error(
-              `Failed to add missing roles in guild ${guild.id} (${guild.name}):`,
-              error,
-            );
+            logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
           }
         }),
       );
-      logger.info("Verification enabled — role setup complete.");
+      logger.info('Verification enabled — role setup complete.');
     } else {
-      logger.info("VERIFICATION_ENABLED=false — skipping role setup.");
+      logger.info('VERIFICATION_ENABLED=false — skipping role setup.');
     }
 
     if (purgeJobsEnabled) {
       tempMemberCronTask = scheduleTemporaryMemberCleanup(client);
       potentialApplicantCronTask = schedulePotentialApplicantCleanup(client);
-      logger.info("Scheduled member purge jobs.");
+      logger.info('Scheduled member purge jobs.');
     } else {
-      logger.info("PURGE_JOBS_ENABLED=false — member purge jobs will not run.");
+      logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
     if (isDatabaseConfigured()) {
       workerHandle = startNominationCheckWorkerLoop();
       if (workerHandle) {
-        logger.info("Started nomination check worker loop.");
+        logger.info('Started nomination check worker loop.');
       }
     }
   } else {
-    logger.warn(
-      "Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.",
-    );
+    logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
   }
 
-  for (const guild of client.guilds.cache.values()) {
-    const missingPerms = checkBotPermissions(guild, {
-      verificationEnabled,
-      purgeJobsEnabled,
-      manufacturingEnabled,
-    });
-    if (missingPerms.length > 0) {
-      logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(", ")}`);
-      await notifyOwnerOfMissingPermissions(guild, missingPerms).catch(() => {});
-    }
-  }
+  // Run permission audits for all guilds concurrently — DMs are independent and
+  // should not block each other or delay the startup completion log.
+  await Promise.allSettled(
+    [...client.guilds.cache.values()].map(async (guild) => {
+      const missingPerms = checkBotPermissions(guild, {
+        verificationEnabled,
+        purgeJobsEnabled,
+        manufacturingEnabled,
+      });
+      if (missingPerms.length > 0) {
+        logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
+        await notifyOwnerOfMissingPermissions(guild, missingPerms);
+      }
+    }),
+  );
 
-  logger.info("Startup tasks completed.");
+  logger.info('Startup tasks completed.');
   logger.info(
     buildStartupBanner({
       version: appVersion,
       nodeVersion: process.version,
-      environment: process.env.NODE_ENV ?? "development",
-      logLevel: process.env.LOG_LEVEL || "info",
+      environment: process.env.NODE_ENV ?? 'development',
+      logLevel: process.env.LOG_LEVEL || 'info',
       readOnlyMode,
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
@@ -248,37 +224,26 @@ client.once("clientReady", async () => {
       rsiVerificationEnabled: verificationEnabled,
       manufacturingOrdersEnabled: manufacturingEnabled,
       guildCount: client.guilds.cache.size,
-      botTag: client.user?.tag ?? "unknown",
+      botTag: client.user?.tag ?? 'unknown',
       startedAt: new Date().toISOString(),
     }),
   );
 });
 
-client.on("guildCreate", async (guild) => {
+client.on('guildCreate', async (guild) => {
   logger.info(`[guildCreate] Bot joined guild: ${guild.name} (${guild.id})`);
 
   if (readOnlyMode) {
-    logger.warn(
-      `[${guild.name}] Read-only mode enabled; skipping role setup on guild join.`,
-    );
-    return;
-  }
-
-  if (!verificationEnabled) {
-    logger.info(
-      `[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`,
-    );
-    return;
-  }
-
-  try {
-    await addMissingDefaultRoles(guild, client);
-    logger.info(`[${guild.name}] Successfully ensured required roles.`);
-  } catch (error) {
-    logger.error(
-      `[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`,
-      error,
-    );
+    logger.warn(`[${guild.name}] Read-only mode enabled; skipping role setup on guild join.`);
+  } else if (!verificationEnabled) {
+    logger.info(`[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`);
+  } else {
+    try {
+      await addMissingDefaultRoles(guild, client);
+      logger.info(`[${guild.name}] Successfully ensured required roles.`);
+    } catch (error) {
+      logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+    }
   }
 
   const missingPerms = checkBotPermissions(guild, {
@@ -287,24 +252,20 @@ client.on("guildCreate", async (guild) => {
     manufacturingEnabled,
   });
   if (missingPerms.length > 0) {
-    logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(", ")}`);
-    await notifyOwnerOfMissingPermissions(guild, missingPerms).catch(() => {});
+    logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
+    await notifyOwnerOfMissingPermissions(guild, missingPerms);
   }
 });
 
-client.on("interactionCreate", async (interaction) => {
+client.on('interactionCreate', async (interaction) => {
   try {
     await handleInteraction(interaction, client);
   } catch (error) {
     if (error instanceof Error) {
-      const stackText = error.stack ? `\n${error.stack}` : "";
-      logger.error(
-        `Unhandled interaction error in index handler: ${error.message}${stackText}`,
-      );
+      const stackText = error.stack ? `\n${error.stack}` : '';
+      logger.error(`Unhandled interaction error in index handler: ${error.message}${stackText}`);
     } else {
-      logger.error(
-        `Unhandled interaction error in index handler: ${String(error)}`,
-      );
+      logger.error(`Unhandled interaction error in index handler: ${String(error)}`);
     }
     await attemptFallbackReply(interaction, interaction.id);
   }
