@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { isReadOnlyMode, isPurgeJobsEnabled } from '../runtime-flags.js';
+import { isReadOnlyMode, isPurgeJobsEnabled, verifySessionTtlMinutes } from '../runtime-flags.js';
 
 const originalReadOnlyMode = process.env.BOT_READ_ONLY_MODE;
 const originalPurgeJobsEnabled = process.env.PURGE_JOBS_ENABLED;
+const originalVerifySessionTtl = process.env.VERIFY_SESSION_TTL_MINUTES;
 
 afterEach(() => {
   if (originalReadOnlyMode === undefined) {
@@ -14,6 +15,11 @@ afterEach(() => {
     delete process.env.PURGE_JOBS_ENABLED;
   } else {
     process.env.PURGE_JOBS_ENABLED = originalPurgeJobsEnabled;
+  }
+  if (originalVerifySessionTtl === undefined) {
+    delete process.env.VERIFY_SESSION_TTL_MINUTES;
+  } else {
+    process.env.VERIFY_SESSION_TTL_MINUTES = originalVerifySessionTtl;
   }
 });
 
@@ -45,6 +51,30 @@ describe('isReadOnlyMode', () => {
   it('falls back to default for unrecognized values', () => {
     process.env.BOT_READ_ONLY_MODE = 'enabled';
     expect(isReadOnlyMode()).toBe(true);
+  });
+});
+
+describe('verifySessionTtlMinutes', () => {
+  it('defaults to 15 when env var is not set', () => {
+    delete process.env.VERIFY_SESSION_TTL_MINUTES;
+    expect(verifySessionTtlMinutes()).toBe(15);
+  });
+
+  it('returns the configured value when VERIFY_SESSION_TTL_MINUTES is set', () => {
+    process.env.VERIFY_SESSION_TTL_MINUTES = '30';
+    expect(verifySessionTtlMinutes()).toBe(30);
+  });
+
+  it('falls back to default for non-positive or non-integer values', () => {
+    for (const value of ['0', '-5', 'abc', '1.5']) {
+      process.env.VERIFY_SESSION_TTL_MINUTES = value;
+      expect(verifySessionTtlMinutes()).toBe(15);
+    }
+  });
+
+  it('caps the value at 35791 minutes to prevent Node.js timer overflow', () => {
+    process.env.VERIFY_SESSION_TTL_MINUTES = '99999';
+    expect(verifySessionTtlMinutes()).toBe(35_791);
   });
 });
 

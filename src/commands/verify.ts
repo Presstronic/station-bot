@@ -10,7 +10,7 @@ import {
 import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
 import { getLogger } from '../utils/logger.js';
 import i18n from '../utils/i18n-config.js';
-import { isReadOnlyMode, isVerificationEnabled, verifyRateLimitPerMinute, verifyRateLimitPerHour } from '../config/runtime-flags.js';
+import { isReadOnlyMode, isVerificationEnabled, verifyRateLimitPerMinute, verifyRateLimitPerHour, verifySessionTtlMinutes } from '../config/runtime-flags.js';
 import { getRegisteredCommandNamesState } from './registration-state.js';
 import { toDateString } from '../utils/date.js';
 
@@ -51,8 +51,23 @@ const commands = [verifyCommandBuilder, healthcheckCommandBuilder];
 // Multi-instance deployments require a shared store (e.g. Redis or Postgres) — see #317.
 const verificationCodes = new Map<
   string,
-  { rsiProfileName: string; dreadnoughtValidationCode: string }
+  { rsiProfileName: string; dreadnoughtValidationCode: string; createdAt: number }
 >();
+
+const SESSION_TTL_MS = verifySessionTtlMinutes() * 60 * 1000;
+
+export function purgeExpiredVerificationSessions(): void {
+  const now = Date.now();
+  for (const [userId, session] of verificationCodes) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
+      verificationCodes.delete(userId);
+    }
+  }
+}
+
+setInterval(() => {
+  purgeExpiredVerificationSessions();
+}, SESSION_TTL_MS).unref();
 
 // IN-PROCESS STORE — not persisted across restarts and not shared across instances.
 // Rate-limit windows reset on bot restart; multi-instance deployments require a shared store — see #317.
@@ -143,7 +158,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
   logger.debug(`VERIFY.TS--> handleVerifyCommand -> RSI Profile Name: ${rsiProfileName}`);
 
   const dreadnoughtValidationCode = generateDrdntVerificationCode();
-  verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode });
+  verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode, createdAt: now });
 
   const verifyButtonLabel = i18n.__({ phrase: 'commands.verify.buttonLabel', locale });
   const replyMessage = i18n.__mf(
@@ -174,7 +189,13 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
 }
 
 export function getUserVerificationData(userId: string) {
-  return verificationCodes.get(userId);
+  const session = verificationCodes.get(userId);
+  if (!session) return undefined;
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
+    verificationCodes.delete(userId);
+    return undefined;
+  }
+  return session;
 }
 
 export function clearUserVerificationData(userId: string): void {
