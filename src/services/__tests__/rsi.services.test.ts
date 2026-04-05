@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 beforeEach(() => {
   jest.resetModules();
+  delete process.env.RSI_CITIZEN_URL_PATTERN;
 });
 
 const LOGGER_MOCK = {

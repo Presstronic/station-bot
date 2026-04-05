@@ -30,11 +30,12 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
     }
 
     const rsiProfileName = userData.rsiProfileName.trim();
+    let url: string | undefined;
 
     logger.debug(`Verifying RSI Profile: ${rsiProfileName}`);
 
     try {
-        const url = buildCitizenUrl(rsiProfileName);
+        url = buildCitizenUrl(rsiProfileName);
         const { bioParentSelector, bioChildSelector } = getRsiConfig();
 
         logger.debug(`RSI Profile URL: ${url}`);
@@ -51,7 +52,7 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
         });
         return { verified, canonicalHandle };
     } catch (error) {
-        logger.error('RSI profile verification error', { userId, rsiHandle: rsiProfileName, error });
+        logger.error('RSI profile verification error', { userId, rsiHandle: rsiProfileName, error, url });
         return { verified: false, canonicalHandle: rsiProfileName };
     }
 }
