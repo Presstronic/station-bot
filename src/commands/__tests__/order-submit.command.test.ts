@@ -110,6 +110,16 @@ async function setupMocks(overrides: {
   const activeCount = overrides.activeCount ?? 0;
   const config = { ...BASE_CONFIG, ...overrides.configOverrides };
 
+  const warnMock = jest.fn();
+  jest.unstable_mockModule('../../utils/logger.js', () => ({
+    getLogger: () => ({
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: warnMock,
+      error: jest.fn(),
+    }),
+  }));
+
   jest.unstable_mockModule('../nomination.helpers.js', () => ({
     hasOrganizationMemberOrHigher: jest.fn(async () => hasRole),
     getGuildMember: jest.fn(),
@@ -172,7 +182,7 @@ async function setupMocks(overrides: {
   }));
 
   const mod = await import('../order-submit.command.js');
-  return { ...mod, submitOrderMock, updateForumThreadIdMock };
+  return { ...mod, submitOrderMock, updateForumThreadIdMock, warnMock };
 }
 
 // Helper: run the slash command to create a session, then return the session ID
@@ -641,8 +651,9 @@ describe('handleOrderButtonInteraction', () => {
     );
   });
 
-  it('still sends the success reply when the role ping throws', async () => {
-    const sendMock = jest.fn(async () => { throw new Error('ping failed'); });
+  it('still sends the success reply when the role ping throws, and logs at warn', async () => {
+    const pingError = new Error('ping failed');
+    const sendMock = jest.fn(async () => { throw pingError; });
     const h = await setupMocks();
 
     await createSession(h, 'ping-fail');
@@ -667,6 +678,10 @@ describe('handleOrderButtonInteraction', () => {
     await h.handleOrderButtonInteraction(btn as any);
 
     expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(h.warnMock).toHaveBeenCalledWith(
+      '[manufacturing] Failed to send role ping in order thread',
+      expect.objectContaining({ orderId: 42, threadId: 'thread-id', error: pingError }),
+    );
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Order #42/i) }),
     );
