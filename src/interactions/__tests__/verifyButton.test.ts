@@ -65,10 +65,10 @@ function makeButtonInteraction(customId = 'verify', { hasManageNicknames = true 
     replied: false,
     locale: 'en-US',
     user: { id: 'user-123', username: 'TestUser' },
+    appPermissions: { has: jest.fn(() => hasManageNicknames) },
     guild: {
       members: {
         fetch: jest.fn(async () => member),
-        me: { permissions: { has: jest.fn(() => hasManageNicknames) } },
       },
     },
     deferReply: jest.fn(async () => { interaction.deferred = true; }),

@@ -42,8 +42,7 @@ function makeRoleCache(names: string[]) {
 function makeGuild({
   roleNames = ['Verified'],
   member = makeMember() as Member | null,
-  hasManageRoles = true,
-}: { roleNames?: string[]; member?: Member | null; hasManageRoles?: boolean } = {}) {
+}: { roleNames?: string[]; member?: Member | null } = {}) {
   return {
     name: 'Test Guild',
     id: 'guild-1',
@@ -55,13 +54,15 @@ function makeGuild({
     members: {
       cache: { get: jest.fn((): Member | undefined => member ?? undefined) },
       fetch: jest.fn(async (): Promise<Member | null> => member),
-      me: { permissions: { has: jest.fn(() => hasManageRoles) } },
     },
   };
 }
 
-function makeInteraction(guild: ReturnType<typeof makeGuild> | null = makeGuild()) {
-  return { guild } as unknown as ButtonInteraction;
+function makeInteraction(
+  guild: ReturnType<typeof makeGuild> | null = makeGuild(),
+  { hasManageRoles = true }: { hasManageRoles?: boolean } = {},
+) {
+  return { guild, appPermissions: { has: jest.fn(() => hasManageRoles) } } as unknown as ButtonInteraction;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,8 +140,8 @@ describe('assignVerifiedRole', () => {
   it('returns false when bot is missing ManageRoles permission', async () => {
     const { assignVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
     const member = makeMember();
-    const guild = makeGuild({ member, hasManageRoles: false });
-    expect(await assignVerifiedRole(makeInteraction(guild), 'user-1')).toBe(false);
+    const guild = makeGuild({ member });
+    expect(await assignVerifiedRole(makeInteraction(guild, { hasManageRoles: false }), 'user-1')).toBe(false);
     expect(member.roles.add).not.toHaveBeenCalled();
     expect(loggerError).toHaveBeenCalledWith(
       expect.stringContaining('ManageRoles'),
@@ -218,8 +219,8 @@ describe('removeVerifiedRole', () => {
   it('returns false when bot is missing ManageRoles permission', async () => {
     const { removeVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
     const member = makeMember();
-    const guild = makeGuild({ member, hasManageRoles: false });
-    expect(await removeVerifiedRole(makeInteraction(guild), 'user-1')).toBe(false);
+    const guild = makeGuild({ member });
+    expect(await removeVerifiedRole(makeInteraction(guild, { hasManageRoles: false }), 'user-1')).toBe(false);
     expect(member.roles.remove).not.toHaveBeenCalled();
     expect(loggerError).toHaveBeenCalledWith(
       expect.stringContaining('ManageRoles'),

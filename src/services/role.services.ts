@@ -30,7 +30,7 @@ export async function assignVerifiedRole(
     return false;
   }
 
-  if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+  if (!interaction.appPermissions?.has(PermissionFlagsBits.ManageRoles)) {
     logger.error('Cannot assign role: bot is missing ManageRoles permission', { guildId: guild.id });
     return false;
   }
@@ -71,7 +71,7 @@ export async function removeVerifiedRole(
     return false;
   }
 
-  if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+  if (!interaction.appPermissions?.has(PermissionFlagsBits.ManageRoles)) {
     logger.error('Cannot remove role: bot is missing ManageRoles permission', { guildId: guild.id });
     return false;
   }

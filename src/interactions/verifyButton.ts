@@ -84,15 +84,15 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
           { rsiName: canonicalHandle, username: interaction.user.username }
         );
 
-        if (!interaction.guild?.members.me?.permissions.has(PermissionFlagsBits.ManageNicknames)) {
+        if (!interaction.appPermissions?.has(PermissionFlagsBits.ManageNicknames)) {
           await respond(
             `${successMsg}\n\n${i18n.__({ phrase: 'commands.verify.responses.missingPermissionNickname', locale })}`
           );
           return;
         }
 
-        const member = await interaction.guild.members.fetch(interaction.user.id);
         try {
+          const member = await interaction.guild!.members.fetch(interaction.user.id);
           await member.setNickname(canonicalHandle);
           logger.debug(`Nickname set to "${canonicalHandle}" for user ID: ${interaction.user.id}`);
         } catch (error) {
