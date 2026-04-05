@@ -58,8 +58,9 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
   const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
   const userData = getUserVerificationData(interaction.user.id);
 
-  // userData is null if: (a) the user never ran /verify, (b) the session expired (TTL),
-  // (c) the bot restarted since the session was created (in-memory store, not persisted).
+  // userData is undefined if: (a) the user never ran /verify, (b) the session was
+  // already cleared/consumed (for example after a verification attempt), or (c) the
+  // bot restarted since the session was created (in-memory store, not persisted).
   if (!userData) {
     await respond(
       i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale })
