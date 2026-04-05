@@ -79,4 +79,11 @@ describe('buildCitizenUrl', () => {
       'Invalid RSI_CITIZEN_URL_PATTERN configuration: expected the pattern to contain the "{handle}" placeholder.',
     );
   });
+
+  it('trims leading/trailing whitespace from the handle before encoding', () => {
+    delete process.env.RSI_CITIZEN_URL_PATTERN;
+    expect(buildCitizenUrl('  PilotOne  ')).toBe(
+      'https://robertsspaceindustries.com/en/citizens/PilotOne'
+    );
+  });
 });

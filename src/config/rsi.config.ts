@@ -16,5 +16,5 @@ export function buildCitizenUrl(handle: string): string {
       'Invalid RSI_CITIZEN_URL_PATTERN configuration: expected the pattern to contain the "{handle}" placeholder.',
     );
   }
-  return citizenUrlPattern.replace('{handle}', encodeURIComponent(handle));
+  return citizenUrlPattern.replace('{handle}', encodeURIComponent(handle.trim()));
 }
