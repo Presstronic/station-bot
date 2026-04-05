@@ -57,7 +57,7 @@ async function loadHandlerWithMocks({
 }
 
 function makeButtonInteraction(customId = 'verify', { hasManageNicknames = true } = {}) {
-  const setNickname = jest.fn(async () => undefined);
+  const setNickname = jest.fn<() => Promise<unknown>>(async () => undefined);
   const member = { setNickname };
   const interaction = {
     customId,
@@ -226,7 +226,7 @@ describe('handleVerifyButtonInteraction', () => {
     expect(setNickname).not.toHaveBeenCalledWith('pilotone');
   });
 
-  it('replies with missingPermissionNickname and does not set nickname when ManageNicknames is missing', async () => {
+  it('replies with success and missingPermissionNickname warning and does not set nickname when ManageNicknames is missing', async () => {
     const { handleVerifyButtonInteraction, assignVerifiedRole } = await loadHandlerWithMocks({
       userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileVerified: true,
@@ -237,8 +237,27 @@ describe('handleVerifyButtonInteraction', () => {
     expect(assignVerifiedRole).toHaveBeenCalledTimes(1);
     expect(setNickname).not.toHaveBeenCalled();
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
+    expect(content).toContain('verified');
     expect(content).toContain('Manage Nicknames');
     expect(content).toContain('administrator');
+  });
+
+  it('replies with success and nicknameFailed note and logs warn when setNickname throws', async () => {
+    const { handleVerifyButtonInteraction, loggerWarn } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: true,
+    });
+    const { interaction, setNickname } = makeButtonInteraction();
+    setNickname.mockImplementation(async () => { throw new Error('Hierarchy error'); });
+    await handleVerifyButtonInteraction(interaction);
+
+    const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
+    expect(content).toContain('verified');
+    expect(content).toContain('nickname');
+    expect(loggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('nickname'),
+      expect.objectContaining({ userId: 'user-123' }),
+    );
   });
 
   it('does not set nickname when verification fails', async () => {

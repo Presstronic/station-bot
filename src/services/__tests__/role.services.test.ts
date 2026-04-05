@@ -137,11 +137,15 @@ describe('assignVerifiedRole', () => {
   });
 
   it('returns false when bot is missing ManageRoles permission', async () => {
-    const { assignVerifiedRole } = await import('../role.services.js');
+    const { assignVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
     const member = makeMember();
     const guild = makeGuild({ member, hasManageRoles: false });
     expect(await assignVerifiedRole(makeInteraction(guild), 'user-1')).toBe(false);
     expect(member.roles.add).not.toHaveBeenCalled();
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('ManageRoles'),
+      expect.objectContaining({ guildId: guild.id }),
+    );
   });
 });
 
@@ -212,11 +216,15 @@ describe('removeVerifiedRole', () => {
   });
 
   it('returns false when bot is missing ManageRoles permission', async () => {
-    const { removeVerifiedRole } = await import('../role.services.js');
+    const { removeVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
     const member = makeMember();
     const guild = makeGuild({ member, hasManageRoles: false });
     expect(await removeVerifiedRole(makeInteraction(guild), 'user-1')).toBe(false);
     expect(member.roles.remove).not.toHaveBeenCalled();
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('ManageRoles'),
+      expect.objectContaining({ guildId: guild.id }),
+    );
   });
 });
 

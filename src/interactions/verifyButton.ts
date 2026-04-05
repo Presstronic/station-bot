@@ -79,21 +79,31 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
       if (success) {
         logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
 
+        const successMsg = i18n.__mf(
+          { phrase: 'commands.verify.responses.success', locale },
+          { rsiName: canonicalHandle, username: interaction.user.username }
+        );
+
         if (!interaction.guild?.members.me?.permissions.has(PermissionFlagsBits.ManageNicknames)) {
-          await respond(i18n.__({ phrase: 'commands.verify.responses.missingPermissionNickname', locale }));
+          await respond(
+            `${successMsg}\n\n${i18n.__({ phrase: 'commands.verify.responses.missingPermissionNickname', locale })}`
+          );
           return;
         }
 
         const member = await interaction.guild.members.fetch(interaction.user.id);
-        await member.setNickname(canonicalHandle);
-        logger.debug(`Nickname set to "${canonicalHandle}" for user ID: ${interaction.user.id}`);
+        try {
+          await member.setNickname(canonicalHandle);
+          logger.debug(`Nickname set to "${canonicalHandle}" for user ID: ${interaction.user.id}`);
+        } catch (error) {
+          logger.warn('Failed to set nickname during verification', { userId: interaction.user.id, error });
+          await respond(
+            `${successMsg}\n\n${i18n.__({ phrase: 'commands.verify.responses.nicknameFailed', locale })}`
+          );
+          return;
+        }
 
-        await respond(
-          i18n.__mf(
-            { phrase: 'commands.verify.responses.success', locale },
-            { rsiName: canonicalHandle, username: interaction.user.username }
-          )
-        );
+        await respond(successMsg);
       } else {
         await respond(
           i18n.__mf(
