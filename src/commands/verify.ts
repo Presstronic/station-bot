@@ -54,11 +54,12 @@ const verificationCodes = new Map<
   { rsiProfileName: string; dreadnoughtValidationCode: string; createdAt: number }
 >();
 
+const SESSION_TTL_MS = verifySessionTtlMinutes() * 60 * 1000;
+
 export function purgeExpiredVerificationSessions(): void {
-  const ttlMs = verifySessionTtlMinutes() * 60 * 1000;
   const now = Date.now();
   for (const [userId, session] of verificationCodes) {
-    if (now - session.createdAt > ttlMs) {
+    if (now - session.createdAt > SESSION_TTL_MS) {
       verificationCodes.delete(userId);
     }
   }
@@ -66,7 +67,7 @@ export function purgeExpiredVerificationSessions(): void {
 
 setInterval(() => {
   purgeExpiredVerificationSessions();
-}, verifySessionTtlMinutes() * 60 * 1000).unref();
+}, SESSION_TTL_MS).unref();
 
 // IN-PROCESS STORE — not persisted across restarts and not shared across instances.
 // Rate-limit windows reset on bot restart; multi-instance deployments require a shared store — see #317.
@@ -190,7 +191,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
 export function getUserVerificationData(userId: string) {
   const session = verificationCodes.get(userId);
   if (!session) return undefined;
-  if (Date.now() - session.createdAt > verifySessionTtlMinutes() * 60 * 1000) {
+  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
     verificationCodes.delete(userId);
     return undefined;
   }

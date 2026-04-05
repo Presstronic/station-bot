@@ -54,6 +54,11 @@ export function rsiHttpTimeoutMs(): number {
   return envInt('RSI_HTTP_TIMEOUT_MS', 12_000);
 }
 
+// Node.js timer delays above 2^31-1 ms (~24.8 days) overflow and fire immediately.
+// Cap at 35,791 minutes (~24.8 days) to prevent a misconfigured large TTL from
+// turning the sweep interval into a tight loop.
+const MAX_VERIFY_SESSION_TTL_MINUTES = 35_791;
+
 export function verifySessionTtlMinutes(): number {
-  return envInt('VERIFY_SESSION_TTL_MINUTES', 15);
+  return Math.min(envInt('VERIFY_SESSION_TTL_MINUTES', 15), MAX_VERIFY_SESSION_TTL_MINUTES);
 }

@@ -300,10 +300,13 @@ describe('purgeExpiredVerificationSessions', () => {
     // Session exists immediately after creation
     expect(getUserVerificationData('user-1')).toBeDefined();
 
-    // Advance past the 15-minute TTL
+    // Advance past the 15-minute TTL and run the sweep
     jest.setSystemTime(base + 15 * 60 * 1000 + 1);
     purgeExpiredVerificationSessions();
 
+    // Wind time back to just before the TTL so getUserVerificationData cannot
+    // lazily evict; if the entry is gone, the sweep did the deletion.
+    jest.setSystemTime(base + 15 * 60 * 1000 - 1);
     expect(getUserVerificationData('user-1')).toBeUndefined();
     jest.useRealTimers();
   });

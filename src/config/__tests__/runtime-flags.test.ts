@@ -71,6 +71,11 @@ describe('verifySessionTtlMinutes', () => {
       expect(verifySessionTtlMinutes()).toBe(15);
     }
   });
+
+  it('caps the value at 35791 minutes to prevent Node.js timer overflow', () => {
+    process.env.VERIFY_SESSION_TTL_MINUTES = '99999';
+    expect(verifySessionTtlMinutes()).toBe(35_791);
+  });
 });
 
 describe('isPurgeJobsEnabled', () => {
