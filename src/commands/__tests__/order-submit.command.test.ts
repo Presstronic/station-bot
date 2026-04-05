@@ -36,7 +36,7 @@ function makeSlashInteraction(overrides: Record<string, unknown> = {}) {
     inGuild: () => true,
     id: 'slash-id',
     user: { id: 'user-1', username: 'TestUser' },
-    options: { getSubcommand: () => 'submit' },
+    options: {},
     replied: false,
     deferred: false,
     reply: jest.fn(async () => { i.replied = true; }),

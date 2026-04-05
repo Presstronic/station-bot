@@ -32,7 +32,6 @@ import { getLogger } from '../utils/logger.js';
 const logger = getLogger();
 
 export const ORDER_COMMAND_NAME = 'order';
-const ORDER_SUBMIT_SUBCOMMAND = 'submit';
 
 export const ITEM_MODAL_PREFIX = 'mfg-item-modal';
 export const ADD_ITEM_BUTTON_PREFIX = 'mfg-add-item';
@@ -69,13 +68,8 @@ function getSessionItems(sessionId: string): NewOrderItem[] | undefined {
 
 export const orderCommandBuilder = new SlashCommandBuilder()
   .setName(ORDER_COMMAND_NAME)
-  .setDescription('Manufacturing order commands')
-  .setDMPermission(false)
-  .addSubcommand((sub) =>
-    sub
-      .setName(ORDER_SUBMIT_SUBCOMMAND)
-      .setDescription('Submit a new manufacturing order'),
-  );
+  .setDescription('Submit a new manufacturing order')
+  .setDMPermission(false);
 
 function buildItemModal(customId: string, itemNumber: number): ModalBuilder {
   const modal = new ModalBuilder()
@@ -145,8 +139,6 @@ function buildItemCollectionComponents(
 export async function handleOrderCommand(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
-  if (interaction.options.getSubcommand() !== ORDER_SUBMIT_SUBCOMMAND) return;
-
   if (!isManufacturingEnabled()) {
     await interaction.reply({
       content: 'Manufacturing orders are not currently available.',
