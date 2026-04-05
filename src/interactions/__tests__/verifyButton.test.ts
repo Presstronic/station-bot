@@ -56,10 +56,8 @@ async function loadHandlerWithMocks({
   };
 }
 
-function makeButtonInteraction(customId = 'verify', nicknameError?: Error) {
-  const setNickname = nicknameError
-    ? jest.fn(async () => { throw nicknameError; })
-    : jest.fn(async () => undefined);
+function makeButtonInteraction(customId = 'verify', { hasManageNicknames = true } = {}) {
+  const setNickname = jest.fn(async () => undefined);
   const member = { setNickname };
   const interaction = {
     customId,
@@ -67,7 +65,12 @@ function makeButtonInteraction(customId = 'verify', nicknameError?: Error) {
     replied: false,
     locale: 'en-US',
     user: { id: 'user-123', username: 'TestUser' },
-    guild: { members: { fetch: jest.fn(async () => member) } },
+    guild: {
+      members: {
+        fetch: jest.fn(async () => member),
+        me: { permissions: { has: jest.fn(() => hasManageNicknames) } },
+      },
+    },
     deferReply: jest.fn(async () => { interaction.deferred = true; }),
     editReply: jest.fn(async () => undefined),
     reply: jest.fn(async () => undefined),
@@ -223,35 +226,19 @@ describe('handleVerifyButtonInteraction', () => {
     expect(setNickname).not.toHaveBeenCalledWith('pilotone');
   });
 
-  it('replies with nicknameFailed and does not send success when setNickname throws', async () => {
+  it('replies with missingPermissionNickname and does not set nickname when ManageNicknames is missing', async () => {
     const { handleVerifyButtonInteraction, assignVerifiedRole } = await loadHandlerWithMocks({
       userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
       rsiProfileVerified: true,
     });
-    const { interaction, setNickname } = makeButtonInteraction('verify', new Error('Missing Permissions'));
+    const { interaction, setNickname } = makeButtonInteraction('verify', { hasManageNicknames: false });
     await handleVerifyButtonInteraction(interaction);
 
     expect(assignVerifiedRole).toHaveBeenCalledTimes(1);
-    expect(setNickname).toHaveBeenCalledTimes(1);
+    expect(setNickname).not.toHaveBeenCalled();
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
-    expect(content).toContain('nickname');
+    expect(content).toContain('Manage Nicknames');
     expect(content).toContain('administrator');
-    expect(content).not.toContain('verified');
-  });
-
-  it('replies with nicknameFailed when Discord rejects the nickname (e.g. handle too long)', async () => {
-    const { handleVerifyButtonInteraction } = await loadHandlerWithMocks({
-      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
-      rsiProfileVerified: true,
-    });
-    const { interaction, setNickname } = makeButtonInteraction('verify', new Error('Invalid Form Body'));
-    await handleVerifyButtonInteraction(interaction);
-
-    expect(setNickname).toHaveBeenCalledTimes(1);
-    const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
-    expect(content).toContain('nickname');
-    expect(content).toContain('administrator');
-    expect(content).not.toContain('verified');
   });
 
   it('does not set nickname when verification fails', async () => {

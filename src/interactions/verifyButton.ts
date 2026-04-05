@@ -1,4 +1,4 @@
-import { ButtonInteraction, DiscordAPIError, MessageFlags, RESTJSONErrorCodes } from 'discord.js';
+import { ButtonInteraction, DiscordAPIError, MessageFlags, PermissionFlagsBits, RESTJSONErrorCodes } from 'discord.js';
 import { getUserVerificationData, clearUserVerificationData } from '../commands/verify.js';
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
@@ -79,17 +79,14 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
       if (success) {
         logger.debug(`Role assigned successfully to user ID: ${interaction.user.id}`);
 
-        try {
-          const member = await interaction.guild!.members.fetch(interaction.user.id);
-          await member.setNickname(canonicalHandle);
-          logger.debug(`Nickname set to "${canonicalHandle}" for user ID: ${interaction.user.id}`);
-        } catch (error) {
-          logger.error(`Failed to set nickname for user ID: ${interaction.user.id}`, { error });
-          await respond(
-            i18n.__({ phrase: 'commands.verify.responses.nicknameFailed', locale })
-          );
+        if (!interaction.guild?.members.me?.permissions.has(PermissionFlagsBits.ManageNicknames)) {
+          await respond(i18n.__({ phrase: 'commands.verify.responses.missingPermissionNickname', locale }));
           return;
         }
+
+        const member = await interaction.guild.members.fetch(interaction.user.id);
+        await member.setNickname(canonicalHandle);
+        logger.debug(`Nickname set to "${canonicalHandle}" for user ID: ${interaction.user.id}`);
 
         await respond(
           i18n.__mf(

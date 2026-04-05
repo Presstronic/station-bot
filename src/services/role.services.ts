@@ -1,4 +1,4 @@
-import { ButtonInteraction, Client, Guild } from 'discord.js';
+import { ButtonInteraction, Client, Guild, PermissionFlagsBits } from 'discord.js';
 import { getLogger } from '../utils/logger.js';
 import { REQUIRED_ROLES, VERIFIED_ROLE_NAME } from '../config/roles.config.js';
 
@@ -27,6 +27,11 @@ export async function assignVerifiedRole(
   const verifiedRole = guild.roles.cache.find((role) => role.name === VERIFIED_ROLE_NAME);
   if (!verifiedRole) {
     logger.error(`"${VERIFIED_ROLE_NAME}" role not found.`);
+    return false;
+  }
+
+  if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    logger.error('Cannot assign role: bot is missing ManageRoles permission', { guildId: guild.id });
     return false;
   }
 
@@ -63,6 +68,11 @@ export async function removeVerifiedRole(
   const verifiedRole = guild.roles.cache.find((role) => role.name === VERIFIED_ROLE_NAME);
   if (!verifiedRole) {
     logger.error(`"${VERIFIED_ROLE_NAME}" role not found.`);
+    return false;
+  }
+
+  if (!guild.members.me?.permissions.has(PermissionFlagsBits.ManageRoles)) {
+    logger.error('Cannot remove role: bot is missing ManageRoles permission', { guildId: guild.id });
     return false;
   }
 
