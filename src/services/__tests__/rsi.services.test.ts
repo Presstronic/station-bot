@@ -143,6 +143,10 @@ describe('verifyRSIProfile', () => {
         dreadnoughtValidationCode: 'ABC-123',
       })),
     }));
+    jest.unstable_mockModule('../../config/rsi.config.js', () => ({
+      getRsiConfig: jest.fn(() => ({ bioParentSelector: 'div.entry.bio', bioChildSelector: 'div.value' })),
+      buildCitizenUrl: jest.fn((h: string) => `https://robertsspaceindustries.com/en/citizens/${h}`),
+    }));
     jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
       parseSelectorCheckInWorker: jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true),
@@ -168,6 +172,10 @@ describe('verifyRSIProfile', () => {
         rsiProfileName: 'pilotone',
         dreadnoughtValidationCode: 'ABC-123',
       })),
+    }));
+    jest.unstable_mockModule('../../config/rsi.config.js', () => ({
+      getRsiConfig: jest.fn(() => ({ bioParentSelector: 'div.entry.bio', bioChildSelector: 'div.value' })),
+      buildCitizenUrl: jest.fn((h: string) => `https://robertsspaceindustries.com/en/citizens/${h}`),
     }));
     jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
@@ -195,6 +203,10 @@ describe('verifyRSIProfile', () => {
         rsiProfileName: 'TestHandle',
         dreadnoughtValidationCode: 'ABC-123',
       })),
+    }));
+    jest.unstable_mockModule('../../config/rsi.config.js', () => ({
+      getRsiConfig: jest.fn(() => ({ bioParentSelector: 'div.entry.bio', bioChildSelector: 'div.value' })),
+      buildCitizenUrl: jest.fn((h: string) => `https://robertsspaceindustries.com/en/citizens/${h}`),
     }));
     jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
