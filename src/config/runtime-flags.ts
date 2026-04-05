@@ -53,3 +53,7 @@ export function verifyRateLimitPerHour(): number {
 export function rsiHttpTimeoutMs(): number {
   return envInt('RSI_HTTP_TIMEOUT_MS', 12_000);
 }
+
+export function verifySessionTtlMinutes(): number {
+  return envInt('VERIFY_SESSION_TTL_MINUTES', 15);
+}

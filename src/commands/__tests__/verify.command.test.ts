@@ -25,11 +25,13 @@ async function loadHandleVerifyCommand({
   verificationEnabled = true,
   rateLimitPerMinute = 1,
   rateLimitPerHour = 10,
+  sessionTtlMinutes = 15,
   i18nMock,
 }: {
   verificationEnabled?: boolean;
   rateLimitPerMinute?: number;
   rateLimitPerHour?: number;
+  sessionTtlMinutes?: number;
   i18nMock?: ReturnType<typeof jest.fn>;
 } = {}) {
   jest.unstable_mockModule('../../utils/logger.js', () => ({
@@ -47,6 +49,7 @@ async function loadHandleVerifyCommand({
     isPurgeJobsEnabled: jest.fn(() => false),
     verifyRateLimitPerMinute: jest.fn(() => rateLimitPerMinute),
     verifyRateLimitPerHour: jest.fn(() => rateLimitPerHour),
+    verifySessionTtlMinutes: jest.fn(() => sessionTtlMinutes),
     rsiHttpTimeoutMs: jest.fn(() => 12_000),
   }));
 
@@ -61,8 +64,7 @@ async function loadHandleVerifyCommand({
     },
   }));
 
-  const { handleVerifyCommand } = await import('../verify.js');
-  return handleVerifyCommand;
+  return await import('../verify.js');
 }
 
 function makeVerifyInteraction(inGameName: string) {
@@ -85,7 +87,7 @@ describe('handleVerifyCommand — verification disabled', () => {
       if (phrase === 'commands.verify.options.inGameName.name') return 'in-game-name';
       return 'test-value';
     });
-    const handleVerifyCommand = await loadHandleVerifyCommand({ verificationEnabled: false, i18nMock });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ verificationEnabled: false, i18nMock });
     const interaction = makeVerifyInteraction('Testhandle123');
     await handleVerifyCommand(interaction);
 
@@ -99,7 +101,7 @@ describe('handleVerifyCommand — verification disabled', () => {
 
 describe('handleVerifyCommand — handle validation', () => {
   it('accepts a valid plain handle and proceeds to verification', async () => {
-    const handleVerifyCommand = await loadHandleVerifyCommand();
+    const { handleVerifyCommand } = await loadHandleVerifyCommand();
     const interaction = makeVerifyInteraction('Testhandle123');
     await handleVerifyCommand(interaction);
 
@@ -111,7 +113,7 @@ describe('handleVerifyCommand — handle validation', () => {
   });
 
   it('rejects a full RSI URL input', async () => {
-    const handleVerifyCommand = await loadHandleVerifyCommand();
+    const { handleVerifyCommand } = await loadHandleVerifyCommand();
     const interaction = makeVerifyInteraction('https://robertsspaceindustries.com/citizens/Testhandle123');
     await handleVerifyCommand(interaction);
 
@@ -121,7 +123,7 @@ describe('handleVerifyCommand — handle validation', () => {
   });
 
   it('rejects input containing a slash', async () => {
-    const handleVerifyCommand = await loadHandleVerifyCommand();
+    const { handleVerifyCommand } = await loadHandleVerifyCommand();
     const interaction = makeVerifyInteraction('citizens/Testhandle123');
     await handleVerifyCommand(interaction);
 
@@ -131,7 +133,7 @@ describe('handleVerifyCommand — handle validation', () => {
   });
 
   it('rejects an empty / too-short input', async () => {
-    const handleVerifyCommand = await loadHandleVerifyCommand();
+    const { handleVerifyCommand } = await loadHandleVerifyCommand();
     const interaction = makeVerifyInteraction('ab');
     await handleVerifyCommand(interaction);
 
@@ -141,7 +143,7 @@ describe('handleVerifyCommand — handle validation', () => {
   });
 
   it('rejects a handle that is too long', async () => {
-    const handleVerifyCommand = await loadHandleVerifyCommand();
+    const { handleVerifyCommand } = await loadHandleVerifyCommand();
     const interaction = makeVerifyInteraction('a'.repeat(61));
     await handleVerifyCommand(interaction);
 
@@ -153,7 +155,7 @@ describe('handleVerifyCommand — handle validation', () => {
 
 describe('handleVerifyCommand — rate limiting', () => {
   it('first invocation within a fresh window passes through', async () => {
-    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 10 });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 10 });
     const interaction = makeVerifyInteraction('PilotOne');
     await handleVerifyCommand(interaction);
 
@@ -167,7 +169,7 @@ describe('handleVerifyCommand — rate limiting', () => {
     const base = 1_700_000_000_000;
     nowSpy.mockReturnValueOnce(base).mockReturnValueOnce(base + 30_000);
 
-    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 10 });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 10 });
     await handleVerifyCommand(makeVerifyInteraction('PilotOne')); // first: passes
     const interaction2 = makeVerifyInteraction('PilotOne');
     await handleVerifyCommand(interaction2); // second: blocked
@@ -188,7 +190,7 @@ describe('handleVerifyCommand — rate limiting', () => {
       .mockReturnValueOnce(base + 180_000)
       .mockReturnValueOnce(base + 270_000); // 4th call — should be blocked
 
-    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 3 });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 3 });
     await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
     await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
     await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
@@ -210,7 +212,7 @@ describe('handleVerifyCommand — rate limiting', () => {
       .mockReturnValueOnce(base + 10_000)    // call 2 passes
       .mockReturnValueOnce(base + 20_000);   // call 3 blocked
 
-    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 2, rateLimitPerHour: 10 });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ rateLimitPerMinute: 2, rateLimitPerHour: 10 });
     await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
     await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
     const interaction3 = makeVerifyInteraction('PilotOne');
@@ -232,7 +234,7 @@ describe('handleVerifyCommand — rate limiting', () => {
       .mockReturnValueOnce(base + 90_000)
       .mockReturnValueOnce(base + 180_000); // blocked by hourly cap
 
-    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 2 });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 2 });
     await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
     await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
     const interaction3 = makeVerifyInteraction('PilotOne');
@@ -252,7 +254,7 @@ describe('handleVerifyCommand — rate limiting', () => {
       .mockReturnValueOnce(base)               // call 1: pushes base
       .mockReturnValueOnce(base + 3_601_000);  // call 2: base is >60 min old, pruned
 
-    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 1 });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 1 });
     await handleVerifyCommand(makeVerifyInteraction('PilotOne')); // fills the hourly slot
     const interaction2 = makeVerifyInteraction('PilotOne');
     await handleVerifyCommand(interaction2); // old entry pruned → passes
@@ -262,13 +264,13 @@ describe('handleVerifyCommand — rate limiting', () => {
     nowSpy.mockRestore();
   });
 
-  it('periodic sweep removes entries whose newest timestamp is older than 60 minutes', async () => {
+  it('periodic sweep (rate-limit timestamps) removes entries whose newest timestamp is older than 60 minutes', async () => {
     jest.useFakeTimers();
     const base = 1_700_000_000_000;
     jest.setSystemTime(base);
 
     // rateLimitPerHour:1 so that the first call fills the hourly window
-    const handleVerifyCommand = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 1 });
+    const { handleVerifyCommand } = await loadHandleVerifyCommand({ rateLimitPerMinute: 1, rateLimitPerHour: 1 });
     await handleVerifyCommand(makeVerifyInteraction('PilotOne')); // stores timestamp at base
 
     // Advance time by just over 60 minutes — triggers the sweep interval
@@ -281,6 +283,83 @@ describe('handleVerifyCommand — rate limiting', () => {
     const call = ((interaction2.reply as jest.Mock).mock.calls[0] as [{ content?: string; components?: unknown[] }])[0];
     expect(call.components).toBeDefined(); // verification proceeded, not rate-limited
 
+    jest.useRealTimers();
+  });
+});
+
+describe('purgeExpiredVerificationSessions', () => {
+  it('removes sessions whose createdAt is older than the TTL', async () => {
+    jest.useFakeTimers();
+    const base = 1_700_000_000_000;
+    jest.setSystemTime(base);
+
+    const { handleVerifyCommand, purgeExpiredVerificationSessions, getUserVerificationData } =
+      await loadHandleVerifyCommand({ sessionTtlMinutes: 15 });
+
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    // Session exists immediately after creation
+    expect(getUserVerificationData('user-1')).toBeDefined();
+
+    // Advance past the 15-minute TTL
+    jest.setSystemTime(base + 15 * 60 * 1000 + 1);
+    purgeExpiredVerificationSessions();
+
+    expect(getUserVerificationData('user-1')).toBeUndefined();
+    jest.useRealTimers();
+  });
+
+  it('retains sessions younger than the TTL', async () => {
+    jest.useFakeTimers();
+    const base = 1_700_000_000_000;
+    jest.setSystemTime(base);
+
+    const { handleVerifyCommand, purgeExpiredVerificationSessions, getUserVerificationData } =
+      await loadHandleVerifyCommand({ sessionTtlMinutes: 15 });
+
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+
+    // Advance to just before the TTL
+    jest.setSystemTime(base + 15 * 60 * 1000 - 1);
+    purgeExpiredVerificationSessions();
+
+    expect(getUserVerificationData('user-1')).toBeDefined();
+    jest.useRealTimers();
+  });
+});
+
+describe('getUserVerificationData — lazy TTL eviction', () => {
+  it('returns undefined and removes the entry when the session is past the TTL', async () => {
+    jest.useFakeTimers();
+    const base = 1_700_000_000_000;
+    jest.setSystemTime(base);
+
+    const { handleVerifyCommand, getUserVerificationData } =
+      await loadHandleVerifyCommand({ sessionTtlMinutes: 15 });
+
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+    expect(getUserVerificationData('user-1')).toBeDefined();
+
+    jest.setSystemTime(base + 15 * 60 * 1000 + 1);
+    expect(getUserVerificationData('user-1')).toBeUndefined();
+    // Second read confirms entry was deleted (not just transiently undefined)
+    expect(getUserVerificationData('user-1')).toBeUndefined();
+    jest.useRealTimers();
+  });
+
+  it('returns the session data when it is within the TTL', async () => {
+    jest.useFakeTimers();
+    const base = 1_700_000_000_000;
+    jest.setSystemTime(base);
+
+    const { handleVerifyCommand, getUserVerificationData } =
+      await loadHandleVerifyCommand({ sessionTtlMinutes: 15 });
+
+    await handleVerifyCommand(makeVerifyInteraction('PilotOne'));
+
+    jest.setSystemTime(base + 15 * 60 * 1000 - 1);
+    const data = getUserVerificationData('user-1');
+    expect(data).toBeDefined();
+    expect(data?.rsiProfileName).toBe('PilotOne');
     jest.useRealTimers();
   });
 });
