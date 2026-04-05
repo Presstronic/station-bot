@@ -2,6 +2,7 @@ import { getLogger } from '../utils/logger.js';
 import { fetchHtml } from './web-scraping.services.js';
 import { parseSelectorCheckInWorker, parseCanonicalHandleInWorker } from '../workers/html-parse.pool.js';
 import { getUserVerificationData } from '../commands/verify.js';
+import { getRsiConfig, buildCitizenUrl } from '../config/rsi.config.js';
 
 const logger = getLogger();
 
@@ -29,17 +30,19 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
     }
 
     const rsiProfileName = userData.rsiProfileName.trim();
-    const url = `https://robertsspaceindustries.com/en/citizens/${encodeURIComponent(rsiProfileName)}`;
-    const parentSelector = 'div.entry.bio';
-    const childSelector = 'div.value';
+    let url: string | undefined;
 
     logger.debug(`Verifying RSI Profile: ${rsiProfileName}`);
-    logger.debug(`RSI Profile URL: ${url}`);
 
     try {
+        url = buildCitizenUrl(rsiProfileName);
+        const { bioParentSelector, bioChildSelector } = getRsiConfig();
+
+        logger.debug(`RSI Profile URL: ${url}`);
+
         const html = await fetchHtml(url);
         const [verified, canonicalHandle] = await Promise.all([
-            parseSelectorCheckInWorker(html, parentSelector, childSelector, userData.dreadnoughtValidationCode),
+            parseSelectorCheckInWorker(html, bioParentSelector, bioChildSelector, userData.dreadnoughtValidationCode),
             parseCanonicalHandleInWorker(html, rsiProfileName),
         ]);
         logger.info('RSI profile verification completed', {
@@ -49,7 +52,7 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
         });
         return { verified, canonicalHandle };
     } catch (error) {
-        logger.error('RSI profile verification error', { userId, rsiHandle: rsiProfileName, error });
+        logger.error('RSI profile verification error', { userId, rsiHandle: rsiProfileName, error, url });
         return { verified: false, canonicalHandle: rsiProfileName };
     }
 }
