@@ -1,11 +1,12 @@
 import axios from 'axios';
 import { getLogger } from '../utils/logger.js';
 import { parseSelectorCheckInWorker } from '../workers/html-parse.pool.js';
+import { rsiHttpTimeoutMs } from '../config/runtime-flags.js';
 
 const logger = getLogger();
 
 export async function fetchHtml(url: string): Promise<string> {
-    const { data } = await axios.get<string>(url);
+    const { data } = await axios.get<string>(url, { timeout: rsiHttpTimeoutMs() });
     return data;
 }
 

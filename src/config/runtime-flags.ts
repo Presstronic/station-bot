@@ -4,8 +4,11 @@ const falseValues = new Set(['0', 'false', 'no', 'off']);
 function envInt(name: string, defaultValue: number): number {
   const raw = process.env[name];
   if (!raw) return defaultValue;
-  const parsed = parseInt(raw, 10);
-  return isNaN(parsed) || parsed <= 0 ? defaultValue : parsed;
+  const normalizedRaw = raw.trim();
+  const parsed = Number(normalizedRaw);
+  return Number.isFinite(parsed) && Number.isInteger(parsed) && parsed > 0
+    ? parsed
+    : defaultValue;
 }
 
 function envFlag(name: string, defaultValue = false): boolean {
@@ -45,4 +48,8 @@ export function verifyRateLimitPerMinute(): number {
 
 export function verifyRateLimitPerHour(): number {
   return envInt('VERIFY_RATE_LIMIT_PER_HOUR', 10);
+}
+
+export function rsiHttpTimeoutMs(): number {
+  return envInt('RSI_HTTP_TIMEOUT_MS', 12_000);
 }
