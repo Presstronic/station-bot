@@ -87,6 +87,10 @@ async function loadIndexAndRunReady(
   await jest.unstable_mockModule('../utils/startup-banner.js', () => ({
     buildStartupBanner,
   }));
+  await jest.unstable_mockModule('../utils/permission-check.js', () => ({
+    checkBotPermissions: jest.fn(() => []),
+    notifyOwnerOfMissingPermissions: jest.fn(async () => undefined),
+  }));
   await jest.unstable_mockModule('../utils/logger.js', () => ({
     getLogger: () => logger,
   }));
@@ -264,6 +268,10 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../utils/startup-banner.js', () => ({
       buildStartupBanner: jest.fn(() => '[startup banner]'),
     }));
+    await jest.unstable_mockModule('../utils/permission-check.js', () => ({
+      checkBotPermissions: jest.fn(() => []),
+      notifyOwnerOfMissingPermissions: jest.fn(async () => undefined),
+    }));
     await jest.unstable_mockModule('../utils/logger.js', () => ({
       getLogger: () => logger,
     }));
@@ -366,6 +374,10 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../utils/startup-banner.js', () => ({
       buildStartupBanner: jest.fn(() => '[startup banner]'),
+    }));
+    await jest.unstable_mockModule('../utils/permission-check.js', () => ({
+      checkBotPermissions: jest.fn(() => []),
+      notifyOwnerOfMissingPermissions: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../utils/logger.js', () => ({ getLogger: () => logger }));
     await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
