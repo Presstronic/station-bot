@@ -12,6 +12,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   type ForumChannel,
+  type ThreadChannel,
 } from 'discord.js';
 import { getManufacturingConfig, isManufacturingEnabled } from '../config/manufacturing.config.js';
 import { submitOrder } from '../domain/manufacturing/manufacturing.service.js';
@@ -345,7 +346,7 @@ export async function handleOrderButtonInteraction(
       return;
     }
 
-    let thread: { id: string };
+    let thread: ThreadChannel;
     try {
       thread = await forumChannel.threads.create({
         name: `Order #${order.id} — ${interaction.user.username}`,
@@ -379,6 +380,22 @@ export async function handleOrderButtonInteraction(
         threadId: thread.id,
         error,
       });
+    }
+
+    const { manufacturingRoleId } = getManufacturingConfig();
+    if (manufacturingRoleId) {
+      try {
+        await thread.send({
+          content: `<@&${manufacturingRoleId}> New order submitted.`,
+          allowedMentions: { roles: [manufacturingRoleId] },
+        });
+      } catch (error) {
+        logger.warn('[manufacturing] Failed to send role ping in order thread', {
+          orderId: order.id,
+          threadId: thread.id,
+          error,
+        });
+      }
     }
 
     const linkWarning = forumLinkFailed

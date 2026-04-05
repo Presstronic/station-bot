@@ -85,7 +85,7 @@ function makeButtonInteraction(
             availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
           })),
           threads: {
-            create: jest.fn(async () => ({ id: 'thread-id' })),
+            create: jest.fn(async () => ({ id: 'thread-id', send: jest.fn(async () => {}) })),
           },
         })),
       },
@@ -564,7 +564,7 @@ describe('handleOrderButtonInteraction', () => {
   it('passes allowedMentions scoped to the order owner when creating the forum thread', async () => {
     const order = makeOrder({ id: 55, discordUserId: 'owner-uid' });
     const submitOrderMock = jest.fn(async () => order);
-    const createThreadMock = jest.fn(async () => ({ id: 'thread-id' }));
+    const createThreadMock = jest.fn(async () => ({ id: 'thread-id', send: jest.fn(async () => {}) }));
     const h = await setupMocks({ submitOrder: submitOrderMock });
 
     await createSession(h, 'mention-btn');
@@ -604,6 +604,102 @@ describe('handleOrderButtonInteraction', () => {
     await h.handleOrderButtonInteraction(btn as any);
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/active order limit/i) }),
+    );
+  });
+
+  it('sends a role ping into the thread after successful order creation', async () => {
+    const sendMock = jest.fn(async () => {});
+    const h = await setupMocks();
+
+    await createSession(h, 'ping-btn');
+    await addItemToSession(h, 'ping-btn');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:ping-btn`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => ({
+            type: 15,
+            availableTags: [],
+            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+            })),
+            threads: {
+              create: jest.fn(async () => ({ id: 'thread-id', send: sendMock })),
+            },
+          })),
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+
+    expect(sendMock).toHaveBeenCalledWith({
+      content: '<@&mfg-role> New order submitted.',
+      allowedMentions: { roles: ['mfg-role'] },
+    });
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Order #42/i) }),
+    );
+  });
+
+  it('still sends the success reply when the role ping throws', async () => {
+    const sendMock = jest.fn(async () => { throw new Error('ping failed'); });
+    const h = await setupMocks();
+
+    await createSession(h, 'ping-fail');
+    await addItemToSession(h, 'ping-fail');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:ping-fail`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => ({
+            type: 15,
+            availableTags: [],
+            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+            })),
+            threads: {
+              create: jest.fn(async () => ({ id: 'thread-id', send: sendMock })),
+            },
+          })),
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+
+    expect(sendMock).toHaveBeenCalledTimes(1);
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Order #42/i) }),
+    );
+  });
+
+  it('skips the role ping when manufacturingRoleId is not configured', async () => {
+    const sendMock = jest.fn(async () => {});
+    const h = await setupMocks({ configOverrides: { manufacturingRoleId: '' } });
+
+    await createSession(h, 'no-role');
+    await addItemToSession(h, 'no-role');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:no-role`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => ({
+            type: 15,
+            availableTags: [],
+            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+            })),
+            threads: {
+              create: jest.fn(async () => ({ id: 'thread-id', send: sendMock })),
+            },
+          })),
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+
+    expect(sendMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Order #42/i) }),
     );
   });
 
