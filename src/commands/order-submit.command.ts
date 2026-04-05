@@ -200,7 +200,7 @@ export async function handleOrderItemModal(
 
   if (!items) {
     await interaction.reply({
-      content: 'Your order session has expired. Please use `/order submit` to start a new order.',
+      content: 'Your order session has expired. Please use `/order` to start a new order.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -257,7 +257,7 @@ export async function handleOrderButtonInteraction(
 
   if (!items) {
     await interaction.update({
-      content: 'Your order session has expired. Please use `/order submit` to start a new order.',
+      content: 'Your order session has expired. Please use `/order` to start a new order.',
       components: [],
     });
     return;
