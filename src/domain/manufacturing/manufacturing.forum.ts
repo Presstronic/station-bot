@@ -76,6 +76,7 @@ export function formatTransitionReply(newStatus: OrderStatus, actorId: string): 
   return `📋 Status updated to **${STATUS_LABEL[newStatus]}** by <@${actorId}> — ${date}`;
 }
 
+export const MFG_CREATE_ORDER_PREFIX = 'mfg-create-order';
 export const MFG_CANCEL_ORDER_PREFIX = 'mfg-cancel-order';
 export const MFG_ACCEPT_ORDER_PREFIX = 'mfg-accept-order';
 export const MFG_STAFF_CANCEL_PREFIX = 'mfg-staff-cancel';

@@ -169,6 +169,7 @@ async function setupMocks(overrides: {
     ORDER_STATUS_TAG_NAMES: ['New', 'Accepted', 'Processing', 'Ready for Pickup', 'Complete', 'Cancelled'],
     STATUS_LABEL: { new: '🆕 New', accepted: '✅ Accepted', processing: '⚙️ Processing', ready_for_pickup: '📬 Ready for Pickup', complete: '✔️ Complete', cancelled: '🚫 Cancelled' },
     STATUS_TO_TAG: { new: 'New', accepted: 'Accepted', processing: 'Processing', ready_for_pickup: 'Ready for Pickup', complete: 'Complete', cancelled: 'Cancelled' },
+    MFG_CREATE_ORDER_PREFIX: 'mfg-create-order',
     MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
     MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
     MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
@@ -273,6 +274,51 @@ describe('handleOrderCommand', () => {
     expect(i.showModal).toHaveBeenCalledTimes(1);
     const modal = (i.showModal as jest.Mock).mock.calls[0][0] as { data: { custom_id: string } };
     expect(modal.data.custom_id).toBe(`${h.ITEM_MODAL_PREFIX}:abc123`);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// triggerOrderModal — button entry point
+// ---------------------------------------------------------------------------
+
+describe('triggerOrderModal (button interaction)', () => {
+  it('shows the item modal when called with an authorized ButtonInteraction', async () => {
+    const h = await setupMocks();
+    // Simulate a ButtonInteraction with the Create Order customId
+    const i: Record<string, unknown> = {
+      inGuild: () => true,
+      id: 'btn-id-1',
+      customId: 'mfg-create-order',
+      user: { id: 'user-1', username: 'TestUser' },
+      replied: false,
+      deferred: false,
+      reply: jest.fn(async () => { i.replied = true; }),
+      showModal: jest.fn(async () => {}),
+    };
+    await h.triggerOrderModal(i as any);
+    expect(i.showModal).toHaveBeenCalledTimes(1);
+    expect(i.reply).not.toHaveBeenCalled();
+    const modal = (i.showModal as jest.Mock).mock.calls[0][0] as { data: { custom_id: string } };
+    expect(modal.data.custom_id).toBe(`${h.ITEM_MODAL_PREFIX}:btn-id-1`);
+  });
+
+  it('replies with unavailable message when manufacturing is disabled', async () => {
+    const h = await setupMocks({ manufacturingEnabled: false });
+    const i: Record<string, unknown> = {
+      inGuild: () => true,
+      id: 'btn-id-2',
+      customId: 'mfg-create-order',
+      user: { id: 'user-1', username: 'TestUser' },
+      replied: false,
+      deferred: false,
+      reply: jest.fn(async () => { i.replied = true; }),
+      showModal: jest.fn(async () => {}),
+    };
+    await h.triggerOrderModal(i as any);
+    expect((i.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/not currently available/i),
+    });
+    expect(i.showModal).not.toHaveBeenCalled();
   });
 });
 

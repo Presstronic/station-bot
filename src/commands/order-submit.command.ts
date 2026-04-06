@@ -137,8 +137,13 @@ function buildItemCollectionComponents(
   ];
 }
 
-export async function handleOrderCommand(
-  interaction: ChatInputCommandInteraction,
+/**
+ * Shared entry point for starting the order creation modal flow. Called by
+ * both the `/order` slash command and the 📋 Create Order button so the
+ * eligibility checks and session setup are not duplicated.
+ */
+export async function triggerOrderModal(
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
 ): Promise<void> {
   if (!isManufacturingEnabled()) {
     await interaction.reply({
@@ -191,6 +196,12 @@ export async function handleOrderCommand(
     expiresAt: Date.now() + SESSION_TTL_MS,
   });
   await interaction.showModal(buildItemModal(`${ITEM_MODAL_PREFIX}:${interaction.id}`, 1));
+}
+
+export async function handleOrderCommand(
+  interaction: ChatInputCommandInteraction,
+): Promise<void> {
+  return triggerOrderModal(interaction);
 }
 
 export async function handleOrderItemModal(
