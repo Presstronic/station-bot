@@ -35,6 +35,7 @@ export async function handleManufacturingSetupCommand(
 ): Promise<void> {
   if (interaction.options.getSubcommand() !== 'setup') return;
 
+  // Fast sync guards — no defer needed, reply directly.
   if (!isManufacturingEnabled()) {
     await interaction.reply({
       content: 'Manufacturing is not currently enabled.',
@@ -52,42 +53,48 @@ export async function handleManufacturingSetupCommand(
     return;
   }
 
+  // Defer before any async Discord API work so we don't risk timing out the
+  // 3-second interaction window while fetching channels and threads.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
   let channel;
   try {
     channel = await interaction.client.channels.fetch(forumChannelId);
   } catch (error) {
     logger.error('[manufacturing] Failed to fetch forum channel during setup', { error });
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Failed to fetch the manufacturing channel. Please check the configuration.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   if (!channel || channel.type !== ChannelType.GuildForum) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'The configured manufacturing channel is not a valid forum channel.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   const forumChannel = channel as unknown as ForumChannel;
 
-  // Guard: check whether a Create Order thread already exists so setup is
-  // idempotent and does not spam the channel on repeated invocations.
+  // Guard: check both active and archived threads so that an auto-archived
+  // setup thread does not cause a duplicate on repeated invocations.
   try {
-    const active = await forumChannel.threads.fetchActive();
-    const alreadySetUp = active.threads.some((t) => t.name === CREATE_ORDER_THREAD_NAME);
+    const [active, archived] = await Promise.all([
+      forumChannel.threads.fetchActive(),
+      forumChannel.threads.fetchArchived(),
+    ]);
+    const alreadySetUp =
+      active.threads.some((t) => t.name === CREATE_ORDER_THREAD_NAME) ||
+      archived.threads.some((t) => t.name === CREATE_ORDER_THREAD_NAME);
     if (alreadySetUp) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'Manufacturing channel is already set up.',
-        flags: MessageFlags.Ephemeral,
       });
       return;
     }
   } catch (error) {
-    logger.warn('[manufacturing] Could not fetch active threads during setup duplicate check', { error });
+    logger.warn('[manufacturing] Could not fetch threads during setup duplicate check', { error });
     // Non-fatal — proceed and post; worst case is a duplicate thread.
   }
 
@@ -108,15 +115,13 @@ export async function handleManufacturingSetupCommand(
     });
   } catch (error) {
     logger.error('[manufacturing] Failed to create Create Order thread', { error });
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Failed to post the setup message to the manufacturing channel.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  await interaction.reply({
+  await interaction.editReply({
     content: '✅ Manufacturing channel set up.',
-    flags: MessageFlags.Ephemeral,
   });
 }
