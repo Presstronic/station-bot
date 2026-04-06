@@ -33,7 +33,9 @@ const CREATE_ORDER_THREAD_NAME = '📋 Create Order';
 export async function handleManufacturingSetupCommand(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
-  if (interaction.options.getSubcommand() !== 'setup') return;
+  // getSubcommand(false) returns null rather than throwing when no subcommand
+  // is present, which can happen with out-of-sync or partial command payloads.
+  if (interaction.options.getSubcommand(false) !== 'setup') return;
 
   // Fast sync guards — no defer needed, reply directly.
   if (!isManufacturingEnabled()) {
@@ -56,6 +58,16 @@ export async function handleManufacturingSetupCommand(
   // Defer before any async Discord API work so we don't risk timing out the
   // 3-second interaction window while fetching channels and threads.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  // Defense-in-depth admin check. setDefaultMemberPermissions is a default
+  // that server admins can override in Discord's integrations settings, so we
+  // verify the permission at runtime to prevent accidental exposure.
+  if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
+    await interaction.editReply({
+      content: 'This command requires Administrator permissions and must be used in a server.',
+    });
+    return;
+  }
 
   let channel;
   try {

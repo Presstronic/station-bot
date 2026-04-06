@@ -49,13 +49,19 @@ function makeChannel({
 function makeInteraction({
   subcommand = 'setup',
   channelFetch = jest.fn(async () => makeChannel()),
+  inGuild = true,
+  isAdmin = true,
 }: {
   subcommand?: string;
   channelFetch?: jest.Mock;
+  inGuild?: boolean;
+  isAdmin?: boolean;
 } = {}) {
   const i: Record<string, unknown> = {
     replied: false,
     deferred: false,
+    inGuild: () => inGuild,
+    memberPermissions: { has: jest.fn(() => isAdmin) },
     options: { getSubcommand: jest.fn(() => subcommand) },
     client: { channels: { fetch: channelFetch } },
     reply: jest.fn(async () => { i.replied = true; }),
@@ -135,6 +141,32 @@ describe('handleManufacturingSetupCommand', () => {
       content: expect.stringMatching(/not configured/i),
     });
     expect(i.deferReply).not.toHaveBeenCalled();
+    expect(threadsCreate).not.toHaveBeenCalled();
+  });
+
+  it('defers and rejects when the interaction is not in a guild', async () => {
+    const { handleManufacturingSetupCommand } = await setupMocks();
+    const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
+    const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
+    const i = makeInteraction({ channelFetch, inGuild: false });
+    await handleManufacturingSetupCommand(i as any);
+    expect(i.deferReply).toHaveBeenCalledTimes(1);
+    expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/administrator/i),
+    });
+    expect(threadsCreate).not.toHaveBeenCalled();
+  });
+
+  it('defers and rejects when the user is not an administrator', async () => {
+    const { handleManufacturingSetupCommand } = await setupMocks();
+    const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
+    const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
+    const i = makeInteraction({ channelFetch, isAdmin: false });
+    await handleManufacturingSetupCommand(i as any);
+    expect(i.deferReply).toHaveBeenCalledTimes(1);
+    expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/administrator/i),
+    });
     expect(threadsCreate).not.toHaveBeenCalled();
   });
 
