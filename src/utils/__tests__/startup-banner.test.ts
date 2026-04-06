@@ -64,14 +64,14 @@ describe('buildStartupBanner', () => {
     expect(banner).toMatch(/Purge jobs\s+: disabled/);
   });
 
-  it('shows "enabled" when rsi verification is on', () => {
-    const banner = buildStartupBanner({ ...BASE_OPTIONS, rsiVerificationEnabled: true });
-    expect(banner).toMatch(/RSI Verification\s+: enabled/);
+  it('shows "disabled" when rsi verification is off', () => {
+    const banner = buildStartupBanner({ ...BASE_OPTIONS, rsiVerificationEnabled: false });
+    expect(banner).toMatch(/RSI Verification\s+: disabled/);
   });
 
-  it('shows "enabled" when manufacturing orders are on', () => {
-    const banner = buildStartupBanner({ ...BASE_OPTIONS, manufacturingOrdersEnabled: true });
-    expect(banner).toMatch(/Mfg\. Orders\s+: enabled/);
+  it('shows "disabled" when manufacturing orders are off', () => {
+    const banner = buildStartupBanner({ ...BASE_OPTIONS, manufacturingOrdersEnabled: false });
+    expect(banner).toMatch(/Mfg\. Orders\s+: disabled/);
   });
 
   it('all lines have the same length', () => {
