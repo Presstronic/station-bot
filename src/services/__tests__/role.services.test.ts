@@ -45,6 +45,7 @@ function makeGuild({
 }: { roleNames?: string[]; member?: Member | null } = {}) {
   return {
     name: 'Test Guild',
+    id: 'guild-1',
     roles: {
       cache: makeRoleCache(roleNames),
       fetch: jest.fn(async () => {}),
@@ -57,8 +58,11 @@ function makeGuild({
   };
 }
 
-function makeInteraction(guild: ReturnType<typeof makeGuild> | null = makeGuild()) {
-  return { guild } as unknown as ButtonInteraction;
+function makeInteraction(
+  guild: ReturnType<typeof makeGuild> | null = makeGuild(),
+  { hasManageRoles = true }: { hasManageRoles?: boolean } = {},
+) {
+  return { guild, appPermissions: { has: jest.fn(() => hasManageRoles) } } as unknown as ButtonInteraction;
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +136,18 @@ describe('assignVerifiedRole', () => {
     expect(await assignVerifiedRole(makeInteraction(guild), 'user-1')).toBe(true);
     expect(member.roles.add).toHaveBeenCalledWith(expect.objectContaining({ name: 'Verified' }));
   });
+
+  it('returns false when bot is missing ManageRoles permission', async () => {
+    const { assignVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
+    const member = makeMember();
+    const guild = makeGuild({ member });
+    expect(await assignVerifiedRole(makeInteraction(guild, { hasManageRoles: false }), 'user-1')).toBe(false);
+    expect(member.roles.add).not.toHaveBeenCalled();
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('ManageRoles'),
+      expect.objectContaining({ guildId: guild.id }),
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -198,6 +214,18 @@ describe('removeVerifiedRole', () => {
     const guild = makeGuild({ roleNames: ['Verified'], member });
     expect(await removeVerifiedRole(makeInteraction(guild), 'user-1')).toBe(true);
     expect(member.roles.remove).toHaveBeenCalledWith(expect.objectContaining({ name: 'Verified' }));
+  });
+
+  it('returns false when bot is missing ManageRoles permission', async () => {
+    const { removeVerifiedRole, loggerError } = await loadRoleServicesWithLogger();
+    const member = makeMember();
+    const guild = makeGuild({ member });
+    expect(await removeVerifiedRole(makeInteraction(guild, { hasManageRoles: false }), 'user-1')).toBe(false);
+    expect(member.roles.remove).not.toHaveBeenCalled();
+    expect(loggerError).toHaveBeenCalledWith(
+      expect.stringContaining('ManageRoles'),
+      expect.objectContaining({ guildId: guild.id }),
+    );
   });
 });
 
