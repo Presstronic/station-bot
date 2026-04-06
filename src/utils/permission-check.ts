@@ -9,8 +9,8 @@ import { getLogger } from './logger.js';
  * PermissionFlagsBits for the has() check — avoiding a second reverse-lookup
  * that bigint-based APIs would require.
  *
- * Extract<…, string> excludes the numeric reverse-mapping keys that TypeScript
- * adds for const enums, keeping the type to named string keys only.
+ * Extract<…, string> narrows keyof PermissionFlagsBits to its named string
+ * keys only, excluding any non-string keys from broader typings.
  */
 type PermissionKey = Extract<keyof typeof PermissionFlagsBits, string>;
 
