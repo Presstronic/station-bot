@@ -8,8 +8,11 @@ import { getLogger } from './logger.js';
  * look up human-readable labels via PERMISSION_LABELS and index directly into
  * PermissionFlagsBits for the has() check — avoiding a second reverse-lookup
  * that bigint-based APIs would require.
+ *
+ * Extract<…, string> excludes the numeric reverse-mapping keys that TypeScript
+ * adds for const enums, keeping the type to named string keys only.
  */
-type PermissionKey = keyof typeof PermissionFlagsBits;
+type PermissionKey = Extract<keyof typeof PermissionFlagsBits, string>;
 
 const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
   ManageRoles: 'Manage Roles — required to assign the Verified role',

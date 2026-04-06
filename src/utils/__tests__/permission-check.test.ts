@@ -16,7 +16,7 @@ const allFlags = {
   manufacturingEnabled: true,
 };
 
-function makeMe(grantedKeys: (keyof typeof PermissionFlagsBits)[]) {
+function makeMe(grantedKeys: Extract<keyof typeof PermissionFlagsBits, string>[]) {
   const granted = new Set(grantedKeys.map((k) => PermissionFlagsBits[k]));
   return { permissions: { has: jest.fn((perm: bigint) => granted.has(perm)) } };
 }

@@ -54,6 +54,17 @@ if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   manufacturingEnabled = false;
 }
 
+// Returns the feature flags that are actually active in the current mode.
+// Features are treated as disabled when readOnlyMode is true so permission
+// audits do not raise false alarms for features that won't run.
+function getEffectiveAuditFlags() {
+  return {
+    verificationEnabled: verificationEnabled && !readOnlyMode,
+    purgeJobsEnabled: purgeJobsEnabled && !readOnlyMode,
+    manufacturingEnabled: manufacturingEnabled && !readOnlyMode,
+  };
+}
+
 process.on('uncaughtException', (error) => {
   logger.error(`Uncaught Exception: ${error.message}`, error);
   process.exit(1);
@@ -194,20 +205,11 @@ client.once('clientReady', async () => {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
   }
 
-  // Compute effective feature flags — features that are disabled in read-only mode
-  // won't exercise their required permissions, so exclude them from the audit to
-  // avoid sending the guild owner a misleading "missing permissions" DM.
-  const auditFlags = {
-    verificationEnabled: verificationEnabled && !readOnlyMode,
-    purgeJobsEnabled: purgeJobsEnabled && !readOnlyMode,
-    manufacturingEnabled: manufacturingEnabled && !readOnlyMode,
-  };
-
   // Fire permission audits in the background — DM delivery is independent per
   // guild and must not gate the startup completion log.
   void Promise.allSettled(
     [...client.guilds.cache.values()].map(async (guild) => {
-      const missingPerms = checkBotPermissions(guild, auditFlags);
+      const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags());
       if (missingPerms.length > 0) {
         logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
         await notifyOwnerOfMissingPermissions(guild, missingPerms);
@@ -251,11 +253,7 @@ client.on('guildCreate', async (guild) => {
     }
   }
 
-  const missingPerms = checkBotPermissions(guild, {
-    verificationEnabled: verificationEnabled && !readOnlyMode,
-    purgeJobsEnabled: purgeJobsEnabled && !readOnlyMode,
-    manufacturingEnabled: manufacturingEnabled && !readOnlyMode,
-  });
+  const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags());
   if (missingPerms.length > 0) {
     logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
     await notifyOwnerOfMissingPermissions(guild, missingPerms);
