@@ -4,16 +4,35 @@ import { createRequire } from 'node:module';
 import { ChannelType, Client, ForumChannel, IntentsBitField } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
 import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
-import { scheduleTemporaryMemberCleanup, schedulePotentialApplicantCleanup } from './jobs/discord/purge-member.job.js';
+import {
+  scheduleTemporaryMemberCleanup,
+  schedulePotentialApplicantCleanup,
+} from './jobs/discord/purge-member.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
-import { validateManufacturingConfig, isManufacturingEnabled, getManufacturingConfig } from './config/manufacturing.config.js';
-import { endDbPoolIfInitialized, ensureNominationsSchema, isDatabaseConfigured } from './services/nominations/db.js';
+import {
+  validateManufacturingConfig,
+  isManufacturingEnabled,
+  getManufacturingConfig,
+} from './config/manufacturing.config.js';
+import {
+  endDbPoolIfInitialized,
+  ensureNominationsSchema,
+  isDatabaseConfigured,
+} from './services/nominations/db.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
-import { startEventLoopMonitor, subscribeRestEvents, subscribeUndiciDiagnostics } from './utils/diagnostics.js';
+import {
+  startEventLoopMonitor,
+  subscribeRestEvents,
+  subscribeUndiciDiagnostics,
+} from './utils/diagnostics.js';
+import {
+  checkBotPermissions,
+  notifyOwnerOfMissingPermissions,
+} from './utils/permission-check.js';
 
 const _require = createRequire(import.meta.url);
 const { version: appVersion } = _require('../package.json') as { version: string };
@@ -29,8 +48,21 @@ if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   for (const error of manufacturingConfigErrors) {
     logger.error(`[manufacturing] Configuration error: ${error}`);
   }
-  logger.error('[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.');
+  logger.error(
+    '[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.',
+  );
   manufacturingEnabled = false;
+}
+
+// Returns the feature flags that are actually active in the current mode.
+// Features are treated as disabled when readOnlyMode is true so permission
+// audits do not raise false alarms for features that won't run.
+function getEffectiveAuditFlags() {
+  return {
+    verificationEnabled: verificationEnabled && !readOnlyMode,
+    purgeJobsEnabled: purgeJobsEnabled && !readOnlyMode,
+    manufacturingEnabled: manufacturingEnabled && !readOnlyMode,
+  };
 }
 
 process.on('uncaughtException', (error) => {
@@ -49,10 +81,7 @@ if (!DISCORD_BOT_TOKEN) {
 }
 
 const client = new Client({
-  intents: [
-    IntentsBitField.Flags.Guilds,
-    IntentsBitField.Flags.GuildMembers,
-  ],
+  intents: [IntentsBitField.Flags.Guilds, IntentsBitField.Flags.GuildMembers],
 });
 
 // Declared at module scope so the shutdown handler can stop them regardless of
@@ -114,9 +143,7 @@ client.once('clientReady', async () => {
 
   const commandRegistration = await registerAllCommands();
   if (commandRegistration.failed.length > 0) {
-    logger.warn(
-      `Some slash commands failed registration: ${commandRegistration.failed.join(', ')}`
-    );
+    logger.warn(`Some slash commands failed registration: ${commandRegistration.failed.join(', ')}`);
   }
   if (readOnlyMode) {
     logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
@@ -131,9 +158,13 @@ client.once('clientReady', async () => {
           await ensureForumTags(ch);
           logger.info('[manufacturing] Forum tags verified.');
         } else if (ch) {
-          logger.warn(`[manufacturing] Configured forumChannelId=${forumChannelId} resolved to a non-forum channel. Forum tag verification skipped.`);
+          logger.warn(
+            `[manufacturing] Configured forumChannelId=${forumChannelId} resolved to a non-forum channel. Forum tag verification skipped.`,
+          );
         } else {
-          logger.warn(`[manufacturing] Configured forumChannelId=${forumChannelId} did not resolve to an accessible channel. Forum tag verification skipped.`);
+          logger.warn(
+            `[manufacturing] Configured forumChannelId=${forumChannelId} did not resolve to an accessible channel. Forum tag verification skipped.`,
+          );
         }
       } catch (error) {
         logger.error('[manufacturing] Failed to ensure forum tags:', error);
@@ -150,7 +181,7 @@ client.once('clientReady', async () => {
           } catch (error) {
             logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
           }
-        })
+        }),
       );
       logger.info('Verification enabled — role setup complete.');
     } else {
@@ -174,6 +205,18 @@ client.once('clientReady', async () => {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
   }
 
+  // Fire permission audits in the background — DM delivery is independent per
+  // guild and must not gate the startup completion log.
+  void Promise.allSettled(
+    [...client.guilds.cache.values()].map(async (guild) => {
+      const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags());
+      if (missingPerms.length > 0) {
+        logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
+        await notifyOwnerOfMissingPermissions(guild, missingPerms);
+      }
+    }),
+  );
+
   logger.info('Startup tasks completed.');
   logger.info(
     buildStartupBanner({
@@ -185,10 +228,12 @@ client.once('clientReady', async () => {
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
       purgeJobsEnabled: !readOnlyMode && purgeJobsEnabled,
+      rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
+      manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
       guildCount: client.guilds.cache.size,
       botTag: client.user?.tag ?? 'unknown',
       startedAt: new Date().toISOString(),
-    })
+    }),
   );
 });
 
@@ -197,22 +242,21 @@ client.on('guildCreate', async (guild) => {
 
   if (readOnlyMode) {
     logger.warn(`[${guild.name}] Read-only mode enabled; skipping role setup on guild join.`);
-    return;
-  }
-
-  if (!verificationEnabled) {
+  } else if (!verificationEnabled) {
     logger.info(`[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`);
-    return;
+  } else {
+    try {
+      await addMissingDefaultRoles(guild, client);
+      logger.info(`[${guild.name}] Successfully ensured required roles.`);
+    } catch (error) {
+      logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+    }
   }
 
-  try {
-    await addMissingDefaultRoles(guild, client);
-    logger.info(`[${guild.name}] Successfully ensured required roles.`);
-  } catch (error) {
-    logger.error(
-      `[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`,
-      error
-    );
+  const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags());
+  if (missingPerms.length > 0) {
+    logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
+    await notifyOwnerOfMissingPermissions(guild, missingPerms);
   }
 });
 
