@@ -37,17 +37,23 @@ import {
   handleOrderCommand,
   handleOrderItemModal,
   handleOrderButtonInteraction,
+  triggerOrderModal,
   ORDER_COMMAND_NAME,
   ITEM_MODAL_PREFIX,
   ADD_ITEM_BUTTON_PREFIX,
   SUBMIT_ORDER_BUTTON_PREFIX,
 } from '../commands/order-submit.command.js';
 import {
+  handleManufacturingSetupCommand,
+  MANUFACTURING_SETUP_COMMAND_NAME,
+} from '../commands/manufacturing-setup.command.js';
+import {
   handleMfgCancelOrder,
   handleMfgStaffCancel,
   handleMfgAdvance,
 } from '../commands/order-actions.command.js';
 import {
+  MFG_CREATE_ORDER_PREFIX,
   MFG_CANCEL_ORDER_PREFIX,
   MFG_ACCEPT_ORDER_PREFIX,
   MFG_STAFF_CANCEL_PREFIX,
@@ -140,6 +146,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleNominationAuditCommand(interaction);
         } else if (interaction.commandName === ORDER_COMMAND_NAME) {
           await handleOrderCommand(interaction);
+        } else if (interaction.commandName === MANUFACTURING_SETUP_COMMAND_NAME) {
+          await handleManufacturingSetupCommand(interaction);
         }
         return;
       }
@@ -160,7 +168,9 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
       }
 
       if (interaction.isButton()) {
-        if (
+        if (interaction.customId === MFG_CREATE_ORDER_PREFIX) {
+          await triggerOrderModal(interaction);
+        } else if (
           interaction.customId.startsWith(`${ADD_ITEM_BUTTON_PREFIX}:`) ||
           interaction.customId.startsWith(`${SUBMIT_ORDER_BUTTON_PREFIX}:`)
         ) {

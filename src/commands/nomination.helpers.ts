@@ -1,4 +1,5 @@
 import {
+  ButtonInteraction,
   ChatInputCommandInteraction,
   GuildMember,
   PermissionFlagsBits,
@@ -29,7 +30,7 @@ export function getCommandLocale(interaction: ChatInputCommandInteraction): stri
 }
 
 export async function getGuildMember(
-  interaction: ChatInputCommandInteraction
+  interaction: ChatInputCommandInteraction | ButtonInteraction
 ): Promise<GuildMember | null> {
   const guild = interaction.guild;
   if (!guild) {
@@ -43,7 +44,7 @@ export async function getGuildMember(
 }
 
 export async function hasOrganizationMemberOrHigher(
-  interaction: ChatInputCommandInteraction
+  interaction: ChatInputCommandInteraction | ButtonInteraction
 ): Promise<boolean> {
   if (!interaction.inGuild()) {
     return false;
