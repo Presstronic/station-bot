@@ -299,6 +299,20 @@ describe('handleMfgCancelOrder', () => {
     const thread = btn.channel as ReturnType<typeof makeThreadChannel>;
     expect(thread.send).toHaveBeenCalled();
   });
+
+  it('does not include duplicate user IDs in allowed_mentions when owner cancels their own order', async () => {
+    // order.discordUserId === interaction.user.id — self-cancellation must not produce a duplicate
+    const h = await setupMocks({
+      cancelOrder: jest.fn(async () => makeOrder({ discordUserId: 'owner-1', status: 'cancelled' })),
+    });
+    const btn = makeButtonInteraction('mfg-cancel-order:42', { userId: 'owner-1', roles: [] });
+    await h.handleMfgCancelOrder(btn as any);
+    const thread = btn.channel as ReturnType<typeof makeThreadChannel>;
+    const sendCall = (thread.send as jest.Mock).mock.calls[0][0] as { allowedMentions: { users: string[] } };
+    const users = sendCall.allowedMentions.users;
+    expect(users).toEqual([...new Set(users)]); // no duplicates
+    expect(users).toContain('owner-1');
+  });
 });
 
 // ---------------------------------------------------------------------------
