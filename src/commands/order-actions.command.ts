@@ -125,10 +125,13 @@ async function applyPostTransition(
   }
 
   // Post thread reply — non-fatal if it fails
+  // Suppress the member ping when replying from the staff thread (they don't have access).
   try {
     await thread.send({
       content: formatTransitionReply(toStatus, interaction.user.id),
-      allowedMentions: { users: [updatedOrder.discordUserId, interaction.user.id] },
+      allowedMentions: {
+        users: isInStaffThread ? [interaction.user.id] : [updatedOrder.discordUserId, interaction.user.id],
+      },
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to post thread reply after status transition', {

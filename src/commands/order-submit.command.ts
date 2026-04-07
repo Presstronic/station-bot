@@ -503,10 +503,10 @@ export async function handleOrderButtonInteraction(
       }
     }
 
-    // Create the mirrored staff thread — non-fatal so a misconfigured staff channel
-    // never blocks the member's success reply.
+    // Create the mirrored staff thread in the background — truly non-blocking so the
+    // member's success reply is never delayed by staff channel issues.
     if (staffChannelId) {
-      try {
+      void (async () => { try {
         const staffCh = await interaction.client.channels.fetch(staffChannelId);
         if (!staffCh || staffCh.type !== ChannelType.GuildForum) {
           logger.error(
@@ -549,7 +549,7 @@ export async function handleOrderButtonInteraction(
           orderId: order.id,
           error,
         });
-      }
+      } })();
     }
 
     const linkWarning = forumLinkFailed

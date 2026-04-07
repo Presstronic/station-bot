@@ -947,6 +947,8 @@ describe('handleOrderButtonInteraction', () => {
       },
     });
     await h.handleOrderButtonInteraction(btn as any);
+    // Staff thread creation is fire-and-forget; drain the microtask queue before asserting.
+    await new Promise<void>(resolve => { setImmediate(resolve); });
 
     expect(publicCreateMock).toHaveBeenCalledTimes(1);
     expect(staffCreateMock).toHaveBeenCalledTimes(1);
@@ -1000,6 +1002,8 @@ describe('handleOrderButtonInteraction', () => {
       },
     });
     await h.handleOrderButtonInteraction(btn as any);
+    // Drain microtasks from fire-and-forget staff thread creation before asserting.
+    await new Promise<void>(resolve => { setImmediate(resolve); });
 
     expect(updateStaffThreadIdMock).not.toHaveBeenCalled();
     expect(btn.editReply).toHaveBeenCalledWith(
