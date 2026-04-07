@@ -131,7 +131,7 @@ async function applyPostTransition(
       content: formatTransitionReply(toStatus, interaction.user.id),
       allowedMentions: {
         parse: [],
-        users: isInStaffThread ? [interaction.user.id] : [updatedOrder.discordUserId, interaction.user.id],
+        users: isInStaffThread ? [interaction.user.id] : [...new Set([updatedOrder.discordUserId, interaction.user.id])],
       },
     });
   } catch (err) {
