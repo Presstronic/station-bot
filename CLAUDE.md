@@ -35,13 +35,15 @@
 
 ## Release Process
 1. Cut a `release/v{x.y.z}` branch from `main`
-2. Bump the version in `package.json` — this is the canonical source of truth and what the Docker publish workflow validates against
-3. Run `npm run quality` — must pass before opening the PR
-4. Open a PR titled `release: v{x.y.z} — <short description>`; body should summarize what's in the release
-5. Squash-merge into `main`
-6. Tag the merge commit on `main`: `git tag v{x.y.z} && git push origin v{x.y.z}` — never tag the release branch itself
-7. Create a GitHub Release from that tag with human-readable release notes
-8. Build and push the Docker image tagged both `:v{x.y.z}` and `:latest`
+2. Bump the version in `package.json` to `x.y.z` — this is the canonical source of truth and what the Docker publish workflow validates against
+3. Run `npm install --package-lock-only` to sync `package-lock.json` — commit both files together
+4. Verify: `grep '"version"' package.json` must show the new version before committing
+5. Run `npm run quality` — must pass before opening the PR
+6. Open a PR titled `release: v{x.y.z}`; body must state the diff is version-bump-only and list included PRs by number for changelog context — do NOT describe features as if they are in the diff
+7. Squash-merge into `main`
+8. Tag the merge commit on `main`: `git tag v{x.y.z} && git push origin v{x.y.z}` — never tag the release branch itself
+9. Create a GitHub Release from that tag with human-readable release notes
+10. Build and push the Docker image tagged both `:v{x.y.z}` and `:latest`
 
 ## Testing
 - **Unit tests** (filename: `*.test.ts`) — the bulk of the test suite; cover utilities, pure logic, policies, services, and repositories using mocks.
@@ -70,7 +72,7 @@ Before opening a PR, verify:
 - [ ] No hardcoded secrets, tokens, or environment-specific values
 - [ ] Migration included if schema changed
 - [ ] `docker-compose` config tested if infra changed
-- [ ] For releases: version bumped in `package.json`
+- [ ] For releases: version bumped in `package.json` AND `package-lock.json` updated via `npm install --package-lock-only` — confirm with `grep '"version"' package.json`
 - [ ] Documentation is consistent with the final implementation: inline comments, PR title/body/test-plan, and any referenced GitHub issues all reflect what was actually built — not an earlier draft or superseded approach
 - [ ] When touching discord.js command handlers: do test stubs faithfully replicate real interaction state mutations (`replied`, `deferred`)? Is `fetchReply: true` set when `awaitMessageComponent` is needed on the response?
 - [ ] When replacing a feature: grepped test file for old option names, response strings, and function signatures — none remain?
