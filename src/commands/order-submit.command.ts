@@ -307,15 +307,17 @@ export async function handleOrderItemModal(
   interaction: ModalSubmitInteraction,
 ): Promise<void> {
   const sessionId = interaction.customId.slice(ITEM_MODAL_PREFIX.length + 1);
-  const items = getSessionItems(sessionId);
+  const session = getSession(sessionId);
 
-  if (!items) {
+  if (!session) {
     await interaction.reply({
       content: 'Your order session has expired. Please use `/order` to start a new order.',
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
+
+  const items = session.items;
 
   const { maxItemsPerOrder } = getManufacturingConfig();
   if (items.length >= maxItemsPerOrder) {
@@ -351,7 +353,6 @@ export async function handleOrderItemModal(
 
   items.push({ itemName, quantity, priorityStat, note, sortOrder: items.length });
 
-  const session = getSession(sessionId)!;
   const itemCollectionContent = `Item added (${items.length} / ${maxItemsPerOrder}). Add another item or submit your order.`;
   const itemCollectionComponents = buildItemCollectionComponents(sessionId, items.length, maxItemsPerOrder);
 
@@ -364,13 +365,14 @@ export async function handleOrderItemModal(
     });
     session.replyInteraction = interaction;
   } else {
-    // Subsequent items — edit the existing ephemeral message in place so only one UI is visible.
+    // Acknowledge the new modal interaction first to stay within Discord's 3s response window.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    // Edit the existing ephemeral message in place so only one UI is visible.
     await session.replyInteraction.editReply({
       content: itemCollectionContent,
       components: itemCollectionComponents,
     });
-    // Silently acknowledge the new modal interaction without creating a visible message.
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    // Remove the deferred reply to keep the interaction silent.
     await interaction.deleteReply();
   }
 }
