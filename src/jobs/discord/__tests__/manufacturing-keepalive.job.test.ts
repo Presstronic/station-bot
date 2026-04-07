@@ -64,29 +64,20 @@ async function setupMocks(configOverrides: Partial<typeof BASE_CONFIG> = {}) {
   };
 }
 
-function makeClient({
-  thread,
-  fetchError,
-}: {
-  thread?: { isThread: () => boolean; archived: boolean | null; setArchived: jest.Mock; id: string } | null;
-  fetchError?: Error;
-} = {}) {
-  return {
-    channels: {
-      fetch: jest.fn(async () => {
-        if (fetchError) throw fetchError;
-        return thread ?? null;
-      }),
-    },
-  };
-}
-
 function makeThread(archived: boolean | null = false) {
   return {
     id: 'thread-123',
     isThread: () => true,
     archived,
     setArchived: jest.fn(async () => {}),
+  };
+}
+
+function makeClient(fetchResult: unknown = null) {
+  return {
+    channels: {
+      fetch: jest.fn(async () => fetchResult),
+    },
   };
 }
 
@@ -98,7 +89,7 @@ describe('scheduleCreateOrderKeepAlive', () => {
   it('calls setArchived(false) when the thread is archived', async () => {
     const { scheduleCreateOrderKeepAlive, runJob } = await setupMocks();
     const thread = makeThread(true);
-    const client = makeClient({ thread });
+    const client = makeClient(thread);
 
     scheduleCreateOrderKeepAlive(client as any);
     await runJob();
@@ -109,15 +100,13 @@ describe('scheduleCreateOrderKeepAlive', () => {
   it('does not call setArchived when the thread is active', async () => {
     const { scheduleCreateOrderKeepAlive, runJob, mocks } = await setupMocks();
     const thread = makeThread(false);
-    const client = makeClient({ thread });
+    const client = makeClient(thread);
 
     scheduleCreateOrderKeepAlive(client as any);
     await runJob();
 
     expect(thread.setArchived).not.toHaveBeenCalled();
-    expect(mocks.debug).toHaveBeenCalledWith(
-      expect.stringContaining('active'),
-    );
+    expect(mocks.debug).toHaveBeenCalledWith(expect.stringContaining('active'));
   });
 
   it('warns and skips fetch when createOrderThreadId is blank', async () => {
@@ -131,13 +120,27 @@ describe('scheduleCreateOrderKeepAlive', () => {
     expect(mocks.warn).toHaveBeenCalledWith(expect.stringContaining('not set'));
   });
 
-  it('warns and exits without throwing when fetched channel is not a thread', async () => {
+  it('warns when fetch returns null (thread not found or inaccessible)', async () => {
     const { scheduleCreateOrderKeepAlive, runJob, mocks } = await setupMocks();
-    const nonThread = { isThread: () => false, id: 'not-a-thread' };
-    const client = makeClient({ thread: nonThread as any });
+    const client = makeClient(null);
 
     scheduleCreateOrderKeepAlive(client as any);
     await expect(runJob()).resolves.not.toThrow();
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('not found or is not accessible'),
+      expect.any(Object),
+    );
+  });
+
+  it('warns and exits without throwing when fetched channel is not a thread', async () => {
+    const { scheduleCreateOrderKeepAlive, runJob, mocks } = await setupMocks();
+    const nonThread = { isThread: () => false, id: 'not-a-thread' };
+    const client = makeClient(nonThread);
+
+    scheduleCreateOrderKeepAlive(client as any);
+    await expect(runJob()).resolves.not.toThrow();
+
     expect(mocks.warn).toHaveBeenCalledWith(
       expect.stringContaining('not a thread'),
       expect.any(Object),
@@ -146,12 +149,32 @@ describe('scheduleCreateOrderKeepAlive', () => {
 
   it('warns and exits without throwing when channel fetch fails', async () => {
     const { scheduleCreateOrderKeepAlive, runJob, mocks } = await setupMocks();
-    const client = makeClient({ fetchError: new Error('network error') });
+    const client = {
+      channels: {
+        fetch: jest.fn(async () => { throw new Error('network error'); }),
+      },
+    };
 
     scheduleCreateOrderKeepAlive(client as any);
     await expect(runJob()).resolves.not.toThrow();
+
     expect(mocks.warn).toHaveBeenCalledWith(
       expect.stringContaining('failed to fetch'),
+      expect.any(Object),
+    );
+  });
+
+  it('warns and exits without throwing when setArchived throws', async () => {
+    const { scheduleCreateOrderKeepAlive, runJob, mocks } = await setupMocks();
+    const thread = makeThread(true);
+    (thread.setArchived as jest.Mock).mockImplementation(async () => { throw new Error('Missing Permissions'); });
+    const client = makeClient(thread);
+
+    scheduleCreateOrderKeepAlive(client as any);
+    await expect(runJob()).resolves.not.toThrow();
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('failed to unarchive'),
       expect.any(Object),
     );
   });
