@@ -23,6 +23,8 @@ export interface ManufacturingConfig {
   organizationMemberRoleId: string;
   orderLimit: number;
   maxItemsPerOrder: number;
+  orderRateLimitPer5Min: number;
+  orderRateLimitPerHour: number;
 }
 
 export function isManufacturingEnabled(): boolean {
@@ -36,6 +38,8 @@ export function getManufacturingConfig(): ManufacturingConfig {
     organizationMemberRoleId: (process.env.ORGANIZATION_MEMBER_ROLE_ID ?? '').trim(),
     orderLimit: envInt('MANUFACTURING_ORDER_LIMIT', 5),
     maxItemsPerOrder: envInt('MANUFACTURING_MAX_ITEMS_PER_ORDER', 10),
+    orderRateLimitPer5Min: envInt('ORDER_RATE_LIMIT_PER_5MIN', 1),
+    orderRateLimitPerHour: envInt('ORDER_RATE_LIMIT_PER_HOUR', 5),
   };
 }
 
