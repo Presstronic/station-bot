@@ -16,6 +16,8 @@ const BASE_CONFIG = {
   organizationMemberRoleId: 'org-role',
   orderLimit: 5,
   maxItemsPerOrder: 10,
+  createOrderPostTitle: '📋 Create Order',
+  createOrderPostMessage: 'Click the button below to submit a new manufacturing order.',
 };
 
 function makeChannel({
@@ -238,6 +240,27 @@ describe('handleManufacturingSetupCommand', () => {
       content: expect.stringMatching(/✅ Manufacturing channel set up/i),
     });
     expect(i.reply).not.toHaveBeenCalled();
+  });
+
+  it('uses custom post title and message from config', async () => {
+    const { handleManufacturingSetupCommand } = await setupMocks({
+      config: {
+        createOrderPostTitle: '🛠️ Place Your Order',
+        createOrderPostMessage: 'Hit the button to get started.',
+      },
+    });
+    const threadsCreate = jest.fn(async () => ({ id: 'thread-456' }));
+    const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
+    const i = makeInteraction({ channelFetch });
+    await handleManufacturingSetupCommand(i as any);
+
+    expect(threadsCreate).toHaveBeenCalledTimes(1);
+    const createArg = (threadsCreate as jest.Mock).mock.calls[0][0] as {
+      name: string;
+      message: { content: string };
+    };
+    expect(createArg.name).toBe('🛠️ Place Your Order');
+    expect(createArg.message.content).toBe('Hit the button to get started.');
   });
 
   it('returns without action when subcommand is not "setup"', async () => {

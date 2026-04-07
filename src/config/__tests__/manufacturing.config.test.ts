@@ -15,6 +15,8 @@ const VARS = [
   'MANUFACTURING_MAX_ITEMS_PER_ORDER',
   'ORDER_RATE_LIMIT_PER_5MIN',
   'ORDER_RATE_LIMIT_PER_HOUR',
+  'MANUFACTURING_CREATE_ORDER_POST_TITLE',
+  'MANUFACTURING_CREATE_ORDER_POST_MESSAGE',
 ] as const;
 
 type EnvSnapshot = Partial<Record<(typeof VARS)[number], string>>;
@@ -168,6 +170,36 @@ describe('getManufacturingConfig', () => {
       process.env.ORDER_RATE_LIMIT_PER_HOUR = value;
       expect(getManufacturingConfig().orderRateLimitPerHour).toBe(5);
     }
+  });
+
+  it('uses default createOrderPostTitle when env var is not set', () => {
+    expect(getManufacturingConfig().createOrderPostTitle).toBe('📋 Create Order');
+  });
+
+  it('uses custom createOrderPostTitle when env var is set', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_POST_TITLE = '🛠️ Place Your Order';
+    expect(getManufacturingConfig().createOrderPostTitle).toBe('🛠️ Place Your Order');
+  });
+
+  it('trims whitespace from createOrderPostTitle', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_POST_TITLE = '  My Title  ';
+    expect(getManufacturingConfig().createOrderPostTitle).toBe('My Title');
+  });
+
+  it('uses default createOrderPostMessage when env var is not set', () => {
+    expect(getManufacturingConfig().createOrderPostMessage).toBe(
+      'Click the button below to submit a new manufacturing order.',
+    );
+  });
+
+  it('uses custom createOrderPostMessage when env var is set', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_POST_MESSAGE = 'Hit the button to get started.';
+    expect(getManufacturingConfig().createOrderPostMessage).toBe('Hit the button to get started.');
+  });
+
+  it('trims whitespace from createOrderPostMessage', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_POST_MESSAGE = '  My message  ';
+    expect(getManufacturingConfig().createOrderPostMessage).toBe('My message');
   });
 });
 
