@@ -458,7 +458,7 @@ export async function handleOrderButtonInteraction(
         message: {
           content: postContent,
           components: buildForumPostComponents(order.id, order.status, 'member'),
-          allowedMentions: { users: [order.discordUserId] },
+          allowedMentions: { parse: [], users: [order.discordUserId], roles: [] },
         },
         appliedTags: newTagId ? [newTagId] : [],
       });
@@ -530,7 +530,7 @@ export async function handleOrderButtonInteraction(
             message: {
               content: postContent,
               components: buildForumPostComponents(order.id, order.status, 'staff'),
-              allowedMentions: { users: [] },
+              allowedMentions: { parse: [], users: [] },
             },
             appliedTags: staffNewTagId ? [staffNewTagId] : [],
           });

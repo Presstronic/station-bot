@@ -775,9 +775,9 @@ describe('handleOrderButtonInteraction', () => {
     await h.handleOrderButtonInteraction(btn as any);
 
     const createCall = (createThreadMock.mock.calls[0] as unknown[])[0] as {
-      message: { allowedMentions: { users: string[] } };
+      message: { allowedMentions: { parse: string[]; users: string[]; roles: string[] } };
     };
-    expect(createCall.message.allowedMentions).toEqual({ users: ['owner-uid'] });
+    expect(createCall.message.allowedMentions).toEqual({ parse: [], users: ['owner-uid'], roles: [] });
   });
 
   it('shows an active-limit error when OrderLimitExceededError is thrown', async () => {
@@ -957,7 +957,7 @@ describe('handleOrderButtonInteraction', () => {
     expect(staffCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.objectContaining({
-          allowedMentions: { users: [] },
+          allowedMentions: { parse: [], users: [] },
         }),
       }),
     );

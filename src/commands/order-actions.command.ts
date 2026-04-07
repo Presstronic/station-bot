@@ -130,6 +130,7 @@ async function applyPostTransition(
     await thread.send({
       content: formatTransitionReply(toStatus, interaction.user.id),
       allowedMentions: {
+        parse: [],
         users: isInStaffThread ? [interaction.user.id] : [updatedOrder.discordUserId, interaction.user.id],
       },
     });
@@ -151,7 +152,7 @@ async function applyPostTransition(
           await starterMessage.edit({
             content: formatOrderPost(updatedOrder),
             components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, counterpartTarget),
-            allowedMentions: { users: counterpartTarget === 'staff' ? [] : [updatedOrder.discordUserId] },
+            allowedMentions: { parse: [], users: counterpartTarget === 'staff' ? [] : [updatedOrder.discordUserId] },
           });
         }
         const counterpartParent = counterpartThread.parent;
