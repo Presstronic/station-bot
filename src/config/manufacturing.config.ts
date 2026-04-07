@@ -19,6 +19,7 @@ function envInt(name: string, defaultValue: number): number {
 
 export interface ManufacturingConfig {
   forumChannelId: string;
+  staffChannelId: string;
   manufacturingRoleId: string;
   organizationMemberRoleId: string;
   orderLimit: number;
@@ -34,6 +35,7 @@ export function isManufacturingEnabled(): boolean {
 export function getManufacturingConfig(): ManufacturingConfig {
   return {
     forumChannelId: (process.env.MANUFACTURING_FORUM_CHANNEL_ID ?? '').trim(),
+    staffChannelId: (process.env.MANUFACTURING_STAFF_CHANNEL_ID ?? '').trim(),
     manufacturingRoleId: (process.env.MANUFACTURING_ROLE_ID ?? '').trim(),
     organizationMemberRoleId: (process.env.ORGANIZATION_MEMBER_ROLE_ID ?? '').trim(),
     orderLimit: envInt('MANUFACTURING_ORDER_LIMIT', 5),
@@ -55,6 +57,12 @@ export function validateManufacturingConfig(): string[] {
 
   if (!config.forumChannelId) {
     errors.push('MANUFACTURING_FORUM_CHANNEL_ID is required when MANUFACTURING_ENABLED=true');
+  }
+  if (!config.staffChannelId) {
+    errors.push('MANUFACTURING_STAFF_CHANNEL_ID is required when MANUFACTURING_ENABLED=true');
+  }
+  if (config.forumChannelId && config.staffChannelId && config.forumChannelId === config.staffChannelId) {
+    errors.push('MANUFACTURING_FORUM_CHANNEL_ID and MANUFACTURING_STAFF_CHANNEL_ID must be different channels');
   }
   if (!config.manufacturingRoleId) {
     errors.push('MANUFACTURING_ROLE_ID is required when MANUFACTURING_ENABLED=true');

@@ -18,6 +18,7 @@ afterEach(() => {
 
 const BASE_CONFIG = {
   forumChannelId: 'forum-ch',
+  staffChannelId: 'staff-ch',
   manufacturingRoleId: 'mfg-role',
   organizationMemberRoleId: 'org-role',
   orderLimit: 5,
@@ -32,6 +33,7 @@ function makeOrder(overrides: Partial<ManufacturingOrder> = {}): ManufacturingOr
     discordUserId: 'user-1',
     discordUsername: 'TestUser',
     forumThreadId: null,
+    staffThreadId: null,
     status: 'new',
     createdAt: '2024-06-01T00:00:00.000Z',
     updatedAt: '2024-06-01T00:00:00.000Z',

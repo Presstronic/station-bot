@@ -34,6 +34,7 @@ export interface ManufacturingOrder {
   discordUserId: string;
   discordUsername: string;
   forumThreadId: string | null;
+  staffThreadId: string | null;
   status: OrderStatus;
   createdAt: string;
   updatedAt: string;

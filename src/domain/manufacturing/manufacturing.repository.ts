@@ -20,6 +20,7 @@ function mapOrderRow(row: Record<string, unknown>, items: ManufacturingOrderItem
     discordUserId: String(row.discord_user_id),
     discordUsername: String(row.discord_username),
     forumThreadId: row.forum_thread_id != null ? String(row.forum_thread_id) : null,
+    staffThreadId: row.staff_thread_id != null ? String(row.staff_thread_id) : null,
     status: String(row.status) as OrderStatus,
     createdAt: new Date(row.created_at as string | number | Date).toISOString(),
     updatedAt: new Date(row.updated_at as string | number | Date).toISOString(),
@@ -223,6 +224,18 @@ export async function updateForumThreadId(id: number, threadId: string): Promise
        SET forum_thread_id = $2, updated_at = NOW()
        WHERE id = $1`,
       [id, threadId],
+    );
+    if ((result.rowCount ?? 0) === 0) throw new OrderNotFoundError(id);
+  });
+}
+
+export async function updateStaffThreadId(id: number, staffThreadId: string): Promise<void> {
+  await withClient(async (client) => {
+    const result = await client.query(
+      `UPDATE manufacturing_orders
+       SET staff_thread_id = $2, updated_at = NOW()
+       WHERE id = $1`,
+      [id, staffThreadId],
     );
     if ((result.rowCount ?? 0) === 0) throw new OrderNotFoundError(id);
   });

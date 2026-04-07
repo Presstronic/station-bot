@@ -8,6 +8,7 @@ import {
 const VARS = [
   'MANUFACTURING_ENABLED',
   'MANUFACTURING_FORUM_CHANNEL_ID',
+  'MANUFACTURING_STAFF_CHANNEL_ID',
   'MANUFACTURING_ROLE_ID',
   'ORGANIZATION_MEMBER_ROLE_ID',
   'MANUFACTURING_ORDER_LIMIT',
@@ -78,28 +79,33 @@ describe('getManufacturingConfig', () => {
   it('returns empty strings for missing required vars', () => {
     const config = getManufacturingConfig();
     expect(config.forumChannelId).toBe('');
+    expect(config.staffChannelId).toBe('');
     expect(config.manufacturingRoleId).toBe('');
     expect(config.organizationMemberRoleId).toBe('');
   });
 
   it('returns configured values when set', () => {
     process.env.MANUFACTURING_FORUM_CHANNEL_ID = 'forum-123';
+    process.env.MANUFACTURING_STAFF_CHANNEL_ID = 'staff-456';
     process.env.MANUFACTURING_ROLE_ID = 'role-456';
     process.env.ORGANIZATION_MEMBER_ROLE_ID = 'org-789';
 
     const config = getManufacturingConfig();
     expect(config.forumChannelId).toBe('forum-123');
+    expect(config.staffChannelId).toBe('staff-456');
     expect(config.manufacturingRoleId).toBe('role-456');
     expect(config.organizationMemberRoleId).toBe('org-789');
   });
 
   it('trims whitespace from ID values', () => {
     process.env.MANUFACTURING_FORUM_CHANNEL_ID = '  forum-123  ';
+    process.env.MANUFACTURING_STAFF_CHANNEL_ID = '  staff-456  ';
     process.env.MANUFACTURING_ROLE_ID = '  role-456  ';
     process.env.ORGANIZATION_MEMBER_ROLE_ID = '  org-789  ';
 
     const config = getManufacturingConfig();
     expect(config.forumChannelId).toBe('forum-123');
+    expect(config.staffChannelId).toBe('staff-456');
     expect(config.manufacturingRoleId).toBe('role-456');
     expect(config.organizationMemberRoleId).toBe('org-789');
   });
@@ -177,8 +183,9 @@ describe('validateManufacturingConfig', () => {
   it('returns errors for all missing required vars when enabled', () => {
     process.env.MANUFACTURING_ENABLED = 'true';
     const errors = validateManufacturingConfig();
-    expect(errors).toHaveLength(3);
+    expect(errors).toHaveLength(4);
     expect(errors.some((e) => e.includes('MANUFACTURING_FORUM_CHANNEL_ID'))).toBe(true);
+    expect(errors.some((e) => e.includes('MANUFACTURING_STAFF_CHANNEL_ID'))).toBe(true);
     expect(errors.some((e) => e.includes('MANUFACTURING_ROLE_ID'))).toBe(true);
     expect(errors.some((e) => e.includes('ORGANIZATION_MEMBER_ROLE_ID'))).toBe(true);
   });
@@ -186,6 +193,7 @@ describe('validateManufacturingConfig', () => {
   it('returns no errors when all required vars are set', () => {
     process.env.MANUFACTURING_ENABLED = 'true';
     process.env.MANUFACTURING_FORUM_CHANNEL_ID = 'forum-123';
+    process.env.MANUFACTURING_STAFF_CHANNEL_ID = 'staff-456';
     process.env.MANUFACTURING_ROLE_ID = 'role-456';
     process.env.ORGANIZATION_MEMBER_ROLE_ID = 'org-789';
     expect(validateManufacturingConfig()).toEqual([]);
@@ -194,19 +202,33 @@ describe('validateManufacturingConfig', () => {
   it('treats whitespace-only required vars as missing when enabled', () => {
     process.env.MANUFACTURING_ENABLED = 'true';
     process.env.MANUFACTURING_FORUM_CHANNEL_ID = '   ';
+    process.env.MANUFACTURING_STAFF_CHANNEL_ID = '   ';
     process.env.MANUFACTURING_ROLE_ID = '   ';
     process.env.ORGANIZATION_MEMBER_ROLE_ID = '   ';
 
     const errors = validateManufacturingConfig();
-    expect(errors).toHaveLength(3);
+    expect(errors).toHaveLength(4);
     expect(errors.some((e) => e.includes('MANUFACTURING_FORUM_CHANNEL_ID'))).toBe(true);
+    expect(errors.some((e) => e.includes('MANUFACTURING_STAFF_CHANNEL_ID'))).toBe(true);
     expect(errors.some((e) => e.includes('MANUFACTURING_ROLE_ID'))).toBe(true);
     expect(errors.some((e) => e.includes('ORGANIZATION_MEMBER_ROLE_ID'))).toBe(true);
+  });
+
+  it('returns an error when forum and staff channel IDs are the same', () => {
+    process.env.MANUFACTURING_ENABLED = 'true';
+    process.env.MANUFACTURING_FORUM_CHANNEL_ID = 'channel-123';
+    process.env.MANUFACTURING_STAFF_CHANNEL_ID = 'channel-123';
+    process.env.MANUFACTURING_ROLE_ID = 'role-456';
+    process.env.ORGANIZATION_MEMBER_ROLE_ID = 'org-789';
+    const errors = validateManufacturingConfig();
+    expect(errors).toHaveLength(1);
+    expect(errors[0]).toMatch(/must be different channels/);
   });
 
   it('returns only the missing var errors when partially configured', () => {
     process.env.MANUFACTURING_ENABLED = 'true';
     process.env.MANUFACTURING_FORUM_CHANNEL_ID = 'forum-123';
+    process.env.MANUFACTURING_STAFF_CHANNEL_ID = 'staff-456';
     const errors = validateManufacturingConfig();
     expect(errors).toHaveLength(2);
     expect(errors.some((e) => e.includes('MANUFACTURING_ROLE_ID'))).toBe(true);

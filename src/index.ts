@@ -43,6 +43,14 @@ const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
 let manufacturingEnabled = isManufacturingEnabled();
 
+// Disables manufacturing for the rest of this process lifetime. Mutates both
+// the local flag and MANUFACTURING_ENABLED so that isManufacturingEnabled()
+// (used by command handlers) stays in sync with the local flag.
+function disableManufacturing(): void {
+  manufacturingEnabled = false;
+  process.env.MANUFACTURING_ENABLED = 'false';
+}
+
 const manufacturingConfigErrors = manufacturingEnabled ? validateManufacturingConfig() : [];
 if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   for (const error of manufacturingConfigErrors) {
@@ -51,7 +59,7 @@ if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   logger.error(
     '[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.',
   );
-  manufacturingEnabled = false;
+  disableManufacturing();
 }
 
 // Returns the feature flags that are actually active in the current mode.
@@ -150,25 +158,25 @@ client.once('clientReady', async () => {
   }
 
   if (!readOnlyMode && manufacturingEnabled) {
-    const { forumChannelId } = getManufacturingConfig();
-    if (forumChannelId) {
-      try {
-        const ch = await client.channels.fetch(forumChannelId);
-        if (ch && ch.type === ChannelType.GuildForum && ch instanceof ForumChannel) {
-          await ensureForumTags(ch);
-          logger.info('[manufacturing] Forum tags verified.');
-        } else if (ch) {
-          logger.warn(
-            `[manufacturing] Configured forumChannelId=${forumChannelId} resolved to a non-forum channel. Forum tag verification skipped.`,
-          );
-        } else {
-          logger.warn(
-            `[manufacturing] Configured forumChannelId=${forumChannelId} did not resolve to an accessible channel. Forum tag verification skipped.`,
-          );
-        }
-      } catch (error) {
-        logger.error('[manufacturing] Failed to ensure forum tags:', error);
+    const { forumChannelId, staffChannelId } = getManufacturingConfig();
+    try {
+      const [publicCh, staffCh] = await Promise.all([
+        client.channels.fetch(forumChannelId),
+        client.channels.fetch(staffChannelId),
+      ]);
+      if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
+        logger.error(`[manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Disabling manufacturing.`);
+        disableManufacturing();
+      } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
+        logger.error(`[manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Disabling manufacturing.`);
+        disableManufacturing();
+      } else {
+        await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
+        logger.info('[manufacturing] Forum tags verified on both channels.');
       }
+    } catch (error) {
+      logger.error('[manufacturing] Failed to ensure forum tags on startup. Disabling manufacturing.', error);
+      disableManufacturing();
     }
   }
 
@@ -250,6 +258,32 @@ client.on('guildCreate', async (guild) => {
       logger.info(`[${guild.name}] Successfully ensured required roles.`);
     } catch (error) {
       logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+    }
+  }
+
+  if (!readOnlyMode && manufacturingEnabled) {
+    const { forumChannelId, staffChannelId } = getManufacturingConfig();
+    try {
+      // Use guild-scoped fetch so we only act when the manufacturing channels
+      // actually belong to this guild. The bot may join guilds that are not the
+      // home guild; global client.channels.fetch() would resolve channels from
+      // any guild and produce misleading errors / log entries on every unrelated join.
+      const [publicCh, staffCh] = await Promise.all([
+        guild.channels.fetch(forumChannelId).catch(() => null),
+        guild.channels.fetch(staffChannelId).catch(() => null),
+      ]);
+      if (!publicCh && !staffCh) {
+        // Neither channel belongs to this guild — not the home guild, skip silently.
+      } else if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
+        logger.error(`[${guild.name}] [manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Skipping tag sync.`);
+      } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
+        logger.error(`[${guild.name}] [manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Skipping tag sync.`);
+      } else {
+        await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
+        logger.info(`[${guild.name}] [manufacturing] Forum tags verified on both channels.`);
+      }
+    } catch (error) {
+      logger.error(`[${guild.name}] [manufacturing] Failed to ensure forum tags on guild join.`, error);
     }
   }
 

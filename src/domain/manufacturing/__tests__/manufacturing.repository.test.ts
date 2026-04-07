@@ -16,6 +16,7 @@ function makeOrderRow(overrides: Record<string, unknown> = {}) {
     discord_user_id: 'user-1',
     discord_username: 'User#1234',
     forum_thread_id: null,
+    staff_thread_id: null,
     status: 'new',
     created_at: NOW,
     updated_at: NOW,
@@ -465,6 +466,43 @@ describe('updateForumThreadId', () => {
     const { updateForumThreadId } = await import('../manufacturing.repository.js');
     const { OrderNotFoundError } = await import('../types.js');
     await expect(updateForumThreadId(999, 'thread-abc')).rejects.toBeInstanceOf(OrderNotFoundError);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// updateStaffThreadId
+// ---------------------------------------------------------------------------
+
+describe('updateStaffThreadId', () => {
+  it('executes an UPDATE without returning a value', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[]; rowCount: number }>>()
+      .mockResolvedValueOnce({ rows: [], rowCount: 1 });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { updateStaffThreadId } = await import('../manufacturing.repository.js');
+    const result = await updateStaffThreadId(1, 'staff-thread-abc');
+
+    expect(result).toBeUndefined();
+    const calls = queryCalls(query);
+    expect(calls[0]).toMatch(/staff_thread_id/);
+  });
+
+  it('throws OrderNotFoundError when no row is updated', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[]; rowCount: number }>>()
+      .mockResolvedValueOnce({ rows: [], rowCount: 0 });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      withClient: makeWithClient(query),
+    }));
+
+    const { updateStaffThreadId } = await import('../manufacturing.repository.js');
+    const { OrderNotFoundError } = await import('../types.js');
+    await expect(updateStaffThreadId(999, 'staff-thread-abc')).rejects.toBeInstanceOf(OrderNotFoundError);
   });
 });
 
