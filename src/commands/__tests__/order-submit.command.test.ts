@@ -287,7 +287,7 @@ describe('handleOrderCommand', () => {
 });
 
 // ---------------------------------------------------------------------------
-// triggerOrderModal — button entry point
+// triggerOrderModal — button entry point (rate limiting applies to both paths)
 // ---------------------------------------------------------------------------
 
 describe('triggerOrderModal (button interaction)', () => {
@@ -328,10 +328,38 @@ describe('triggerOrderModal (button interaction)', () => {
     });
     expect(i.showModal).not.toHaveBeenCalled();
   });
+
+  it('rate-limits a button interaction the same as a slash command', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(1_700_000_000_000);
+    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+
+    const makeBtn = (id: string) => ({
+      inGuild: () => true,
+      id,
+      customId: 'mfg-create-order',
+      user: { id: 'user-btn', username: 'BtnUser' },
+      replied: false,
+      deferred: false,
+      reply: jest.fn(async () => {}),
+      showModal: jest.fn(async () => {}),
+    });
+
+    await h.triggerOrderModal(makeBtn('btn-rl-1') as any); // fills the 5-min slot
+
+    const btn2 = makeBtn('btn-rl-2');
+    await h.triggerOrderModal(btn2 as any); // should be blocked
+    expect((btn2.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/too quickly/i),
+    });
+    expect(btn2.showModal).not.toHaveBeenCalled();
+
+    jest.useRealTimers();
+  });
 });
 
 // ---------------------------------------------------------------------------
-// handleOrderCommand — rate limiting
+// handleOrderCommand — rate limiting (handleOrderCommand delegates to triggerOrderModal)
 // ---------------------------------------------------------------------------
 
 describe('handleOrderCommand — rate limiting', () => {

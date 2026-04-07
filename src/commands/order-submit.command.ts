@@ -159,68 +159,12 @@ function buildItemCollectionComponents(
 }
 
 /**
- * Shared entry point for starting the order creation modal flow. Called by
- * both the `/order` slash command and the 📋 Create Order button so button-driven
- * order creation does not bypass eligibility checks.
+ * Shared entry point for starting the order creation modal flow. Applies rate
+ * limiting, eligibility checks, and session setup for both the `/order` slash
+ * command and the 📋 Create Order button — neither path bypasses these checks.
  */
 export async function triggerOrderModal(
   interaction: ChatInputCommandInteraction | ButtonInteraction,
-): Promise<void> {
-  if (!isManufacturingEnabled()) {
-    await interaction.reply({
-      content: 'Manufacturing orders are not currently available.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (!interaction.inGuild()) {
-    await interaction.reply({
-      content: 'This command can only be used in a server.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const hasRole = await hasOrganizationMemberOrHigher(interaction);
-  if (!hasRole) {
-    await interaction.reply({
-      content: 'You must be an Organization Member to submit manufacturing orders.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (!isDatabaseConfigured()) {
-    await interaction.reply({
-      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  // Eager limit check — gives the user an early error with their current count
-  // before they start the item flow. The authoritative check still happens in
-  // the repository (with advisory lock) at submit time.
-  const { orderLimit } = getManufacturingConfig();
-  const activeCount = await countActiveByUserId(interaction.user.id);
-  if (activeCount >= orderLimit) {
-    await interaction.reply({
-      content: `You have ${activeCount} active order${activeCount === 1 ? '' : 's'} (limit: ${orderLimit}). Please wait for one to complete before submitting a new one.`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  sessions.set(interaction.id, {
-    items: [],
-    expiresAt: Date.now() + SESSION_TTL_MS,
-  });
-  await interaction.showModal(buildItemModal(`${ITEM_MODAL_PREFIX}:${interaction.id}`, 1));
-}
-
-export async function handleOrderCommand(
-  interaction: ChatInputCommandInteraction,
 ): Promise<void> {
   if (!isManufacturingEnabled()) {
     await interaction.reply({
@@ -345,6 +289,12 @@ export async function handleOrderCommand(
   } finally {
     if (!slotCommitted) releaseSlot();
   }
+}
+
+export async function handleOrderCommand(
+  interaction: ChatInputCommandInteraction,
+): Promise<void> {
+  return triggerOrderModal(interaction);
 }
 
 export async function handleOrderItemModal(
