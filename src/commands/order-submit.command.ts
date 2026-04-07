@@ -530,7 +530,7 @@ export async function handleOrderButtonInteraction(
             message: {
               content: postContent,
               components: buildForumPostComponents(order.id, order.status, 'staff'),
-              allowedMentions: { users: [order.discordUserId] },
+              allowedMentions: { users: [] },
             },
             appliedTags: staffNewTagId ? [staffNewTagId] : [],
           });
