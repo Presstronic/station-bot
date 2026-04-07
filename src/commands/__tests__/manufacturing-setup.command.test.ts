@@ -11,6 +11,7 @@ beforeEach(() => {
 
 const BASE_CONFIG = {
   forumChannelId: 'forum-ch',
+  staffChannelId: 'staff-ch',
   manufacturingRoleId: 'mfg-role',
   organizationMemberRoleId: 'org-role',
   orderLimit: 5,

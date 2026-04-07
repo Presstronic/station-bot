@@ -17,6 +17,7 @@ function makeOrder(overrides: Partial<ManufacturingOrder> = {}): ManufacturingOr
     discordUserId: 'user-1',
     discordUsername: 'User#1234',
     forumThreadId: null,
+    staffThreadId: null,
     status: 'new',
     createdAt: NOW,
     updatedAt: NOW,

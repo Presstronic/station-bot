@@ -150,25 +150,25 @@ client.once('clientReady', async () => {
   }
 
   if (!readOnlyMode && manufacturingEnabled) {
-    const { forumChannelId } = getManufacturingConfig();
-    if (forumChannelId) {
-      try {
-        const ch = await client.channels.fetch(forumChannelId);
-        if (ch && ch.type === ChannelType.GuildForum && ch instanceof ForumChannel) {
-          await ensureForumTags(ch);
-          logger.info('[manufacturing] Forum tags verified.');
-        } else if (ch) {
-          logger.warn(
-            `[manufacturing] Configured forumChannelId=${forumChannelId} resolved to a non-forum channel. Forum tag verification skipped.`,
-          );
-        } else {
-          logger.warn(
-            `[manufacturing] Configured forumChannelId=${forumChannelId} did not resolve to an accessible channel. Forum tag verification skipped.`,
-          );
-        }
-      } catch (error) {
-        logger.error('[manufacturing] Failed to ensure forum tags:', error);
+    const { forumChannelId, staffChannelId } = getManufacturingConfig();
+    try {
+      const [publicCh, staffCh] = await Promise.all([
+        client.channels.fetch(forumChannelId),
+        client.channels.fetch(staffChannelId),
+      ]);
+      if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
+        logger.error(`[manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Disabling manufacturing.`);
+        manufacturingEnabled = false;
+      } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
+        logger.error(`[manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Disabling manufacturing.`);
+        manufacturingEnabled = false;
+      } else {
+        await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
+        logger.info('[manufacturing] Forum tags verified on both channels.');
       }
+    } catch (error) {
+      logger.error('[manufacturing] Failed to ensure forum tags on startup. Disabling manufacturing.', error);
+      manufacturingEnabled = false;
     }
   }
 
@@ -250,6 +250,26 @@ client.on('guildCreate', async (guild) => {
       logger.info(`[${guild.name}] Successfully ensured required roles.`);
     } catch (error) {
       logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+    }
+  }
+
+  if (!readOnlyMode && manufacturingEnabled) {
+    const { forumChannelId, staffChannelId } = getManufacturingConfig();
+    try {
+      const [publicCh, staffCh] = await Promise.all([
+        guild.client.channels.fetch(forumChannelId),
+        guild.client.channels.fetch(staffChannelId),
+      ]);
+      if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
+        logger.error(`[${guild.name}] [manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Skipping tag sync.`);
+      } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
+        logger.error(`[${guild.name}] [manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Skipping tag sync.`);
+      } else {
+        await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
+        logger.info(`[${guild.name}] [manufacturing] Forum tags verified on both channels.`);
+      }
+    } catch (error) {
+      logger.error(`[${guild.name}] [manufacturing] Failed to ensure forum tags on guild join.`, error);
     }
   }
 
