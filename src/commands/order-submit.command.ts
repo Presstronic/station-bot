@@ -534,7 +534,15 @@ export async function handleOrderButtonInteraction(
             },
             appliedTags: staffNewTagId ? [staffNewTagId] : [],
           });
-          await updateStaffThreadId(order.id, staffThread.id);
+          try {
+            await updateStaffThreadId(order.id, staffThread.id);
+          } catch (linkErr) {
+            logger.error('[manufacturing] Staff thread created but failed to persist staff thread ID for order', {
+              orderId: order.id,
+              staffThreadId: staffThread.id,
+              error: linkErr,
+            });
+          }
         }
       } catch (error) {
         logger.error('[manufacturing] Failed to create staff thread for order', {

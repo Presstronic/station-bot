@@ -919,6 +919,9 @@ describe('handleOrderButtonInteraction', () => {
     const updateStaffThreadIdMock = jest.fn(async () => {});
     const h = await setupMocks({ submitOrder: jest.fn(async () => order), updateStaffThreadId: updateStaffThreadIdMock });
 
+    // Grab a reference to the buildForumPostComponents mock so we can assert targets
+    const { buildForumPostComponents: buildComponentsMock } = await import('../../domain/manufacturing/manufacturing.forum.js');
+
     await createSession(h, 'staff-create');
     await addItemToSession(h, 'staff-create');
 
@@ -947,7 +950,8 @@ describe('handleOrderButtonInteraction', () => {
 
     expect(publicCreateMock).toHaveBeenCalledTimes(1);
     expect(staffCreateMock).toHaveBeenCalledTimes(1);
-    // Staff thread must suppress member pings
+    // Staff thread must use the 'staff' component target and suppress member pings
+    expect(buildComponentsMock as jest.Mock).toHaveBeenCalledWith(77, 'new', 'staff');
     expect(staffCreateMock).toHaveBeenCalledWith(
       expect.objectContaining({
         message: expect.objectContaining({
@@ -955,6 +959,8 @@ describe('handleOrderButtonInteraction', () => {
         }),
       }),
     );
+    // Public thread must use the 'member' component target
+    expect(buildComponentsMock as jest.Mock).toHaveBeenCalledWith(77, 'new', 'member');
     expect(updateStaffThreadIdMock).toHaveBeenCalledWith(77, 'staff-thread-id');
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Order #77/i) }),
