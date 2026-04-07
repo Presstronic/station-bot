@@ -111,23 +111,31 @@ function buildAdvanceButton(orderId: number, status: OrderStatus): ButtonBuilder
   }
 }
 
-export function buildForumPostComponents(orderId: number, status: OrderStatus): ActionRowBuilder<ButtonBuilder>[] {
+export function buildForumPostComponents(
+  orderId: number,
+  status: OrderStatus,
+  target: 'member' | 'staff',
+): ActionRowBuilder<ButtonBuilder>[] {
   if (status === 'complete' || status === 'cancelled') return [];
 
-  const memberRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`${MFG_CANCEL_ORDER_PREFIX}:${orderId}`)
-      .setLabel('🚫 Cancel Order')
-      .setStyle(ButtonStyle.Danger),
-  );
+  if (target === 'member') {
+    return [
+      new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder()
+          .setCustomId(`${MFG_CANCEL_ORDER_PREFIX}:${orderId}`)
+          .setLabel('🚫 Cancel Order')
+          .setStyle(ButtonStyle.Danger),
+      ),
+    ];
+  }
 
-  const staffRow = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    buildAdvanceButton(orderId, status),
-    new ButtonBuilder()
-      .setCustomId(`${MFG_STAFF_CANCEL_PREFIX}:${orderId}`)
-      .setLabel('🚫 Cancel')
-      .setStyle(ButtonStyle.Danger),
-  );
-
-  return [memberRow, staffRow];
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      buildAdvanceButton(orderId, status),
+      new ButtonBuilder()
+        .setCustomId(`${MFG_STAFF_CANCEL_PREFIX}:${orderId}`)
+        .setLabel('🚫 Cancel')
+        .setStyle(ButtonStyle.Danger),
+    ),
+  ];
 }

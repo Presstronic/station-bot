@@ -19,6 +19,7 @@ import { submitOrder } from '../domain/manufacturing/manufacturing.service.js';
 import {
   countActiveByUserId,
   updateForumThreadId,
+  updateStaffThreadId,
 } from '../domain/manufacturing/manufacturing.repository.js';
 import {
   buildForumPostComponents,
@@ -456,8 +457,8 @@ export async function handleOrderButtonInteraction(
         name: `Order #${order.id} — ${interaction.user.username}`,
         message: {
           content: postContent,
-          components: buildForumPostComponents(order.id, order.status),
-          allowedMentions: { users: [order.discordUserId] },
+          components: buildForumPostComponents(order.id, order.status, 'member'),
+          allowedMentions: { parse: [], users: [order.discordUserId], roles: [] },
         },
         appliedTags: newTagId ? [newTagId] : [],
       });
@@ -486,7 +487,7 @@ export async function handleOrderButtonInteraction(
       });
     }
 
-    const { manufacturingRoleId } = getManufacturingConfig();
+    const { manufacturingRoleId, staffChannelId } = getManufacturingConfig();
     if (manufacturingRoleId) {
       try {
         await thread.send({
@@ -500,6 +501,55 @@ export async function handleOrderButtonInteraction(
           error,
         });
       }
+    }
+
+    // Create the mirrored staff thread in the background — truly non-blocking so the
+    // member's success reply is never delayed by staff channel issues.
+    if (staffChannelId) {
+      void (async () => { try {
+        const staffCh = await interaction.client.channels.fetch(staffChannelId);
+        if (!staffCh || staffCh.type !== ChannelType.GuildForum) {
+          logger.error(
+            '[manufacturing] Staff channel is missing or not a forum channel; skipping staff thread creation',
+            { orderId: order.id, staffChannelId },
+          );
+        } else {
+          const staffForumChannel = staffCh as unknown as ForumChannel;
+          let staffTagIds: Map<string, string> | undefined;
+          try {
+            staffTagIds = await ensureForumTags(staffForumChannel);
+          } catch (tagErr) {
+            logger.error(
+              '[manufacturing] Failed to ensure staff forum tags during order submission',
+              { orderId: order.id, staffChannelId, error: tagErr },
+            );
+          }
+          const staffNewTagId = staffTagIds?.get('New');
+          const staffThread = await staffForumChannel.threads.create({
+            name: `Order #${order.id} — ${interaction.user.username}`,
+            message: {
+              content: postContent,
+              components: buildForumPostComponents(order.id, order.status, 'staff'),
+              allowedMentions: { parse: [], users: [] },
+            },
+            appliedTags: staffNewTagId ? [staffNewTagId] : [],
+          });
+          try {
+            await updateStaffThreadId(order.id, staffThread.id);
+          } catch (linkErr) {
+            logger.error('[manufacturing] Staff thread created but failed to persist staff thread ID for order', {
+              orderId: order.id,
+              staffThreadId: staffThread.id,
+              error: linkErr,
+            });
+          }
+        }
+      } catch (error) {
+        logger.error('[manufacturing] Failed to create staff thread for order', {
+          orderId: order.id,
+          error,
+        });
+      } })();
     }
 
     const linkWarning = forumLinkFailed

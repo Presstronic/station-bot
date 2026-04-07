@@ -55,13 +55,37 @@ async function applyPostTransition(
   toStatus: OrderStatus,
 ): Promise<void> {
   const thread = interaction.channel as ThreadChannel;
+  const { staffChannelId } = getManufacturingConfig();
 
-  // Update forum post content and buttons
+  // Determine whether the button was clicked from the staff thread or the public thread.
+  // Advance/cancel buttons live in the staff thread, so interactions normally originate there.
+  //
+  // staffThreadId persistence is non-fatal, so we can't rely on it alone — the thread may
+  // exist but staffThreadId may still be null.  Priority of checks:
+  //   1. Live context: thread.parentId matches the configured staff forum channel
+  //   2. Persisted match: channelId matches the stored staffThreadId
+  //   3. Tiebreaker: interaction is not in the known public thread (treat as staff)
+  const isThreadChannel =
+    interaction.channel?.type === ChannelType.PublicThread ||
+    interaction.channel?.type === ChannelType.PrivateThread;
+  const isInConfiguredStaffForumThread =
+    isThreadChannel && staffChannelId !== null && thread.parentId === staffChannelId;
+  const isInPersistedStaffThread =
+    updatedOrder.staffThreadId !== null && interaction.channelId === updatedOrder.staffThreadId;
+  const isInPersistedMemberThread = interaction.channelId === updatedOrder.forumThreadId;
+  const isInStaffThread =
+    isInConfiguredStaffForumThread || isInPersistedStaffThread || !isInPersistedMemberThread;
+
+  const interactionTarget: 'member' | 'staff' = isInStaffThread ? 'staff' : 'member';
+  const counterpartThreadId = isInStaffThread ? updatedOrder.forumThreadId : updatedOrder.staffThreadId;
+  const counterpartTarget: 'member' | 'staff' = isInStaffThread ? 'member' : 'staff';
+
+  // Update the post in the interaction's own thread
   try {
     await interaction.editReply({
       content: formatOrderPost(updatedOrder),
-      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status),
-      allowedMentions: { users: [updatedOrder.discordUserId] },
+      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, interactionTarget),
+      allowedMentions: { users: isInStaffThread ? [] : [updatedOrder.discordUserId] },
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to edit forum post after status transition', {
@@ -77,7 +101,7 @@ async function applyPostTransition(
       .catch(() => {});
   }
 
-  // Swap forum thread tag — non-fatal if it fails
+  // Swap forum thread tag on the interaction's thread — non-fatal if it fails
   try {
     const parent = thread.parent;
     if (parent && parent.type === ChannelType.GuildForum) {
@@ -101,10 +125,14 @@ async function applyPostTransition(
   }
 
   // Post thread reply — non-fatal if it fails
+  // Suppress the member ping when replying from the staff thread (they don't have access).
   try {
     await thread.send({
       content: formatTransitionReply(toStatus, interaction.user.id),
-      allowedMentions: { users: [updatedOrder.discordUserId, interaction.user.id] },
+      allowedMentions: {
+        parse: [],
+        users: isInStaffThread ? [interaction.user.id] : [updatedOrder.discordUserId, interaction.user.id],
+      },
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to post thread reply after status transition', {
@@ -112,6 +140,35 @@ async function applyPostTransition(
       toStatus,
       error: err,
     });
+  }
+
+  // Sync the counterpart thread — non-fatal if it fails
+  if (counterpartThreadId) {
+    try {
+      const counterpartThread = await interaction.client.channels.fetch(counterpartThreadId) as ThreadChannel | null;
+      if (counterpartThread?.isThread()) {
+        const starterMessage = await counterpartThread.fetchStarterMessage();
+        if (starterMessage) {
+          await starterMessage.edit({
+            content: formatOrderPost(updatedOrder),
+            components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, counterpartTarget),
+            allowedMentions: { parse: [], users: counterpartTarget === 'staff' ? [] : [updatedOrder.discordUserId] },
+          });
+        }
+        const counterpartParent = counterpartThread.parent;
+        if (counterpartParent && counterpartParent.type === ChannelType.GuildForum) {
+          const counterpartTagMap = await ensureForumTags(counterpartParent as ForumChannel);
+          const counterpartTagId = counterpartTagMap.get(STATUS_TO_TAG[toStatus]);
+          if (counterpartTagId) await counterpartThread.setAppliedTags([counterpartTagId]);
+        }
+      }
+    } catch (err) {
+      logger.error('[manufacturing] Failed to sync counterpart thread after status transition', {
+        orderId: updatedOrder.id,
+        toStatus,
+        error: err,
+      });
+    }
   }
 }
 
