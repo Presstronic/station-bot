@@ -45,6 +45,7 @@ const SESSION_TTL_MS = 15 * 60 * 1000;
 interface Session {
   items: NewOrderItem[];
   expiresAt: number;
+  replyInteraction?: ModalSubmitInteraction;
 }
 
 const sessions = new Map<string, Session>();
@@ -79,14 +80,18 @@ export function teardownOrderSubmitCommandForTests(): void {
   clearInterval(orderSubmitCleanupInterval);
 }
 
-function getSessionItems(sessionId: string): NewOrderItem[] | undefined {
+function getSession(sessionId: string): Session | undefined {
   const session = sessions.get(sessionId);
   if (!session) return undefined;
   if (session.expiresAt <= Date.now()) {
     sessions.delete(sessionId);
     return undefined;
   }
-  return session.items;
+  return session;
+}
+
+function getSessionItems(sessionId: string): NewOrderItem[] | undefined {
+  return getSession(sessionId)?.items;
 }
 
 export const orderCommandBuilder = new SlashCommandBuilder()
@@ -346,11 +351,28 @@ export async function handleOrderItemModal(
 
   items.push({ itemName, quantity, priorityStat, note, sortOrder: items.length });
 
-  await interaction.reply({
-    content: `Item added (${items.length} / ${maxItemsPerOrder}). Add another item or submit your order.`,
-    components: buildItemCollectionComponents(sessionId, items.length, maxItemsPerOrder),
-    flags: MessageFlags.Ephemeral,
-  });
+  const session = getSession(sessionId)!;
+  const itemCollectionContent = `Item added (${items.length} / ${maxItemsPerOrder}). Add another item or submit your order.`;
+  const itemCollectionComponents = buildItemCollectionComponents(sessionId, items.length, maxItemsPerOrder);
+
+  if (!session.replyInteraction) {
+    // First item — create the ephemeral message and store the interaction for future edits.
+    await interaction.reply({
+      content: itemCollectionContent,
+      components: itemCollectionComponents,
+      flags: MessageFlags.Ephemeral,
+    });
+    session.replyInteraction = interaction;
+  } else {
+    // Subsequent items — edit the existing ephemeral message in place so only one UI is visible.
+    await session.replyInteraction.editReply({
+      content: itemCollectionContent,
+      components: itemCollectionComponents,
+    });
+    // Silently acknowledge the new modal interaction without creating a visible message.
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deleteReply();
+  }
 }
 
 export async function handleOrderButtonInteraction(

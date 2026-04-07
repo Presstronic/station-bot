@@ -69,6 +69,9 @@ function makeModalInteraction(
     deferred: false,
     fields: { getTextInputValue: (name: string) => fields[name] ?? '' },
     reply: jest.fn(async () => { i.replied = true; }),
+    deferReply: jest.fn(async () => { i.deferred = true; }),
+    deleteReply: jest.fn(async () => {}),
+    editReply: jest.fn(async () => {}),
     ...overrides,
   };
   return i;
@@ -589,11 +592,40 @@ describe('handleOrderItemModal', () => {
       modals.push(m);
       await h.handleOrderItemModal(m as any);
     }
-    const lastReply = (modals[2].reply as jest.Mock).mock.calls[0][0] as {
+    // Third item goes via editReply on the first modal's interaction (second editReply call)
+    const editReplyCalls = (modals[0].editReply as jest.Mock).mock.calls;
+    const lastEditReply = editReplyCalls[editReplyCalls.length - 1][0] as {
       components: { components: { data: { disabled: boolean; label: string } }[] }[];
     };
-    const addBtn = lastReply.components[0].components.find((c) => c.data.label === '＋ Add Item');
+    const addBtn = lastEditReply.components[0].components.find((c) => c.data.label === '＋ Add Item');
     expect(addBtn?.data.disabled).toBe(true);
+  });
+
+  it('edits the first ephemeral message in place when a second item is added', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'edit-test');
+
+    const first = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:edit-test`, {
+      'item-name': 'Iron Ore', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
+    });
+    await h.handleOrderItemModal(first as any);
+    // First item: reply() called, editReply not called
+    expect(first.reply).toHaveBeenCalledTimes(1);
+    expect(first.editReply).not.toHaveBeenCalled();
+
+    const second = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:edit-test`, {
+      'item-name': 'Carbon', 'quantity': '2', 'priority-stat': 'Y', 'notes': '',
+    });
+    await h.handleOrderItemModal(second as any);
+    // Second item: editReply called on the FIRST interaction, not reply on the second
+    expect(first.editReply).toHaveBeenCalledTimes(1);
+    expect(first.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Item added \(2 \/ 3\)/) }),
+    );
+    expect(second.reply).not.toHaveBeenCalled();
+    // New modal interaction is silently acknowledged and deleted
+    expect(second.deferReply).toHaveBeenCalledTimes(1);
+    expect(second.deleteReply).toHaveBeenCalledTimes(1);
   });
 });
 
