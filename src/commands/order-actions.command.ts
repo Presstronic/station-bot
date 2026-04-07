@@ -54,14 +54,23 @@ async function applyPostTransition(
   updatedOrder: ManufacturingOrder,
   toStatus: OrderStatus,
 ): Promise<void> {
+  // Determine whether the button was clicked from the staff thread or the public thread.
+  // Advance/cancel buttons now live in the staff thread, so the interaction ordinarily
+  // originates there.  We still handle the public-thread case defensively.
+  const isInStaffThread =
+    updatedOrder.staffThreadId !== null && interaction.channelId === updatedOrder.staffThreadId;
+  const interactionTarget: 'member' | 'staff' = isInStaffThread ? 'staff' : 'member';
+  const counterpartThreadId = isInStaffThread ? updatedOrder.forumThreadId : updatedOrder.staffThreadId;
+  const counterpartTarget: 'member' | 'staff' = isInStaffThread ? 'member' : 'staff';
+
   const thread = interaction.channel as ThreadChannel;
 
-  // Update forum post content and buttons
+  // Update the post in the interaction's own thread
   try {
     await interaction.editReply({
       content: formatOrderPost(updatedOrder),
-      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, 'member'),
-      allowedMentions: { users: [updatedOrder.discordUserId] },
+      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, interactionTarget),
+      allowedMentions: { users: isInStaffThread ? [] : [updatedOrder.discordUserId] },
     });
   } catch (err) {
     logger.error('[manufacturing] Failed to edit forum post after status transition', {
@@ -77,7 +86,7 @@ async function applyPostTransition(
       .catch(() => {});
   }
 
-  // Swap forum thread tag — non-fatal if it fails
+  // Swap forum thread tag on the interaction's thread — non-fatal if it fails
   try {
     const parent = thread.parent;
     if (parent && parent.type === ChannelType.GuildForum) {
@@ -114,28 +123,28 @@ async function applyPostTransition(
     });
   }
 
-  // Sync staff thread — non-fatal if it fails
-  if (updatedOrder.staffThreadId) {
+  // Sync the counterpart thread — non-fatal if it fails
+  if (counterpartThreadId) {
     try {
-      const staffThread = await interaction.client.channels.fetch(updatedOrder.staffThreadId) as ThreadChannel | null;
-      if (staffThread?.isThread()) {
-        const staffPost = await staffThread.fetchStarterMessage();
-        if (staffPost) {
-          await staffPost.edit({
+      const counterpartThread = await interaction.client.channels.fetch(counterpartThreadId) as ThreadChannel | null;
+      if (counterpartThread?.isThread()) {
+        const starterMessage = await counterpartThread.fetchStarterMessage();
+        if (starterMessage) {
+          await starterMessage.edit({
             content: formatOrderPost(updatedOrder),
-            components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, 'staff'),
-            allowedMentions: { users: [] },
+            components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, counterpartTarget),
+            allowedMentions: { users: counterpartTarget === 'staff' ? [] : [updatedOrder.discordUserId] },
           });
         }
-        const staffParent = staffThread.parent;
-        if (staffParent && staffParent.type === ChannelType.GuildForum) {
-          const staffTagMap = await ensureForumTags(staffParent as ForumChannel);
-          const staffTagId = staffTagMap.get(STATUS_TO_TAG[toStatus]);
-          if (staffTagId) await staffThread.setAppliedTags([staffTagId]);
+        const counterpartParent = counterpartThread.parent;
+        if (counterpartParent && counterpartParent.type === ChannelType.GuildForum) {
+          const counterpartTagMap = await ensureForumTags(counterpartParent as ForumChannel);
+          const counterpartTagId = counterpartTagMap.get(STATUS_TO_TAG[toStatus]);
+          if (counterpartTagId) await counterpartThread.setAppliedTags([counterpartTagId]);
         }
       }
     } catch (err) {
-      logger.error('[manufacturing] Failed to sync staff thread after status transition', {
+      logger.error('[manufacturing] Failed to sync counterpart thread after status transition', {
         orderId: updatedOrder.id,
         toStatus,
         error: err,
