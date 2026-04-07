@@ -57,6 +57,9 @@ export function validateManufacturingConfig(): string[] {
   if (!config.staffChannelId) {
     errors.push('MANUFACTURING_STAFF_CHANNEL_ID is required when MANUFACTURING_ENABLED=true');
   }
+  if (config.forumChannelId && config.staffChannelId && config.forumChannelId === config.staffChannelId) {
+    errors.push('MANUFACTURING_FORUM_CHANNEL_ID and MANUFACTURING_STAFF_CHANNEL_ID must be different channels');
+  }
   if (!config.manufacturingRoleId) {
     errors.push('MANUFACTURING_ROLE_ID is required when MANUFACTURING_ENABLED=true');
   }

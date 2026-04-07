@@ -43,6 +43,14 @@ const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
 let manufacturingEnabled = isManufacturingEnabled();
 
+// Disables manufacturing for the rest of this process lifetime. Mutates both
+// the local flag and MANUFACTURING_ENABLED so that isManufacturingEnabled()
+// (used by command handlers) stays in sync with the local flag.
+function disableManufacturing(): void {
+  manufacturingEnabled = false;
+  process.env.MANUFACTURING_ENABLED = 'false';
+}
+
 const manufacturingConfigErrors = manufacturingEnabled ? validateManufacturingConfig() : [];
 if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   for (const error of manufacturingConfigErrors) {
@@ -51,7 +59,7 @@ if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
   logger.error(
     '[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.',
   );
-  manufacturingEnabled = false;
+  disableManufacturing();
 }
 
 // Returns the feature flags that are actually active in the current mode.
@@ -158,17 +166,17 @@ client.once('clientReady', async () => {
       ]);
       if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
         logger.error(`[manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Disabling manufacturing.`);
-        manufacturingEnabled = false;
+        disableManufacturing();
       } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
         logger.error(`[manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Disabling manufacturing.`);
-        manufacturingEnabled = false;
+        disableManufacturing();
       } else {
         await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
         logger.info('[manufacturing] Forum tags verified on both channels.');
       }
     } catch (error) {
       logger.error('[manufacturing] Failed to ensure forum tags on startup. Disabling manufacturing.', error);
-      manufacturingEnabled = false;
+      disableManufacturing();
     }
   }
 
