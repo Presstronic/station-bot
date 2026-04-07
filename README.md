@@ -220,14 +220,14 @@ CI (`CI - Quality Gate`) runs lint + typecheck + tests on PRs to `main` and push
 
 ## 📦 Release + Container Publish
 
-Container publish workflow runs on pushed `v*` tags and validates `VERSION` file alignment.
+Container publish workflow runs on pushed `v*` tags. `package.json` is the single canonical version source — the CI workflow reads it directly via `node -p "require('./package.json').version"`.
 
 High-level release flow:
 
-1. Update `VERSION`
-2. Commit + push to `main`
-3. Tag: `v<VERSION>`
-4. Push tag
+1. Cut a `release/v{x.y.z}` branch from `main`
+2. Bump version in `package.json` and run `npm install --package-lock-only`
+3. Open a PR titled `release: v{x.y.z}`; squash-merge into `main`
+4. Tag the merge commit: `git tag v{x.y.z} && git push origin v{x.y.z}`
 5. Verify `Build & Publish Docker Image` workflow success
 
 ---
