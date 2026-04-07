@@ -256,11 +256,17 @@ client.on('guildCreate', async (guild) => {
   if (!readOnlyMode && manufacturingEnabled) {
     const { forumChannelId, staffChannelId } = getManufacturingConfig();
     try {
+      // Use guild-scoped fetch so we only act when the manufacturing channels
+      // actually belong to this guild. The bot may join guilds that are not the
+      // home guild; global client.channels.fetch() would resolve channels from
+      // any guild and produce misleading errors / log entries on every unrelated join.
       const [publicCh, staffCh] = await Promise.all([
-        guild.client.channels.fetch(forumChannelId),
-        guild.client.channels.fetch(staffChannelId),
+        guild.channels.fetch(forumChannelId).catch(() => null),
+        guild.channels.fetch(staffChannelId).catch(() => null),
       ]);
-      if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
+      if (!publicCh && !staffCh) {
+        // Neither channel belongs to this guild — not the home guild, skip silently.
+      } else if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
         logger.error(`[${guild.name}] [manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Skipping tag sync.`);
       } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
         logger.error(`[${guild.name}] [manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Skipping tag sync.`);
