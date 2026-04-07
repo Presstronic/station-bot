@@ -17,6 +17,8 @@ const VARS = [
   'ORDER_RATE_LIMIT_PER_HOUR',
   'MANUFACTURING_CREATE_ORDER_POST_TITLE',
   'MANUFACTURING_CREATE_ORDER_POST_MESSAGE',
+  'MANUFACTURING_CREATE_ORDER_THREAD_ID',
+  'MANUFACTURING_KEEPALIVE_CRON_SCHEDULE',
 ] as const;
 
 type EnvSnapshot = Partial<Record<(typeof VARS)[number], string>>;
@@ -212,6 +214,29 @@ describe('getManufacturingConfig', () => {
     expect(getManufacturingConfig().createOrderPostMessage).toBe(
       'Click the button below to submit a new manufacturing order.',
     );
+  });
+
+  it('returns empty string for createOrderThreadId when not set', () => {
+    expect(getManufacturingConfig().createOrderThreadId).toBe('');
+  });
+
+  it('returns createOrderThreadId when set', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_THREAD_ID = '123456789';
+    expect(getManufacturingConfig().createOrderThreadId).toBe('123456789');
+  });
+
+  it('trims whitespace from createOrderThreadId', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_THREAD_ID = '  123456789  ';
+    expect(getManufacturingConfig().createOrderThreadId).toBe('123456789');
+  });
+
+  it('uses default keepAliveCronSchedule when not set', () => {
+    expect(getManufacturingConfig().keepAliveCronSchedule).toBe('0 6 * * *');
+  });
+
+  it('uses custom keepAliveCronSchedule when set', () => {
+    process.env.MANUFACTURING_KEEPALIVE_CRON_SCHEDULE = '0 12 * * *';
+    expect(getManufacturingConfig().keepAliveCronSchedule).toBe('0 12 * * *');
   });
 });
 

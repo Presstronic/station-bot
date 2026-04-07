@@ -8,6 +8,7 @@ import {
   scheduleTemporaryMemberCleanup,
   schedulePotentialApplicantCleanup,
 } from './jobs/discord/purge-member.job.js';
+import { scheduleCreateOrderKeepAlive } from './jobs/discord/manufacturing-keepalive.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
@@ -98,6 +99,7 @@ let workerHandle: NodeJS.Timeout | null = null;
 let loopMonitorHandle: NodeJS.Timeout | null = null;
 let tempMemberCronTask: { stop: () => void } | null = null;
 let potentialApplicantCronTask: { stop: () => void } | null = null;
+let keepAliveCronTask: { stop: () => void } | null = null;
 let shuttingDown = false;
 
 // Subscribe to undici TCP-level diagnostics before any HTTP activity begins.
@@ -117,6 +119,7 @@ const shutdown = () => {
   }
   tempMemberCronTask?.stop();
   potentialApplicantCronTask?.stop();
+  keepAliveCronTask?.stop();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -177,6 +180,11 @@ client.once('clientReady', async () => {
     } catch (error) {
       logger.error('[manufacturing] Failed to ensure forum tags on startup. Disabling manufacturing.', error);
       disableManufacturing();
+    }
+
+    if (manufacturingEnabled) {
+      keepAliveCronTask = scheduleCreateOrderKeepAlive(client);
+      logger.info('[manufacturing] Scheduled Create Order keep-alive job.');
     }
   }
 
