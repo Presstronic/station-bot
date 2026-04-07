@@ -238,6 +238,11 @@ describe('getManufacturingConfig', () => {
     process.env.MANUFACTURING_KEEPALIVE_CRON_SCHEDULE = '0 12 * * *';
     expect(getManufacturingConfig().keepAliveCronSchedule).toBe('0 12 * * *');
   });
+
+  it('falls back to default keepAliveCronSchedule when env var is whitespace-only', () => {
+    process.env.MANUFACTURING_KEEPALIVE_CRON_SCHEDULE = '   ';
+    expect(getManufacturingConfig().keepAliveCronSchedule).toBe('0 6 * * *');
+  });
 });
 
 // ---------------------------------------------------------------------------

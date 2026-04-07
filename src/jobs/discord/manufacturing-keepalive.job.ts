@@ -5,8 +5,21 @@ import { getLogger } from '../../utils/logger.js';
 
 const logger = getLogger();
 
+function createNoOpScheduledTask(): cron.ScheduledTask {
+  const task = cron.schedule('* * * * *', () => undefined, { timezone: 'UTC' });
+  task.stop();
+  return task;
+}
+
 export function scheduleCreateOrderKeepAlive(client: Client): cron.ScheduledTask {
   const { keepAliveCronSchedule } = getManufacturingConfig();
+
+  if (!cron.validate(keepAliveCronSchedule)) {
+    logger.error('[manufacturing] Keep-alive: invalid MANUFACTURING_KEEPALIVE_CRON_SCHEDULE — job will not run', {
+      keepAliveCronSchedule,
+    });
+    return createNoOpScheduledTask();
+  }
 
   return cron.schedule(
     keepAliveCronSchedule,

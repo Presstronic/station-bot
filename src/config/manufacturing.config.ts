@@ -49,7 +49,7 @@ export function getManufacturingConfig(): ManufacturingConfig {
     createOrderPostTitle: process.env.MANUFACTURING_CREATE_ORDER_POST_TITLE?.trim() || '📋 Create Order',
     createOrderPostMessage: process.env.MANUFACTURING_CREATE_ORDER_POST_MESSAGE?.trim() || 'Click the button below to submit a new manufacturing order.',
     createOrderThreadId: (process.env.MANUFACTURING_CREATE_ORDER_THREAD_ID ?? '').trim(),
-    keepAliveCronSchedule: (process.env.MANUFACTURING_KEEPALIVE_CRON_SCHEDULE ?? '0 6 * * *').trim(),
+    keepAliveCronSchedule: process.env.MANUFACTURING_KEEPALIVE_CRON_SCHEDULE?.trim() || '0 6 * * *',
   };
 }
 

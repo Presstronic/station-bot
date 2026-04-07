@@ -32,9 +32,10 @@ async function setupMocks(configOverrides: Partial<typeof BASE_CONFIG> = {}) {
   const mockWarn = jest.fn();
   const mockInfo = jest.fn();
   const mockDebug = jest.fn();
+  const mockError = jest.fn();
 
   jest.unstable_mockModule('../../../utils/logger.js', () => ({
-    getLogger: () => ({ warn: mockWarn, info: mockInfo, debug: mockDebug, error: jest.fn() }),
+    getLogger: () => ({ warn: mockWarn, info: mockInfo, debug: mockDebug, error: mockError }),
   }));
 
   jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
@@ -45,6 +46,7 @@ async function setupMocks(configOverrides: Partial<typeof BASE_CONFIG> = {}) {
 
   jest.unstable_mockModule('node-cron', () => ({
     default: {
+      validate: jest.fn((_schedule: string) => true),
       schedule: jest.fn((_schedule: string, cb: CronCallback) => {
         capturedCallback = cb;
         return { stop: jest.fn() };
@@ -60,7 +62,7 @@ async function setupMocks(configOverrides: Partial<typeof BASE_CONFIG> = {}) {
       if (!capturedCallback) throw new Error('cron callback was not captured');
       await capturedCallback();
     },
-    mocks: { warn: mockWarn, info: mockInfo, debug: mockDebug },
+    mocks: { warn: mockWarn, info: mockInfo, debug: mockDebug, error: mockError },
   };
 }
 
@@ -175,6 +177,26 @@ describe('scheduleCreateOrderKeepAlive', () => {
 
     expect(mocks.warn).toHaveBeenCalledWith(
       expect.stringContaining('failed to unarchive'),
+      expect.any(Object),
+    );
+  });
+
+  it('logs an error and returns a stopped no-op task when the cron schedule is invalid', async () => {
+    const { scheduleCreateOrderKeepAlive, mocks } = await setupMocks({
+      keepAliveCronSchedule: 'not-a-valid-cron',
+    });
+
+    // Override the validate mock to return false for this test
+    const cronMod = await import('node-cron');
+    (cronMod.default.validate as jest.Mock).mockReturnValue(false);
+
+    const client = makeClient();
+    const task = scheduleCreateOrderKeepAlive(client as any);
+
+    expect(task).toBeDefined();
+    expect(mocks.warn).not.toHaveBeenCalled();
+    expect(mocks.error).toHaveBeenCalledWith(
+      expect.stringContaining('invalid MANUFACTURING_KEEPALIVE_CRON_SCHEDULE'),
       expect.any(Object),
     );
   });
