@@ -89,6 +89,10 @@ export async function handleManufacturingSetupCommand(
 
   // Guard: check both active and archived threads so that an auto-archived
   // setup thread does not cause a duplicate on repeated invocations.
+  // Note: the duplicate check matches on thread name (createOrderPostTitle). If the
+  // title is changed via env after the thread has been created, or the thread is
+  // renamed manually, this guard will not detect the existing thread and a duplicate
+  // will be created. In that case, delete the old thread before re-running setup.
   try {
     const [active, archived] = await Promise.all([
       forumChannel.threads.fetchActive(),

@@ -186,6 +186,11 @@ describe('getManufacturingConfig', () => {
     expect(getManufacturingConfig().createOrderPostTitle).toBe('My Title');
   });
 
+  it('falls back to default createOrderPostTitle when env var is whitespace-only', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_POST_TITLE = '   ';
+    expect(getManufacturingConfig().createOrderPostTitle).toBe('📋 Create Order');
+  });
+
   it('uses default createOrderPostMessage when env var is not set', () => {
     expect(getManufacturingConfig().createOrderPostMessage).toBe(
       'Click the button below to submit a new manufacturing order.',
@@ -200,6 +205,13 @@ describe('getManufacturingConfig', () => {
   it('trims whitespace from createOrderPostMessage', () => {
     process.env.MANUFACTURING_CREATE_ORDER_POST_MESSAGE = '  My message  ';
     expect(getManufacturingConfig().createOrderPostMessage).toBe('My message');
+  });
+
+  it('falls back to default createOrderPostMessage when env var is whitespace-only', () => {
+    process.env.MANUFACTURING_CREATE_ORDER_POST_MESSAGE = '   ';
+    expect(getManufacturingConfig().createOrderPostMessage).toBe(
+      'Click the button below to submit a new manufacturing order.',
+    );
   });
 });
 
