@@ -116,6 +116,7 @@ async function setupMocks(overrides: {
     transitionStatus: transitionStatusMock,
     cancelOrder: cancelOrderMock,
     updateForumThreadId: jest.fn(),
+    updateStaffThreadId: jest.fn(),
     findByForumThreadId: jest.fn(),
   }));
 
@@ -506,5 +507,76 @@ describe('handleMfgAdvance', () => {
     await h.handleMfgAdvance(btn as any);
     const thread = btn.channel as ReturnType<typeof makeThreadChannel>;
     expect(thread.setAppliedTags).toHaveBeenCalledWith(['t-accepted']);
+  });
+
+  it('edits staff thread starter message and updates tags when staffThreadId is present', async () => {
+    const editMock = jest.fn(async () => {});
+    const staffSetTagsMock = jest.fn(async () => {});
+    const staffFetchStarterMock = jest.fn(async () => ({ edit: editMock }));
+    const staffThread = {
+      isThread: () => true,
+      fetchStarterMessage: staffFetchStarterMock,
+      setAppliedTags: staffSetTagsMock,
+      parent: {
+        type: 15, // GuildForum
+        availableTags: [
+          { name: 'New', id: 't-new' },
+          { name: 'Accepted', id: 't-accepted' },
+          { name: 'Processing', id: 't-processing' },
+          { name: 'Ready for Pickup', id: 't-pickup' },
+          { name: 'Complete', id: 't-complete' },
+          { name: 'Cancelled', id: 't-cancelled' },
+        ],
+        setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+          availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+        })),
+      },
+    };
+
+    const h = await setupMocks({
+      findById: jest.fn(async () => makeOrder({ staffThreadId: 'staff-thread-id' })),
+      transitionStatus: jest.fn(async () => makeOrder({ status: 'accepted', staffThreadId: 'staff-thread-id' })),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    (btn as Record<string, unknown>).client = {
+      channels: { fetch: jest.fn(async () => staffThread) },
+    };
+    await h.handleMfgAdvance(btn as any);
+
+    expect(staffFetchStarterMock).toHaveBeenCalled();
+    expect(editMock).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.any(String), components: expect.any(Array) }),
+    );
+    expect(staffSetTagsMock).toHaveBeenCalledWith(['t-accepted']);
+  });
+
+  it('does not edit staff thread when staffThreadId is null', async () => {
+    const staffFetchMock = jest.fn();
+    const h = await setupMocks({
+      findById: jest.fn(async () => makeOrder({ staffThreadId: null })),
+      transitionStatus: jest.fn(async () => makeOrder({ status: 'accepted', staffThreadId: null })),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    (btn as Record<string, unknown>).client = {
+      channels: { fetch: staffFetchMock },
+    };
+    await h.handleMfgAdvance(btn as any);
+
+    expect(staffFetchMock).not.toHaveBeenCalled();
+  });
+
+  it('transition still succeeds when staff thread sync throws', async () => {
+    const h = await setupMocks({
+      findById: jest.fn(async () => makeOrder({ staffThreadId: 'staff-thread-id' })),
+      transitionStatus: jest.fn(async () => makeOrder({ status: 'accepted', staffThreadId: 'staff-thread-id' })),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    (btn as Record<string, unknown>).client = {
+      channels: { fetch: jest.fn(async () => { throw new Error('staff fetch failed'); }) },
+    };
+    await h.handleMfgAdvance(btn as any);
+
+    // Transition succeeded — editReply was called with the updated post
+    expect(btn.editReply).toHaveBeenCalled();
   });
 });

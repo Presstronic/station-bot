@@ -19,6 +19,7 @@ import { submitOrder } from '../domain/manufacturing/manufacturing.service.js';
 import {
   countActiveByUserId,
   updateForumThreadId,
+  updateStaffThreadId,
 } from '../domain/manufacturing/manufacturing.repository.js';
 import {
   buildForumPostComponents,
@@ -456,7 +457,7 @@ export async function handleOrderButtonInteraction(
         name: `Order #${order.id} — ${interaction.user.username}`,
         message: {
           content: postContent,
-          components: buildForumPostComponents(order.id, order.status),
+          components: buildForumPostComponents(order.id, order.status, 'member'),
           allowedMentions: { users: [order.discordUserId] },
         },
         appliedTags: newTagId ? [newTagId] : [],
@@ -486,7 +487,7 @@ export async function handleOrderButtonInteraction(
       });
     }
 
-    const { manufacturingRoleId } = getManufacturingConfig();
+    const { manufacturingRoleId, staffChannelId } = getManufacturingConfig();
     if (manufacturingRoleId) {
       try {
         await thread.send({
@@ -497,6 +498,47 @@ export async function handleOrderButtonInteraction(
         logger.warn('[manufacturing] Failed to send role ping in order thread', {
           orderId: order.id,
           threadId: thread.id,
+          error,
+        });
+      }
+    }
+
+    // Create the mirrored staff thread — non-fatal so a misconfigured staff channel
+    // never blocks the member's success reply.
+    if (staffChannelId) {
+      try {
+        const staffCh = await interaction.client.channels.fetch(staffChannelId);
+        if (!staffCh || staffCh.type !== ChannelType.GuildForum) {
+          logger.error(
+            '[manufacturing] Staff channel is missing or not a forum channel; skipping staff thread creation',
+            { orderId: order.id, staffChannelId },
+          );
+        } else {
+          const staffForumChannel = staffCh as unknown as ForumChannel;
+          let staffTagIds: Map<string, string> | undefined;
+          try {
+            staffTagIds = await ensureForumTags(staffForumChannel);
+          } catch (tagErr) {
+            logger.error(
+              '[manufacturing] Failed to ensure staff forum tags during order submission',
+              { error: tagErr },
+            );
+          }
+          const staffNewTagId = staffTagIds?.get('New');
+          const staffThread = await staffForumChannel.threads.create({
+            name: `Order #${order.id} — ${interaction.user.username}`,
+            message: {
+              content: postContent,
+              components: buildForumPostComponents(order.id, order.status, 'staff'),
+              allowedMentions: { users: [order.discordUserId] },
+            },
+            appliedTags: staffNewTagId ? [staffNewTagId] : [],
+          });
+          await updateStaffThreadId(order.id, staffThread.id);
+        }
+      } catch (error) {
+        logger.error('[manufacturing] Failed to create staff thread for order', {
+          orderId: order.id,
           error,
         });
       }

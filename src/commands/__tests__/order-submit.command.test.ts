@@ -113,6 +113,7 @@ async function setupMocks(overrides: {
   activeCount?: number;
   submitOrder?: jest.Mock;
   updateForumThreadId?: jest.Mock;
+  updateStaffThreadId?: jest.Mock;
   configOverrides?: Partial<typeof BASE_CONFIG>;
 } = {}) {
   const hasRole = overrides.hasRole ?? true;
@@ -151,6 +152,7 @@ async function setupMocks(overrides: {
 
   const submitOrderMock = overrides.submitOrder ?? jest.fn(async () => makeOrder());
   const updateForumThreadIdMock = overrides.updateForumThreadId ?? jest.fn(async () => {});
+  const updateStaffThreadIdMock = overrides.updateStaffThreadId ?? jest.fn(async () => {});
 
   jest.unstable_mockModule('../../domain/manufacturing/manufacturing.service.js', () => ({
     submitOrder: submitOrderMock,
@@ -173,7 +175,13 @@ async function setupMocks(overrides: {
     countActiveByUserId: jest.fn(async () => activeCount),
     updateStatus: jest.fn(),
     updateForumThreadId: updateForumThreadIdMock,
+    updateStaffThreadId: updateStaffThreadIdMock,
     findByForumThreadId: jest.fn(),
+    transitionStatus: jest.fn(),
+    cancelOrder: jest.fn(),
+    countActiveOrders: jest.fn(),
+    findByForumStaffThreadId: jest.fn(),
+    updateForumStaffThreadId: jest.fn(),
   }));
 
   jest.unstable_mockModule('../../domain/manufacturing/manufacturing.forum.js', () => ({
@@ -194,7 +202,7 @@ async function setupMocks(overrides: {
 
   const mod = await import('../order-submit.command.js');
   latestCleanup = mod.teardownOrderSubmitCommandForTests;
-  return { ...mod, submitOrderMock, updateForumThreadIdMock, warnMock };
+  return { ...mod, submitOrderMock, updateForumThreadIdMock, updateStaffThreadIdMock, warnMock };
 }
 
 // Helper: run the slash command to create a session, then return the session ID
@@ -906,6 +914,80 @@ describe('handleOrderButtonInteraction', () => {
     await h.handleOrderButtonInteraction(addBtn as any);
     expect(addBtn.update).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/expired/i) }),
+    );
+  });
+
+  it('creates a staff thread and calls updateStaffThreadId after order creation', async () => {
+    const order = makeOrder({ id: 77 });
+    const staffCreateMock = jest.fn(async () => ({ id: 'staff-thread-id', send: jest.fn(async () => {}) }));
+    const updateStaffThreadIdMock = jest.fn(async () => {});
+    const h = await setupMocks({ submitOrder: jest.fn(async () => order), updateStaffThreadId: updateStaffThreadIdMock });
+
+    await createSession(h, 'staff-create');
+    await addItemToSession(h, 'staff-create');
+
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:staff-create`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => ({
+            type: 15, // GuildForum
+            availableTags: [],
+            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+            })),
+            threads: {
+              create: staffCreateMock,
+            },
+          })),
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+
+    expect(staffCreateMock).toHaveBeenCalledTimes(2); // public + staff
+    expect(updateStaffThreadIdMock).toHaveBeenCalledWith(77, 'staff-thread-id');
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Order #77/i) }),
+    );
+  });
+
+  it('still sends the success reply when staff thread creation throws', async () => {
+    const updateStaffThreadIdMock = jest.fn(async () => {});
+    const h = await setupMocks({ updateStaffThreadId: updateStaffThreadIdMock });
+
+    await createSession(h, 'staff-fail');
+    await addItemToSession(h, 'staff-fail');
+
+    let callCount = 0;
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:staff-fail`, {
+      client: {
+        channels: {
+          fetch: jest.fn(async () => {
+            callCount++;
+            if (callCount === 1) {
+              // Public forum channel — succeeds
+              return {
+                type: 15,
+                availableTags: [],
+                setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+                  availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+                })),
+                threads: {
+                  create: jest.fn(async () => ({ id: 'pub-thread', send: jest.fn(async () => {}) })),
+                },
+              };
+            }
+            // Staff channel fetch — throws
+            throw new Error('staff channel unavailable');
+          }),
+        },
+      },
+    });
+    await h.handleOrderButtonInteraction(btn as any);
+
+    expect(updateStaffThreadIdMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Order #42/i) }),
     );
   });
 });

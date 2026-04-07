@@ -60,7 +60,7 @@ async function applyPostTransition(
   try {
     await interaction.editReply({
       content: formatOrderPost(updatedOrder),
-      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status),
+      components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, 'member'),
       allowedMentions: { users: [updatedOrder.discordUserId] },
     });
   } catch (err) {
@@ -112,6 +112,35 @@ async function applyPostTransition(
       toStatus,
       error: err,
     });
+  }
+
+  // Sync staff thread — non-fatal if it fails
+  if (updatedOrder.staffThreadId) {
+    try {
+      const staffThread = await interaction.client.channels.fetch(updatedOrder.staffThreadId) as ThreadChannel | null;
+      if (staffThread?.isThread()) {
+        const staffPost = await staffThread.fetchStarterMessage();
+        if (staffPost) {
+          await staffPost.edit({
+            content: formatOrderPost(updatedOrder),
+            components: buildForumPostComponents(updatedOrder.id, updatedOrder.status, 'staff'),
+            allowedMentions: { users: [] },
+          });
+        }
+        const staffParent = staffThread.parent;
+        if (staffParent && staffParent.type === ChannelType.GuildForum) {
+          const staffTagMap = await ensureForumTags(staffParent as ForumChannel);
+          const staffTagId = staffTagMap.get(STATUS_TO_TAG[toStatus]);
+          if (staffTagId) await staffThread.setAppliedTags([staffTagId]);
+        }
+      }
+    } catch (err) {
+      logger.error('[manufacturing] Failed to sync staff thread after status transition', {
+        orderId: updatedOrder.id,
+        toStatus,
+        error: err,
+      });
+    }
   }
 }
 
