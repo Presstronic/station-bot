@@ -57,6 +57,27 @@ const sessionCleanupInterval = setInterval(() => {
 }, SESSION_TTL_MS);
 sessionCleanupInterval.unref();
 
+// IN-PROCESS STORE — not persisted across restarts and not shared across instances.
+// Rate-limit windows reset on bot restart; multi-instance deployments require a shared store — see #317.
+interface RateLimitEntry { ts: number; id: string }
+const orderSubmitTimestamps = new Map<string, RateLimitEntry[]>();
+
+const orderSubmitCleanupInterval = setInterval(() => {
+  const cutoff = Date.now() - 60 * 60 * 1000;
+  for (const [userId, entries] of orderSubmitTimestamps) {
+    if (entries.length === 0 || entries[entries.length - 1].ts <= cutoff) {
+      orderSubmitTimestamps.delete(userId);
+    }
+  }
+}, 60 * 60 * 1000);
+orderSubmitCleanupInterval.unref();
+
+/** Clears module-level intervals. Call in afterEach to prevent open handle warnings in tests. */
+export function teardownOrderSubmitCommandForTests(): void {
+  clearInterval(sessionCleanupInterval);
+  clearInterval(orderSubmitCleanupInterval);
+}
+
 function getSessionItems(sessionId: string): NewOrderItem[] | undefined {
   const session = sessions.get(sessionId);
   if (!session) return undefined;
@@ -138,9 +159,9 @@ function buildItemCollectionComponents(
 }
 
 /**
- * Shared entry point for starting the order creation modal flow. Called by
- * both the `/order` slash command and the 📋 Create Order button so the
- * eligibility checks and session setup are not duplicated.
+ * Shared entry point for starting the order creation modal flow. Applies rate
+ * limiting, eligibility checks, and session setup for both the `/order` slash
+ * command and the 📋 Create Order button — neither path bypasses these checks.
  */
 export async function triggerOrderModal(
   interaction: ChatInputCommandInteraction | ButtonInteraction,
@@ -153,18 +174,47 @@ export async function triggerOrderModal(
     return;
   }
 
-  if (!interaction.inGuild()) {
+  const userId = interaction.user.id;
+  const now = Date.now();
+  const oneHourAgo = now - 60 * 60 * 1000;
+  const fiveMinutesAgo = now - 5 * 60 * 1000;
+  const { orderRateLimitPer5Min, orderRateLimitPerHour, orderLimit } = getManufacturingConfig();
+
+  const submitEntries = (orderSubmitTimestamps.get(userId) ?? []).filter(e => e.ts > oneHourAgo);
+  if (submitEntries.length > 0) {
+    orderSubmitTimestamps.set(userId, submitEntries);
+  } else {
+    orderSubmitTimestamps.delete(userId);
+  }
+
+  const recentSubmits = submitEntries.filter(e => e.ts > fiveMinutesAgo);
+  if (recentSubmits.length >= orderRateLimitPer5Min) {
+    const limitingTs = recentSubmits[recentSubmits.length - orderRateLimitPer5Min].ts;
+    const secondsRemaining = Math.ceil((limitingTs + 5 * 60 * 1000 - now) / 1000);
     await interaction.reply({
-      content: 'This command can only be used in a server.',
+      content: `You're submitting orders too quickly. Please wait ${secondsRemaining} second(s) before trying again.`,
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  const hasRole = await hasOrganizationMemberOrHigher(interaction);
-  if (!hasRole) {
+  if (submitEntries.length >= orderRateLimitPerHour) {
+    const limitingTs = submitEntries[submitEntries.length - orderRateLimitPerHour].ts;
+    const minutesRemaining = Math.ceil((limitingTs + 60 * 60 * 1000 - now) / (60 * 1000));
     await interaction.reply({
-      content: 'You must be an Organization Member to submit manufacturing orders.',
+      content: `You've reached the hourly order submission limit. Please try again in ${minutesRemaining} minute(s).`,
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  // Run cheap sync guards before reserving the rate-limit slot. Because these
+  // checks never yield to the event loop they cannot create a window where a
+  // concurrent invocation sees a pending reservation that later rolls back and
+  // produces a false-positive rate-limit rejection for an ineligible attempt.
+  if (!interaction.inGuild()) {
+    await interaction.reply({
+      content: 'This command can only be used in a server.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -178,24 +228,67 @@ export async function triggerOrderModal(
     return;
   }
 
-  // Eager limit check — gives the user an early error with their current count
-  // before they start the item flow. The authoritative check still happens in
-  // the repository (with advisory lock) at submit time.
-  const { orderLimit } = getManufacturingConfig();
-  const activeCount = await countActiveByUserId(interaction.user.id);
-  if (activeCount >= orderLimit) {
-    await interaction.reply({
-      content: `You have ${activeCount} active order${activeCount === 1 ? '' : 's'} (limit: ${orderLimit}). Please wait for one to complete before submitting a new one.`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
+  // Reserve the slot before any awaits. Node.js is single-threaded so this
+  // push is atomic with respect to other synchronous code; no other invocation
+  // can interleave until the next await. Reserving here prevents two concurrent
+  // invocations from both passing the rate-limit check before either records.
+  // The entry carries interaction.id (unique per Discord interaction) so that
+  // releaseSlot() can remove exactly this reservation even if two invocations
+  // for the same user arrive within the same millisecond.
+  const interactionId = interaction.id;
+  submitEntries.push({ ts: now, id: interactionId });
+  orderSubmitTimestamps.set(userId, submitEntries);
 
-  sessions.set(interaction.id, {
-    items: [],
-    expiresAt: Date.now() + SESSION_TTL_MS,
-  });
-  await interaction.showModal(buildItemModal(`${ITEM_MODAL_PREFIX}:${interaction.id}`, 1));
+  // Rolls back the reserved slot. Re-reads the current map entry so a
+  // concurrent invocation that replaced the map value is not overwritten.
+  const releaseSlot = () => {
+    const current = orderSubmitTimestamps.get(userId);
+    if (!current) return;
+    const idx = current.findIndex(e => e.id === interactionId);
+    if (idx !== -1) current.splice(idx, 1);
+    if (current.length === 0) {
+      orderSubmitTimestamps.delete(userId);
+    }
+  };
+
+  // Use try/finally so the slot is released on any exit that does not
+  // successfully show the modal — explicit eligibility rejections, unexpected
+  // throws from async calls, and showModal failures all release the reservation.
+  // Note: the async guards (hasRole, countActiveByUserId) still have a narrow
+  // concurrent false-positive window; a per-user mutex would close it fully
+  // but is deferred until a shared store is in place (see #317).
+  let slotCommitted = false;
+  try {
+    const hasRole = await hasOrganizationMemberOrHigher(interaction);
+    if (!hasRole) {
+      await interaction.reply({
+        content: 'You must be an Organization Member to submit manufacturing orders.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    // Eager limit check — gives the user an early error with their current count
+    // before they start the item flow. The authoritative check still happens in
+    // the repository (with advisory lock) at submit time.
+    const activeCount = await countActiveByUserId(interaction.user.id);
+    if (activeCount >= orderLimit) {
+      await interaction.reply({
+        content: `You have ${activeCount} active order${activeCount === 1 ? '' : 's'} (limit: ${orderLimit}). Please wait for one to complete before submitting a new one.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    sessions.set(interaction.id, {
+      items: [],
+      expiresAt: Date.now() + SESSION_TTL_MS,
+    });
+    await interaction.showModal(buildItemModal(`${ITEM_MODAL_PREFIX}:${interaction.id}`, 1));
+    slotCommitted = true;
+  } finally {
+    if (!slotCommitted) releaseSlot();
+  }
 }
 
 export async function handleOrderCommand(

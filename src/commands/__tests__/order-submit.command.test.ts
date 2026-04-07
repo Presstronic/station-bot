@@ -1,8 +1,15 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { ManufacturingOrder } from '../../domain/manufacturing/types.js';
+
+let latestCleanup: (() => void) | undefined;
 
 beforeEach(() => {
   jest.resetModules();
+});
+
+afterEach(() => {
+  latestCleanup?.();
+  latestCleanup = undefined;
 });
 
 // ---------------------------------------------------------------------------
@@ -15,6 +22,8 @@ const BASE_CONFIG = {
   organizationMemberRoleId: 'org-role',
   orderLimit: 5,
   maxItemsPerOrder: 3,
+  orderRateLimitPer5Min: 10,  // high default so existing tests never hit the rate limit
+  orderRateLimitPerHour: 100,
 };
 
 function makeOrder(overrides: Partial<ManufacturingOrder> = {}): ManufacturingOrder {
@@ -169,7 +178,6 @@ async function setupMocks(overrides: {
     ORDER_STATUS_TAG_NAMES: ['New', 'Accepted', 'Processing', 'Ready for Pickup', 'Complete', 'Cancelled'],
     STATUS_LABEL: { new: '🆕 New', accepted: '✅ Accepted', processing: '⚙️ Processing', ready_for_pickup: '📬 Ready for Pickup', complete: '✔️ Complete', cancelled: '🚫 Cancelled' },
     STATUS_TO_TAG: { new: 'New', accepted: 'Accepted', processing: 'Processing', ready_for_pickup: 'Ready for Pickup', complete: 'Complete', cancelled: 'Cancelled' },
-    MFG_CREATE_ORDER_PREFIX: 'mfg-create-order',
     MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
     MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
     MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
@@ -183,6 +191,7 @@ async function setupMocks(overrides: {
   }));
 
   const mod = await import('../order-submit.command.js');
+  latestCleanup = mod.teardownOrderSubmitCommandForTests;
   return { ...mod, submitOrderMock, updateForumThreadIdMock, warnMock };
 }
 
@@ -278,13 +287,12 @@ describe('handleOrderCommand', () => {
 });
 
 // ---------------------------------------------------------------------------
-// triggerOrderModal — button entry point
+// triggerOrderModal — button entry point (rate limiting applies to both paths)
 // ---------------------------------------------------------------------------
 
 describe('triggerOrderModal (button interaction)', () => {
   it('shows the item modal when called with an authorized ButtonInteraction', async () => {
     const h = await setupMocks();
-    // Simulate a ButtonInteraction with the Create Order customId
     const i: Record<string, unknown> = {
       inGuild: () => true,
       id: 'btn-id-1',
@@ -319,6 +327,125 @@ describe('triggerOrderModal (button interaction)', () => {
       content: expect.stringMatching(/not currently available/i),
     });
     expect(i.showModal).not.toHaveBeenCalled();
+  });
+
+  it('rate-limits a button interaction the same as a slash command', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(1_700_000_000_000);
+    try {
+      const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+
+      const makeBtn = (id: string) => ({
+        inGuild: () => true,
+        id,
+        customId: 'mfg-create-order',
+        user: { id: 'user-btn', username: 'BtnUser' },
+        replied: false,
+        deferred: false,
+        reply: jest.fn(async () => {}),
+        showModal: jest.fn(async () => {}),
+      });
+
+      await h.triggerOrderModal(makeBtn('btn-rl-1') as any); // fills the 5-min slot
+
+      const btn2 = makeBtn('btn-rl-2');
+      await h.triggerOrderModal(btn2 as any); // should be blocked
+      expect((btn2.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+        content: expect.stringMatching(/too quickly/i),
+      });
+      expect(btn2.showModal).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleOrderCommand — rate limiting (handleOrderCommand delegates to triggerOrderModal)
+// ---------------------------------------------------------------------------
+
+describe('handleOrderCommand — rate limiting', () => {
+  const base = 1_700_000_000_000;
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(base);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('first submission in a fresh window passes through', async () => {
+    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+    const i = makeSlashInteraction({ id: 'sess-1' });
+    await h.handleOrderCommand(i as any);
+    expect(i.showModal).toHaveBeenCalledTimes(1);
+    expect(i.reply).not.toHaveBeenCalled();
+  });
+
+  it('second submission within 5 minutes is rejected with the per-5-min message and seconds remaining', async () => {
+    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+    await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any);
+
+    jest.setSystemTime(base + 60_000); // 60 s later — still inside the 5-min window
+    const i2 = makeSlashInteraction({ id: 'sess-2' });
+    await h.handleOrderCommand(i2 as any);
+
+    const reply = (i2.reply as jest.Mock).mock.calls[0][0] as { content: string; flags: number };
+    expect(reply.flags).toBe(64); // MessageFlags.Ephemeral
+    expect(reply.content).toMatch(/too quickly/i);
+    // base + 300_000 reset − (base + 60_000) now = 240 s remaining
+    expect(reply.content).toContain('240 second');
+    expect(i2.showModal).not.toHaveBeenCalled();
+  });
+
+  it('submission after the hourly cap is hit is rejected with the hourly message and minutes remaining', async () => {
+    // Two calls spaced 6 min apart so each clears the 5-min window; third blocked by hourly cap
+    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 2 } });
+    await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any);
+
+    jest.setSystemTime(base + 6 * 60_000);
+    await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-2' }) as any);
+
+    jest.setSystemTime(base + 12 * 60_000);
+    const i3 = makeSlashInteraction({ id: 'sess-3' });
+    await h.handleOrderCommand(i3 as any);
+
+    const reply = (i3.reply as jest.Mock).mock.calls[0][0] as { content: string; flags: number };
+    expect(reply.flags).toBe(64); // MessageFlags.Ephemeral
+    expect(reply.content).toMatch(/hourly order submission limit/i);
+    // oldest limiting ts = base; reset at base+3_600_000; now = base+720_000 → 48 min remaining
+    expect(reply.content).toContain('48 minute');
+    expect(i3.showModal).not.toHaveBeenCalled();
+  });
+
+  it('entries older than 60 minutes are pruned and the submission proceeds', async () => {
+    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 1 } });
+    await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any); // fills hourly slot
+
+    jest.setSystemTime(base + 61 * 60_000); // 61 min later — stale entry pruned
+    const i2 = makeSlashInteraction({ id: 'sess-2' });
+    await h.handleOrderCommand(i2 as any);
+
+    // Old entry pruned → not rate-limited; proceeds to showModal
+    expect(i2.showModal).toHaveBeenCalledTimes(1);
+    expect(i2.reply).not.toHaveBeenCalled();
+  });
+
+  it('background sweep removes entries whose newest timestamp is older than 60 minutes', async () => {
+    // Set limits to 1/1 so a submission fills the slot
+    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 1 } });
+    await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-sweep-1' }) as any);
+
+    // Advance past the hourly sweep interval — the background interval fires and removes the stale entry
+    jest.advanceTimersByTime(60 * 60 * 1000 + 1);
+
+    // A new submission from the same user should now pass through
+    const i2 = makeSlashInteraction({ id: 'sess-sweep-2' });
+    await h.handleOrderCommand(i2 as any);
+    expect(i2.showModal).toHaveBeenCalledTimes(1);
+    expect(i2.reply).not.toHaveBeenCalled();
   });
 });
 

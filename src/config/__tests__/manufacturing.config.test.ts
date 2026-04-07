@@ -12,6 +12,8 @@ const VARS = [
   'ORGANIZATION_MEMBER_ROLE_ID',
   'MANUFACTURING_ORDER_LIMIT',
   'MANUFACTURING_MAX_ITEMS_PER_ORDER',
+  'ORDER_RATE_LIMIT_PER_5MIN',
+  'ORDER_RATE_LIMIT_PER_HOUR',
 ] as const;
 
 type EnvSnapshot = Partial<Record<(typeof VARS)[number], string>>;
@@ -110,6 +112,14 @@ describe('getManufacturingConfig', () => {
     expect(getManufacturingConfig().maxItemsPerOrder).toBe(10);
   });
 
+  it('uses default orderRateLimitPer5Min of 1 when not set', () => {
+    expect(getManufacturingConfig().orderRateLimitPer5Min).toBe(1);
+  });
+
+  it('uses default orderRateLimitPerHour of 5 when not set', () => {
+    expect(getManufacturingConfig().orderRateLimitPerHour).toBe(5);
+  });
+
   it('parses custom orderLimit', () => {
     process.env.MANUFACTURING_ORDER_LIMIT = '3';
     expect(getManufacturingConfig().orderLimit).toBe(3);
@@ -120,6 +130,16 @@ describe('getManufacturingConfig', () => {
     expect(getManufacturingConfig().maxItemsPerOrder).toBe(7);
   });
 
+  it('parses custom ORDER_RATE_LIMIT_PER_5MIN', () => {
+    process.env.ORDER_RATE_LIMIT_PER_5MIN = '3';
+    expect(getManufacturingConfig().orderRateLimitPer5Min).toBe(3);
+  });
+
+  it('parses custom ORDER_RATE_LIMIT_PER_HOUR', () => {
+    process.env.ORDER_RATE_LIMIT_PER_HOUR = '10';
+    expect(getManufacturingConfig().orderRateLimitPerHour).toBe(10);
+  });
+
   it('falls back to default for non-numeric orderLimit', () => {
     process.env.MANUFACTURING_ORDER_LIMIT = 'lots';
     expect(getManufacturingConfig().orderLimit).toBe(5);
@@ -128,6 +148,20 @@ describe('getManufacturingConfig', () => {
   it('falls back to default for zero or negative maxItemsPerOrder', () => {
     process.env.MANUFACTURING_MAX_ITEMS_PER_ORDER = '0';
     expect(getManufacturingConfig().maxItemsPerOrder).toBe(10);
+  });
+
+  it('falls back to default for zero or negative ORDER_RATE_LIMIT_PER_5MIN', () => {
+    for (const value of ['0', '-1']) {
+      process.env.ORDER_RATE_LIMIT_PER_5MIN = value;
+      expect(getManufacturingConfig().orderRateLimitPer5Min).toBe(1);
+    }
+  });
+
+  it('falls back to default for zero or negative ORDER_RATE_LIMIT_PER_HOUR', () => {
+    for (const value of ['0', '-1']) {
+      process.env.ORDER_RATE_LIMIT_PER_HOUR = value;
+      expect(getManufacturingConfig().orderRateLimitPerHour).toBe(5);
+    }
   });
 });
 
