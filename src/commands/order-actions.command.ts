@@ -54,16 +54,31 @@ async function applyPostTransition(
   updatedOrder: ManufacturingOrder,
   toStatus: OrderStatus,
 ): Promise<void> {
+  const thread = interaction.channel as ThreadChannel;
+  const { staffChannelId } = getManufacturingConfig();
+
   // Determine whether the button was clicked from the staff thread or the public thread.
-  // Advance/cancel buttons now live in the staff thread, so the interaction ordinarily
-  // originates there.  We still handle the public-thread case defensively.
-  const isInStaffThread =
+  // Advance/cancel buttons live in the staff thread, so interactions normally originate there.
+  //
+  // staffThreadId persistence is non-fatal, so we can't rely on it alone — the thread may
+  // exist but staffThreadId may still be null.  Priority of checks:
+  //   1. Live context: thread.parentId matches the configured staff forum channel
+  //   2. Persisted match: channelId matches the stored staffThreadId
+  //   3. Tiebreaker: interaction is not in the known public thread (treat as staff)
+  const isThreadChannel =
+    interaction.channel?.type === ChannelType.PublicThread ||
+    interaction.channel?.type === ChannelType.PrivateThread;
+  const isInConfiguredStaffForumThread =
+    isThreadChannel && staffChannelId !== null && thread.parentId === staffChannelId;
+  const isInPersistedStaffThread =
     updatedOrder.staffThreadId !== null && interaction.channelId === updatedOrder.staffThreadId;
+  const isInPersistedMemberThread = interaction.channelId === updatedOrder.forumThreadId;
+  const isInStaffThread =
+    isInConfiguredStaffForumThread || isInPersistedStaffThread || !isInPersistedMemberThread;
+
   const interactionTarget: 'member' | 'staff' = isInStaffThread ? 'staff' : 'member';
   const counterpartThreadId = isInStaffThread ? updatedOrder.forumThreadId : updatedOrder.staffThreadId;
   const counterpartTarget: 'member' | 'staff' = isInStaffThread ? 'member' : 'staff';
-
-  const thread = interaction.channel as ThreadChannel;
 
   // Update the post in the interaction's own thread
   try {

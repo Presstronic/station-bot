@@ -521,7 +521,7 @@ export async function handleOrderButtonInteraction(
           } catch (tagErr) {
             logger.error(
               '[manufacturing] Failed to ensure staff forum tags during order submission',
-              { error: tagErr },
+              { orderId: order.id, staffChannelId, error: tagErr },
             );
           }
           const staffNewTagId = staffTagIds?.get('New');
