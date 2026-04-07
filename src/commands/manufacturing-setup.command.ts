@@ -28,8 +28,6 @@ export const manufacturingCommandBuilder = new SlashCommandBuilder()
       .setDescription('Post the Create Order button in the manufacturing channel'),
   );
 
-const CREATE_ORDER_THREAD_NAME = '📋 Create Order';
-
 export async function handleManufacturingSetupCommand(
   interaction: ChatInputCommandInteraction,
 ): Promise<void> {
@@ -46,7 +44,7 @@ export async function handleManufacturingSetupCommand(
     return;
   }
 
-  const { forumChannelId } = getManufacturingConfig();
+  const { forumChannelId, createOrderPostTitle, createOrderPostMessage } = getManufacturingConfig();
   if (!forumChannelId) {
     await interaction.reply({
       content: 'Manufacturing forum channel is not configured. Please set `MANUFACTURING_FORUM_CHANNEL_ID`.',
@@ -91,14 +89,18 @@ export async function handleManufacturingSetupCommand(
 
   // Guard: check both active and archived threads so that an auto-archived
   // setup thread does not cause a duplicate on repeated invocations.
+  // Note: the duplicate check matches on thread name (createOrderPostTitle). If the
+  // title is changed via env after the thread has been created, or the thread is
+  // renamed manually, this guard will not detect the existing thread and a duplicate
+  // will be created. In that case, delete the old thread before re-running setup.
   try {
     const [active, archived] = await Promise.all([
       forumChannel.threads.fetchActive(),
       forumChannel.threads.fetchArchived(),
     ]);
     const alreadySetUp =
-      active.threads.some((t) => t.name === CREATE_ORDER_THREAD_NAME) ||
-      archived.threads.some((t) => t.name === CREATE_ORDER_THREAD_NAME);
+      active.threads.some((t) => t.name === createOrderPostTitle) ||
+      archived.threads.some((t) => t.name === createOrderPostTitle);
     if (alreadySetUp) {
       await interaction.editReply({
         content: 'Manufacturing channel is already set up.',
@@ -119,9 +121,9 @@ export async function handleManufacturingSetupCommand(
 
   try {
     await forumChannel.threads.create({
-      name: CREATE_ORDER_THREAD_NAME,
+      name: createOrderPostTitle,
       message: {
-        content: 'Click the button below to submit a new manufacturing order.',
+        content: createOrderPostMessage,
         components: [button],
       },
     });

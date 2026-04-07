@@ -26,6 +26,8 @@ export interface ManufacturingConfig {
   maxItemsPerOrder: number;
   orderRateLimitPer5Min: number;
   orderRateLimitPerHour: number;
+  createOrderPostTitle: string;
+  createOrderPostMessage: string;
 }
 
 export function isManufacturingEnabled(): boolean {
@@ -42,6 +44,8 @@ export function getManufacturingConfig(): ManufacturingConfig {
     maxItemsPerOrder: envInt('MANUFACTURING_MAX_ITEMS_PER_ORDER', 10),
     orderRateLimitPer5Min: envInt('ORDER_RATE_LIMIT_PER_5MIN', 1),
     orderRateLimitPerHour: envInt('ORDER_RATE_LIMIT_PER_HOUR', 5),
+    createOrderPostTitle: process.env.MANUFACTURING_CREATE_ORDER_POST_TITLE?.trim() || '📋 Create Order',
+    createOrderPostMessage: process.env.MANUFACTURING_CREATE_ORDER_POST_MESSAGE?.trim() || 'Click the button below to submit a new manufacturing order.',
   };
 }
 
