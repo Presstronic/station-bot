@@ -18,23 +18,25 @@ const defaultMinIntervalMs = 400;
 
 const logger = getLogger();
 
-function parseEnvInt(name: string, defaultValue: number): number {
+function parseEnvInt(name: string, defaultValue: number, minimumValue = 0): number {
   const raw = process.env[name];
   if (raw === undefined || raw === null || raw.trim() === '') {
     return defaultValue;
   }
-  const value = Number(raw);
-  return Number.isFinite(value) ? value : defaultValue;
+  const value = Number(raw.trim());
+  return Number.isFinite(value) && Number.isInteger(value) && value >= minimumValue
+    ? value
+    : defaultValue;
 }
 
-const requestTimeoutMs = Math.max(1, parseEnvInt('RSI_HTTP_TIMEOUT_MS', defaultTimeoutMs));
-const maxRetries = Math.max(0, parseEnvInt('RSI_HTTP_MAX_RETRIES', defaultMaxRetries));
-const retryBaseMs = Math.max(0, parseEnvInt('RSI_HTTP_RETRY_BASE_MS', defaultRetryBaseMs));
+const requestTimeoutMs = parseEnvInt('RSI_HTTP_TIMEOUT_MS', defaultTimeoutMs, 1);
+const maxRetries = parseEnvInt('RSI_HTTP_MAX_RETRIES', defaultMaxRetries, 0);
+const retryBaseMs = parseEnvInt('RSI_HTTP_RETRY_BASE_MS', defaultRetryBaseMs, 0);
 const maxConcurrency = Math.max(
   1,
-  parseEnvInt('RSI_HTTP_MAX_CONCURRENCY', defaultMaxConcurrency)
+  parseEnvInt('RSI_HTTP_MAX_CONCURRENCY', defaultMaxConcurrency, 1)
 );
-const minIntervalMs = Math.max(0, parseEnvInt('RSI_HTTP_MIN_INTERVAL_MS', defaultMinIntervalMs));
+const minIntervalMs = parseEnvInt('RSI_HTTP_MIN_INTERVAL_MS', defaultMinIntervalMs, 0);
 
 // keepAlive: false ensures RSI connections are closed after each use rather than pooled.
 // Pooled connections become zombies when RSI drops them server-side without FIN/RST,

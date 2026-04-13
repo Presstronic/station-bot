@@ -182,6 +182,41 @@ describe('checkHasAnyOrgMembership', () => {
 });
 
 describe('checkCitizenExists', () => {
+  it.each([
+    ['1.7', 12000],
+    ['-5', 12000],
+    ['0', 12000],
+    ['abc', 12000],
+    ['2500', 2500],
+  ])(
+    'uses timeout %s -> effective axios timeout %i',
+    async (configuredTimeout, expectedTimeout) => {
+      process.env.RSI_HTTP_TIMEOUT_MS = configuredTimeout;
+
+      const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({
+        status: 200,
+        data: '<html/>',
+        headers: {},
+      });
+
+      jest.unstable_mockModule('axios', () => ({ default: { get } }));
+      jest.unstable_mockModule('../../../utils/logger.js', () => ({
+        getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+      }));
+      mockPool('in_org', 'PilotNominee');
+
+      const { checkCitizenExists } = await import('../org-check.service.js');
+      await checkCitizenExists('pilotnominee');
+
+      expect(get).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          timeout: expectedTimeout,
+        })
+      );
+    }
+  );
+
   it('returns found with canonical handle from parse worker', async () => {
     const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({
       status: 200,
