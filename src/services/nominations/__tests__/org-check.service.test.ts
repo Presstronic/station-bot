@@ -113,10 +113,11 @@ describe('checkHasAnyOrgMembership', () => {
 
   it('returns not_found when citizen profile is missing', async () => {
     const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({ status: 404, data: '', headers: {} });
+    const warn = jest.fn();
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
     mockPool();
 
@@ -125,6 +126,9 @@ describe('checkHasAnyOrgMembership', () => {
 
     expect(result.code).toBe('not_found');
     expect(result.status).toBe('unknown');
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('RSI citizen profile fetch failed (not_found)')
+    );
   });
 
   it('returns rate_limited when RSI responds with 429', async () => {
@@ -132,10 +136,11 @@ describe('checkHasAnyOrgMembership', () => {
       .fn<() => Promise<any>>()
       .mockResolvedValueOnce({ status: 200, data: '<html/>', headers: {} })
       .mockResolvedValueOnce({ status: 429, data: '', headers: {} });
+    const warn = jest.fn();
 
     jest.unstable_mockModule('axios', () => ({ default: { get } }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
     mockPool();
 
@@ -144,6 +149,9 @@ describe('checkHasAnyOrgMembership', () => {
 
     expect(result.code).toBe('rate_limited');
     expect(result.status).toBe('unknown');
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('RSI organizations page fetch failed (rate_limited)')
+    );
   });
 
   it('returns http_timeout when request times out (ECONNABORTED)', async () => {
@@ -315,6 +323,8 @@ describe('checkCitizenExists', () => {
     const result = await checkCitizenExists('SlowPilot');
 
     expect(result.status).toBe('unavailable');
-    expect(warn).toHaveBeenCalled();
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('RSI citizen existence check failed (http_error)')
+    );
   });
 });
