@@ -15,16 +15,56 @@ afterEach(() => {
   }
 });
 
+function mockRouterOnlyDependencies() {
+  jest.unstable_mockModule('../../commands/order-submit.command.js', () => ({
+    handleOrderCommand: jest.fn(),
+    handleOrderItemModal: jest.fn(),
+    handleOrderButtonInteraction: jest.fn(),
+    triggerOrderModal: jest.fn(),
+    ORDER_COMMAND_NAME: 'order',
+    ITEM_MODAL_PREFIX: 'item-modal',
+    ADD_ITEM_BUTTON_PREFIX: 'add-item',
+    SUBMIT_ORDER_BUTTON_PREFIX: 'submit-order',
+  }));
+  jest.unstable_mockModule('../../commands/manufacturing-setup.command.js', () => ({
+    handleManufacturingSetupCommand: jest.fn(),
+    MANUFACTURING_SETUP_COMMAND_NAME: 'manufacturing-setup',
+  }));
+  jest.unstable_mockModule('../../commands/order-actions.command.js', () => ({
+    handleMfgCancelOrder: jest.fn(),
+    handleMfgStaffCancel: jest.fn(),
+    handleMfgAdvance: jest.fn(),
+  }));
+  jest.unstable_mockModule('../../domain/manufacturing/manufacturing.forum.js', () => ({
+    MFG_CREATE_ORDER_PREFIX: 'mfg-create-order',
+    MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
+    MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
+    MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+    MFG_START_PROCESSING_PREFIX: 'mfg-start-processing',
+    MFG_READY_FOR_PICKUP_PREFIX: 'mfg-ready-for-pickup',
+    MFG_MARK_COMPLETE_PREFIX: 'mfg-mark-complete',
+  }));
+  jest.unstable_mockModule('../verifyButton.js', () => ({
+    handleVerifyButtonInteraction: jest.fn(),
+  }));
+  jest.unstable_mockModule('../../utils/request-context.js', () => ({
+    runWithCorrelationId: jest.fn(async (_correlationId: string, fn: () => Promise<unknown>) => await fn()),
+  }));
+}
+
 describe('handleInteraction in read-only mode', () => {
   it('returns maintenance message for slash commands and does not execute command flow', async () => {
     const handleHealthcheckCommand = jest.fn();
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    mockRouterOnlyDependencies();
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
-      handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
       clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand,
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -97,13 +137,16 @@ describe('handleInteraction in read-only mode', () => {
 
   it('returns maintenance message for button interactions and does not execute verify side effects', async () => {
     const handleHealthcheckCommand = jest.fn();
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    mockRouterOnlyDependencies();
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
-      handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
       clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand,
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -176,14 +219,17 @@ describe('handleInteraction in read-only mode', () => {
   it('evaluates read-only mode at interaction time (not only at module import)', async () => {
     const handleVerifyCommand = jest.fn(async () => undefined);
     const handleHealthcheckCommand = jest.fn();
+    mockRouterOnlyDependencies();
 
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand,
-      handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
       clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand,
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -254,14 +300,17 @@ describe('handleInteraction in read-only mode', () => {
   it('allows /healthcheck in read-only mode', async () => {
     const handleVerifyCommand = jest.fn();
     const handleHealthcheckCommand = jest.fn(async () => undefined);
+    mockRouterOnlyDependencies();
 
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand,
-      handleHealthcheckCommand,
       getUserVerificationData: jest.fn(),
       clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand,
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -336,14 +385,17 @@ describe('handleInteraction error handling', () => {
     const networkError = Object.assign(new Error('Connect Timeout Error'), { name: 'ConnectTimeoutError' });
     const warnSpy = jest.fn();
     const errorSpy = jest.fn();
+    mockRouterOnlyDependencies();
 
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
-      handleHealthcheckCommand: jest.fn(),
       getUserVerificationData: jest.fn(),
       clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
@@ -420,14 +472,17 @@ describe('handleInteraction error handling', () => {
     const handlerBug = new TypeError('Cannot read properties of undefined');
     const warnSpy = jest.fn();
     const errorSpy = jest.fn();
+    mockRouterOnlyDependencies();
 
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',
-      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
       handleVerifyCommand: jest.fn(),
-      handleHealthcheckCommand: jest.fn(),
       getUserVerificationData: jest.fn(),
       clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
       NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',

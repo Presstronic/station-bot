@@ -30,7 +30,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { getRegisteredCommandNames } = await import('../verify.js');
+    const { getRegisteredCommandNames } = await import('../verify.command.js');
 
     expect(getRegisteredCommandNames()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
   });
@@ -48,7 +48,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.js');
+    const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -83,7 +83,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.js');
+    const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -130,7 +130,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.js');
+    const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {

@@ -1,5 +1,5 @@
 import { ButtonInteraction, DiscordAPIError, MessageFlags, PermissionFlagsBits, RESTJSONErrorCodes } from 'discord.js';
-import { getUserVerificationData, clearUserVerificationData } from '../commands/verify.js';
+import { getUserVerificationData, clearUserVerificationData } from '../commands/verify.command.js';
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
 import { verifyRSIProfile } from '../services/rsi.services.js';

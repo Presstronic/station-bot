@@ -22,7 +22,7 @@ function makeLogger() {
 describe('verifyRSIProfile', () => {
   it('returns verified:false and empty canonicalHandle when no verification data exists', async () => {
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => undefined),
     }));
     jest.unstable_mockModule('../web-scraping.services.js', () => ({
@@ -43,7 +43,7 @@ describe('verifyRSIProfile', () => {
     const parseCanonicalHandleInWorker = jest.fn<() => Promise<string>>().mockResolvedValueOnce('PilotOne');
 
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'pilotone',
         dreadnoughtValidationCode: 'ABC-123',
@@ -75,7 +75,7 @@ describe('verifyRSIProfile', () => {
     const parseCanonicalHandleInWorker = jest.fn<() => Promise<string>>().mockResolvedValueOnce('PilotOne');
 
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'pilotone',
         dreadnoughtValidationCode: 'ABC-123',
@@ -95,7 +95,7 @@ describe('verifyRSIProfile', () => {
     const fetchHtml = jest.fn<() => Promise<string>>().mockRejectedValueOnce(new Error('network error'));
 
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'TestHandle',
         dreadnoughtValidationCode: 'ABC-123',
@@ -113,7 +113,7 @@ describe('verifyRSIProfile', () => {
 
   it('returns verified:false and typed-input canonicalHandle when buildCitizenUrl throws (misconfigured pattern)', async () => {
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'TestHandle',
         dreadnoughtValidationCode: 'ABC-123',
@@ -137,7 +137,7 @@ describe('verifyRSIProfile', () => {
     const logger = makeLogger();
     const fetchHtml = jest.fn<() => Promise<string>>().mockResolvedValueOnce('<html>page</html>');
     jest.unstable_mockModule('../../utils/logger.js', () => logger.module);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'pilotone',
         dreadnoughtValidationCode: 'ABC-123',
@@ -167,7 +167,7 @@ describe('verifyRSIProfile', () => {
     const logger = makeLogger();
     const fetchHtml = jest.fn<() => Promise<string>>().mockResolvedValueOnce('<html>page</html>');
     jest.unstable_mockModule('../../utils/logger.js', () => logger.module);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'pilotone',
         dreadnoughtValidationCode: 'ABC-123',
@@ -198,7 +198,7 @@ describe('verifyRSIProfile', () => {
     const networkError = new Error('network error');
     const fetchHtml = jest.fn<() => Promise<string>>().mockRejectedValueOnce(networkError);
     jest.unstable_mockModule('../../utils/logger.js', () => logger.module);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'TestHandle',
         dreadnoughtValidationCode: 'ABC-123',
@@ -230,7 +230,7 @@ describe('verifyRSIProfile', () => {
     const axiosGet = jest.fn();
     jest.unstable_mockModule('axios', () => ({ default: { head: axiosHead, get: axiosGet } }));
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
-    jest.unstable_mockModule('../../commands/verify.js', () => ({
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       getUserVerificationData: jest.fn(() => ({
         rsiProfileName: 'TestHandle',
         dreadnoughtValidationCode: 'ABC-123',

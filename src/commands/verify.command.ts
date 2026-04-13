@@ -5,20 +5,22 @@ import {
   ButtonBuilder,
   ButtonStyle,
   MessageFlags,
-  PermissionFlagsBits,
 } from 'discord.js';
 import { generateDrdntVerificationCode } from '../services/verification-code.services.js';
 import { getLogger } from '../utils/logger.js';
 import i18n from '../utils/i18n-config.js';
-import { isReadOnlyMode, isVerificationEnabled, verifyRateLimitPerMinute, verifyRateLimitPerHour, verifySessionTtlMinutes } from '../config/runtime-flags.js';
+import {
+  isVerificationEnabled,
+  verifyRateLimitPerMinute,
+  verifyRateLimitPerHour,
+  verifySessionTtlMinutes,
+} from '../config/runtime-flags.js';
 import { getRegisteredCommandNamesState } from './registration-state.js';
-import { toDateString } from '../utils/date.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
 export const VERIFY_COMMAND_NAME = 'verify';
-export const HEALTHCHECK_COMMAND_NAME = 'healthcheck';
 
 const inGameNameKey = 'commands.verify.options.inGameName.name';
 const RSI_HANDLE_PATTERN = /^[a-zA-Z0-9_-]{3,60}$/;
@@ -37,14 +39,6 @@ export const verifyCommandBuilder = new SlashCommandBuilder()
       )
       .setRequired(true)
   );
-
-export const healthcheckCommandBuilder = new SlashCommandBuilder()
-  .setName(HEALTHCHECK_COMMAND_NAME)
-  .setDescription(i18n.__({ phrase: 'commands.healthcheck.description', locale: defaultLocale }))
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
-  .setDMPermission(false);
-
-const commands = [verifyCommandBuilder, healthcheckCommandBuilder];
 
 // IN-PROCESS STORE — not persisted across restarts and not shared across instances.
 // Users mid-verification will receive a session-expired response after a bot restart.
@@ -155,7 +149,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
     return;
   }
 
-  logger.debug(`VERIFY.TS--> handleVerifyCommand -> RSI Profile Name: ${rsiProfileName}`);
+  logger.debug(`handleVerifyCommand -> RSI Profile Name: ${rsiProfileName}`);
 
   const dreadnoughtValidationCode = generateDrdntVerificationCode();
   verificationCodes.set(interaction.user.id, { rsiProfileName, dreadnoughtValidationCode, createdAt: now });
@@ -207,47 +201,5 @@ export function getRegisteredCommandNames(): string[] {
   if (registeredCommandNames.length > 0) {
     return registeredCommandNames;
   }
-  return commands.map((command) => command.toJSON().name);
-}
-
-export async function handleHealthcheckCommand(interaction: ChatInputCommandInteraction) {
-  const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
-
-  if (!interaction.inGuild()) {
-    await interaction.reply({
-      content: i18n.__({ phrase: 'commands.healthcheck.responses.guildOnly', locale }),
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const hasAdminPermission = interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false;
-
-  if (!hasAdminPermission) {
-    await interaction.reply({
-      content: i18n.__({ phrase: 'commands.healthcheck.responses.adminOnly', locale }),
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const botUsername = interaction.client.user?.username ?? 'unknown-bot';
-  const currentUtc = toDateString(new Date().toISOString());
-  const activeCommands = getRegisteredCommandNames().map((name) => `/${name}`).join(', ');
-  const readOnlyStatus = isReadOnlyMode()
-    ? i18n.__({ phrase: 'commands.healthcheck.readOnly.enabled', locale })
-    : i18n.__({ phrase: 'commands.healthcheck.readOnly.disabled', locale });
-
-  await interaction.reply({
-    content: i18n.__mf(
-      { phrase: 'commands.healthcheck.responses.status', locale },
-      {
-        botTag: botUsername,
-        currentUtc,
-        readOnlyStatus,
-        activeCommands,
-      }
-    ),
-    flags: MessageFlags.Ephemeral,
-  });
+  return [verifyCommandBuilder.toJSON().name, 'healthcheck'];
 }

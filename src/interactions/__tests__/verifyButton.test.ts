@@ -30,7 +30,7 @@ async function loadHandlerWithMocks({
   await jest.unstable_mockModule('../../utils/logger.js', () => ({
     getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: loggerWarn, error: loggerError }),
   }));
-  await jest.unstable_mockModule('../../commands/verify.js', () => ({
+  await jest.unstable_mockModule('../../commands/verify.command.js', () => ({
     getUserVerificationData,
     clearUserVerificationData,
   }));

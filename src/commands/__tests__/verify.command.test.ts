@@ -64,7 +64,7 @@ async function loadHandleVerifyCommand({
     },
   }));
 
-  return await import('../verify.js');
+  return await import('../verify.command.js');
 }
 
 function makeVerifyInteraction(inGameName: string) {
