@@ -5,7 +5,7 @@ export function setRegisteredCommandNames(commandNames: string[]): void {
   registeredCommandNames = [...commandNames];
 }
 
-export function setRegisteredCommandNameFallback(commandNames: string[]): void {
+export function setRegisteredCommandNamesFallback(commandNames: string[]): void {
   fallbackRegisteredCommandNames = [...commandNames];
 }
 

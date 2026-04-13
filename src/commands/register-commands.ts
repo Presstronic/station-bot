@@ -13,7 +13,7 @@ import { healthcheckCommandBuilder } from './healthcheck.command.js';
 import { orderCommandBuilder } from './order-submit.command.js';
 import { manufacturingCommandBuilder } from './manufacturing-setup.command.js';
 import {
-  setRegisteredCommandNameFallback,
+  setRegisteredCommandNamesFallback,
   setRegisteredCommandNames,
 } from './registration-state.js';
 
@@ -33,7 +33,7 @@ const allCommands = [
   manufacturingCommandBuilder,
 ];
 
-setRegisteredCommandNameFallback(allCommands.map((command) => command.toJSON().name));
+setRegisteredCommandNamesFallback(allCommands.map((command) => command.toJSON().name));
 
 export async function registerAllCommands() {
   const clientId = process.env.CLIENT_ID;
