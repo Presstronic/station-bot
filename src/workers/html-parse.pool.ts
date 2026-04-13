@@ -4,7 +4,7 @@ import type { OrgOutcome, ParseRequestBody, ParseResponse } from './html-parse.w
 
 const logger = getLogger();
 
-export type { OrgOutcome } from './html-parse.worker.js';
+export type { OrgOutcome };
 
 type PendingEntry = {
   resolve: (value: string) => void;
