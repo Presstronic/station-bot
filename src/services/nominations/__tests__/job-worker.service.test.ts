@@ -188,3 +188,63 @@ describe('runNominationCheckWorkerCycle', () => {
     }
   });
 });
+
+describe('startNominationCheckWorkerLoop', () => {
+  it('sanitizes cycle-level catch log output', async () => {
+    const enabledBackup = process.env.NOMINATION_WORKER_ENABLED;
+    const pollMsBackup = process.env.NOMINATION_WORKER_POLL_MS;
+    process.env.NOMINATION_WORKER_ENABLED = 'true';
+    process.env.NOMINATION_WORKER_POLL_MS = '60000';
+
+    const error = new Error('boom\nline|two`three');
+    const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => logger,
+    }));
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
+      claimNextRunnableNominationCheckJob: jest.fn(async () => {
+        throw error;
+      }),
+      claimNominationCheckJobItems: jest.fn(),
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress: jest.fn(),
+    }));
+    jest.unstable_mockModule('../org-check.service.js', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      updateOrgCheckResult: jest.fn(),
+    }));
+
+    let interval: NodeJS.Timeout | null = null;
+    try {
+      const { startNominationCheckWorkerLoop } = await import('../job-worker.service.js');
+      interval = startNominationCheckWorkerLoop();
+
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(logger.error).toHaveBeenCalledWith(
+        "Nomination worker cycle failed: Error: boom line/two'three"
+      );
+    } finally {
+      if (interval) {
+        clearInterval(interval);
+      }
+
+      if (enabledBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_ENABLED;
+      } else {
+        process.env.NOMINATION_WORKER_ENABLED = enabledBackup;
+      }
+
+      if (pollMsBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_POLL_MS;
+      } else {
+        process.env.NOMINATION_WORKER_POLL_MS = pollMsBackup;
+      }
+    }
+  });
+});

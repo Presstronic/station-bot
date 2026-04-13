@@ -172,7 +172,7 @@ export function startNominationCheckWorkerLoop(): NodeJS.Timeout | null {
     try {
       await runNominationCheckWorkerCycle();
     } catch (error) {
-      logger.error(`Nomination worker cycle failed: ${String(error)}`);
+      logger.error(`Nomination worker cycle failed: ${sanitizeForInlineText(String(error))}`);
     } finally {
       running = false;
     }
