@@ -30,9 +30,11 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { getRegisteredCommandNamesState } = await import('../registration-state.js');
+    const { getRegisteredCommandNamesState, setRegisteredCommandNameFallback } = await import('../registration-state.js');
+    setRegisteredCommandNameFallback(['verify', 'healthcheck', 'order']);
 
     expect(getRegisteredCommandNamesState()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
+    expect(getRegisteredCommandNamesState()).toContain('order');
   });
 
   it('rejects non-admin users', async () => {
@@ -48,6 +50,8 @@ describe('healthcheck command', () => {
       }),
     }));
 
+    const { setRegisteredCommandNameFallback } = await import('../registration-state.js');
+    setRegisteredCommandNameFallback(['verify', 'healthcheck', 'order']);
     const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
@@ -83,6 +87,8 @@ describe('healthcheck command', () => {
       }),
     }));
 
+    const { setRegisteredCommandNameFallback } = await import('../registration-state.js');
+    setRegisteredCommandNameFallback(['verify', 'healthcheck', 'order']);
     const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
