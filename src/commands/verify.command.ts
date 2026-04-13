@@ -15,7 +15,6 @@ import {
   verifyRateLimitPerHour,
   verifySessionTtlMinutes,
 } from '../config/runtime-flags.js';
-import { getRegisteredCommandNamesState } from './registration-state.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -194,12 +193,4 @@ export function getUserVerificationData(userId: string) {
 
 export function clearUserVerificationData(userId: string): void {
   verificationCodes.delete(userId);
-}
-
-export function getRegisteredCommandNames(): string[] {
-  const registeredCommandNames = getRegisteredCommandNamesState();
-  if (registeredCommandNames.length > 0) {
-    return registeredCommandNames;
-  }
-  return [verifyCommandBuilder.toJSON().name, 'healthcheck'];
 }

@@ -30,9 +30,9 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { getRegisteredCommandNames } = await import('../verify.command.js');
+    const { getRegisteredCommandNamesState } = await import('../registration-state.js');
 
-    expect(getRegisteredCommandNames()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
+    expect(getRegisteredCommandNamesState()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
   });
 
   it('rejects non-admin users', async () => {

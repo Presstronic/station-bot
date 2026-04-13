@@ -7,7 +7,7 @@ import {
 import i18n from '../utils/i18n-config.js';
 import { isReadOnlyMode } from '../config/runtime-flags.js';
 import { toDateString } from '../utils/date.js';
-import { getRegisteredCommandNames } from './verify.command.js';
+import { getRegisteredCommandNamesState } from './registration-state.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 
@@ -42,7 +42,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
 
   const botUsername = interaction.client.user?.username ?? 'unknown-bot';
   const currentUtc = toDateString(new Date().toISOString());
-  const activeCommands = getRegisteredCommandNames().map((name) => `/${name}`).join(', ');
+  const activeCommands = getRegisteredCommandNamesState().map((name) => `/${name}`).join(', ');
   const readOnlyStatus = isReadOnlyMode()
     ? i18n.__({ phrase: 'commands.healthcheck.readOnly.enabled', locale })
     : i18n.__({ phrase: 'commands.healthcheck.readOnly.disabled', locale });
