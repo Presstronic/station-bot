@@ -10,7 +10,9 @@ import {
 } from '../../workers/html-parse.pool.js';
 
 /** Internal result of a single org-check HTTP attempt. Never stored or displayed. */
-type OrgCheckOutcome = OrgOutcome;
+type OrgCheckOutcome =
+  | Extract<OrgCheckResultCode, 'in_org' | 'not_in_org'>
+  | Extract<OrgOutcome, 'undetermined'>;
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
 const defaultOrganizationsPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}/organizations';
