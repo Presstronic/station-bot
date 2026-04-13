@@ -3,10 +3,16 @@ import axios from 'axios';
 import type { OrgCheckResult, OrgCheckResultCode } from './types.js';
 import { getLogger } from '../../utils/logger.js';
 import { sanitizeForInlineText } from '../../utils/sanitize.js';
-import { parseOrgOutcomeInWorker, parseCanonicalHandleInWorker } from '../../workers/html-parse.pool.js';
+import {
+  parseOrgOutcomeInWorker,
+  parseCanonicalHandleInWorker,
+  type OrgOutcome,
+} from '../../workers/html-parse.pool.js';
 
 /** Internal result of a single org-check HTTP attempt. Never stored or displayed. */
-type OrgCheckOutcome = Extract<OrgCheckResultCode, 'in_org' | 'not_in_org'> | 'undetermined';
+type OrgCheckOutcome =
+  | Extract<OrgCheckResultCode, 'in_org' | 'not_in_org'>
+  | Extract<OrgOutcome, 'undetermined'>;
 
 const defaultCitizenPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}';
 const defaultOrganizationsPattern = 'https://robertsspaceindustries.com/en/citizens/{handle}/organizations';
