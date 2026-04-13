@@ -15,22 +15,9 @@ afterEach(() => {
 });
 
 describe('healthcheck command', () => {
-  it('registers healthcheck in the active command list', async () => {
-    process.env.BOT_READ_ONLY_MODE = 'false';
-
-    jest.unstable_mockModule('../../utils/discord-rest-client.js', () => ({
-      discordRestClient: { put: jest.fn() },
-    }));
-    jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-      }),
-    }));
-
+  it('returns fallback command names when registration state is empty', async () => {
     const { getRegisteredCommandNamesState, setRegisteredCommandNamesFallback } = await import('../registration-state.js');
+
     setRegisteredCommandNamesFallback(['verify', 'healthcheck', 'order']);
 
     expect(getRegisteredCommandNamesState()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
