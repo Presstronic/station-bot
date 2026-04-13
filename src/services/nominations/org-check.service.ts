@@ -329,6 +329,10 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
     );
   }
 
+  // At this point outcome is narrowed to the business states in_org | not_in_org,
+  // so it is valid for both code and status on this success branch. That equality
+  // is intentional here only; createTechnicalResult is the counter-example where
+  // technical codes map to the shared fallback status of unknown instead.
   return {
     code: outcome,
     status: outcome,
