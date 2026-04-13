@@ -1,7 +1,7 @@
 import { getLogger } from '../utils/logger.js';
 import { fetchHtml } from './web-scraping.services.js';
 import { parseSelectorCheckInWorker, parseCanonicalHandleInWorker } from '../workers/html-parse.pool.js';
-import { getUserVerificationData } from '../commands/verify.js';
+import { getUserVerificationData } from '../commands/verify.command.js';
 import { getRsiConfig, buildCitizenUrl } from '../config/rsi.config.js';
 
 const logger = getLogger();

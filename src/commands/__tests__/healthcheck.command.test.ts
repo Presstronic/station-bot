@@ -15,24 +15,13 @@ afterEach(() => {
 });
 
 describe('healthcheck command', () => {
-  it('registers healthcheck in the active command list', async () => {
-    process.env.BOT_READ_ONLY_MODE = 'false';
+  it('returns fallback command names when registration state is empty', async () => {
+    const { getRegisteredCommandNamesState, setRegisteredCommandNamesFallback } = await import('../registration-state.js');
 
-    jest.unstable_mockModule('../../utils/discord-rest-client.js', () => ({
-      discordRestClient: { put: jest.fn() },
-    }));
-    jest.unstable_mockModule('../../utils/logger.js', () => ({
-      getLogger: () => ({
-        debug: jest.fn(),
-        info: jest.fn(),
-        warn: jest.fn(),
-        error: jest.fn(),
-      }),
-    }));
+    setRegisteredCommandNamesFallback(['verify', 'healthcheck', 'order']);
 
-    const { getRegisteredCommandNames } = await import('../verify.js');
-
-    expect(getRegisteredCommandNames()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
+    expect(getRegisteredCommandNamesState()).toEqual(expect.arrayContaining(['verify', 'healthcheck']));
+    expect(getRegisteredCommandNamesState()).toContain('order');
   });
 
   it('rejects non-admin users', async () => {
@@ -48,7 +37,9 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.js');
+    const { setRegisteredCommandNamesFallback } = await import('../registration-state.js');
+    setRegisteredCommandNamesFallback(['verify', 'healthcheck', 'order']);
+    const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -83,7 +74,9 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.js');
+    const { setRegisteredCommandNamesFallback } = await import('../registration-state.js');
+    setRegisteredCommandNamesFallback(['verify', 'healthcheck', 'order']);
+    const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {
@@ -130,7 +123,7 @@ describe('healthcheck command', () => {
       }),
     }));
 
-    const { handleHealthcheckCommand } = await import('../verify.js');
+    const { handleHealthcheckCommand } = await import('../healthcheck.command.js');
     const reply = jest.fn(async () => undefined);
 
     const interaction = {

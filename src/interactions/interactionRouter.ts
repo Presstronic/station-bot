@@ -1,10 +1,12 @@
 import { Client, DiscordAPIError, Interaction, MessageFlags, RESTJSONErrorCodes } from 'discord.js';
 import {
   handleVerifyCommand,
-  handleHealthcheckCommand,
   VERIFY_COMMAND_NAME,
+} from '../commands/verify.command.js';
+import {
+  handleHealthcheckCommand,
   HEALTHCHECK_COMMAND_NAME,
-} from '../commands/verify.js';
+} from '../commands/healthcheck.command.js';
 import {
   handleNominatePlayerCommand,
   NOMINATE_PLAYER_COMMAND_NAME,

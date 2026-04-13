@@ -8,10 +8,14 @@ import { nominationProcessCommandBuilder } from './nomination-process.command.js
 import { nominationAccessCommandBuilder } from './nomination-access.command.js';
 import { nominationAuditCommandBuilder } from './nomination-audit.command.js';
 import { nominationJobStatusCommandBuilder } from './nomination-job-status.command.js';
-import { verifyCommandBuilder, healthcheckCommandBuilder } from './verify.js';
+import { verifyCommandBuilder } from './verify.command.js';
+import { healthcheckCommandBuilder } from './healthcheck.command.js';
 import { orderCommandBuilder } from './order-submit.command.js';
 import { manufacturingCommandBuilder } from './manufacturing-setup.command.js';
-import { setRegisteredCommandNames } from './registration-state.js';
+import {
+  setRegisteredCommandNamesFallback,
+  setRegisteredCommandNames,
+} from './registration-state.js';
 
 const logger = getLogger();
 
@@ -28,6 +32,8 @@ const allCommands = [
   orderCommandBuilder,
   manufacturingCommandBuilder,
 ];
+
+setRegisteredCommandNamesFallback(allCommands.map((command) => command.toJSON().name));
 
 export async function registerAllCommands() {
   const clientId = process.env.CLIENT_ID;
