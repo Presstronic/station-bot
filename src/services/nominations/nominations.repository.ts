@@ -540,9 +540,11 @@ export async function countNominationsByUserInWindow(
 /**
  * @remarks
  * This helper is intentionally read-safe when `DATABASE_URL` is unset and
- * returns `0` instead of throwing. Anti-abuse reads are advisory and are
- * allowed to fail open so nomination submission can still surface the
- * authoritative persistence misconfiguration from the write path, especially
+ * returns `0` instead of throwing. It also returns `0` when the user is
+ * already below the cap within the current window or when the computed reset
+ * time has already elapsed. Anti-abuse reads are advisory and are allowed to
+ * fail open so nomination submission can still surface the authoritative
+ * persistence misconfiguration from the write path, especially
  * `recordNomination()`. This differs from most repository helpers, which call
  * `assertDatabaseConfigured()` because they are part of the authoritative DB
  * read/write contract.
