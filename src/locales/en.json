@@ -109,6 +109,8 @@
         "none": "There are no unprocessed nominations.",
         "noneFiltered": "{filterContext}\nNo nominations match the current filter.",
         "filterContext": "Filter: status={status} | sort={sort} | limit={limit}",
+        "configurationErrorWithFilterContext": "{filterContext}\nNomination features are not configured correctly right now. Please contact a server admin.",
+        "unexpectedErrorWithFilterContext": "{filterContext}\nSomething went wrong while handling this command. Please try again.",
         "truncatedHint": " — results may be truncated; increase the limit (up to 100) or narrow the filter to see more",
         "summaryBusiness": "{filterContext}\nUnprocessed nominations (persisted status):\n```\n{table}\n```\nQualified: {qualifiedCount}\nDisqualified: {disqualifiedCount}\nNeeds Attention: {needsAttentionCount}\nNew: {newCount}\nNominations shown: {totalCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /nomination-refresh to refresh statuses now.",
         "summaryBusinessAttachment": "{filterContext}\nUnprocessed nominations are attached as a file.\nQualified: {qualifiedCount}\nDisqualified: {disqualifiedCount}\nNeeds Attention: {needsAttentionCount}\nNew: {newCount}\nNominations shown: {totalCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /nomination-refresh to refresh statuses now.",

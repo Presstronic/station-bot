@@ -97,20 +97,19 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
   // Placed before try so a 10062 (expired token) bubbles to the router rather than
   // being swallowed and logged at ERROR here.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const statusFilter = interaction.options.getString(statusOptionName) as NominationStatusFilter | null;
+  const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
+  const limitValue   =  interaction.options.getInteger(limitOptionName) ?? 25;
+  const showDetail   =  interaction.options.getBoolean(detailOptionName) ?? false;
+  const filterContext = i18n.__mf(
+    { phrase: 'commands.nominationReview.responses.filterContext', locale },
+    { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
+  );
   try {
 
     if (!(await ensureCanManageReviewProcessing(interaction))) {
       return;
     }
-
-    const statusFilter = interaction.options.getString(statusOptionName) as NominationStatusFilter | null;
-    const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
-    const limitValue   =  interaction.options.getInteger(limitOptionName) ?? 25;
-    const showDetail   =  interaction.options.getBoolean(detailOptionName) ?? false;
-    const filterContext = i18n.__mf(
-      { phrase: 'commands.nominationReview.responses.filterContext', locale },
-      { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
-    );
 
     // Fetch one extra to detect truncation without a COUNT query
     const nominations = await getUnprocessedNominations({
@@ -238,18 +237,11 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error(`nomination-review command failed: ${errorMessage}`);
     const phrase = isNominationConfigurationError(error)
-      ? 'commands.nominationCommon.responses.configurationError'
-      : 'commands.nominationCommon.responses.unexpectedError';
-    const statusFilter = interaction.options.getString(statusOptionName) as NominationStatusFilter | null;
-    const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
-    const limitValue   =  interaction.options.getInteger(limitOptionName) ?? 25;
-    const filterContext = i18n.__mf(
-      { phrase: 'commands.nominationReview.responses.filterContext', locale },
-      { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
-    );
+      ? 'commands.nominationReview.responses.configurationErrorWithFilterContext'
+      : 'commands.nominationReview.responses.unexpectedErrorWithFilterContext';
 
     await interaction.editReply({
-      content: `${filterContext}\n${i18n.__({ phrase, locale })}`,
+      content: i18n.__mf({ phrase, locale }, { filterContext }),
       allowedMentions: { parse: [] },
     });
   }
