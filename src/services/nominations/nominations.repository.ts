@@ -444,9 +444,10 @@ export async function markAllNominationsProcessed(processedByUserId: string): Pr
 /**
  * @remarks
  * This helper is intentionally read-safe when `DATABASE_URL` is unset and
- * returns `null` instead of throwing. Anti-abuse reads are advisory and are
- * allowed to fail open so nomination submission can still surface the
- * authoritative persistence misconfiguration from the write path, especially
+ * returns `null` instead of throwing. It also returns `null` when the user has
+ * no prior nomination events. Anti-abuse reads are advisory and are allowed to
+ * fail open so nomination submission can still surface the authoritative
+ * persistence misconfiguration from the write path, especially
  * `recordNomination()`. This differs from most repository helpers, which call
  * `assertDatabaseConfigured()` because they are part of the authoritative DB
  * read/write contract.
