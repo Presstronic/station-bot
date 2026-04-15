@@ -1791,6 +1791,47 @@ describe('nominations commands', () => {
     expect(content).not.toContain('There are no unprocessed nominations.');
   });
 
+  it('nomination-review error reply includes filterContext when the fetch fails', async () => {
+    const getUnprocessedNominations = jest.fn(async () => {
+      throw new Error('db offline');
+    });
+    jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
+      recordNomination: jest.fn(),
+      getUnprocessedNominations,
+      getUnprocessedNominationByHandle: jest.fn(),
+      updateOrgCheckResult: jest.fn(),
+      markNominationProcessedByHandle: jest.fn(),
+      markAllNominationsProcessed: jest.fn(),
+    }));
+
+    const { handleNominationReviewCommand, statusOptionName, sortOptionName, limitOptionName } =
+      await import('../nomination-review.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const interaction = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'admin-1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      deferReply: jest.fn(async () => undefined),
+      editReply,
+      options: {
+        getString: (name: string) => {
+          if (name === statusOptionName) return 'qualified';
+          if (name === sortOptionName) return 'oldest';
+          return null;
+        },
+        getInteger: (name: string) => (name === limitOptionName ? 10 : null),
+        getBoolean: () => null,
+      },
+    } as any;
+
+    await handleNominationReviewCommand(interaction);
+
+    const content = (editReply as any).mock.calls[0]?.[0]?.content ?? '';
+    expect(content).toContain('Filter: status=qualified | sort=oldest | limit=10');
+    expect(content).toContain('Something went wrong while handling this command. Please try again.');
+  });
+
   it('nomination-review shows truncation hint when DB returns more than the limit', async () => {
     // Simulate DB returning limitValue + 1 items (the N+1 probe result)
     const nominations = Array.from({ length: 6 }, (_, i) => ({
