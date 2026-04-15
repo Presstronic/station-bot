@@ -24,6 +24,10 @@ export async function checkNominationAntiAbuse(
   const shouldCheckUserCap = policy.userMaxPerDay > 0;
 
   if (shouldCheckTargetCap || shouldCheckUserCap) {
+    // These independent daily-cap reads run in parallel to remove one round-trip
+    // from the post-cooldown path. A shared-client variant is tracked separately
+    // because reducing pool pressure is a distinct concern from preserving the
+    // current repository helper surface here.
     const [targetCount, userCount] = await Promise.all([
       shouldCheckTargetCap
         ? countNominationsForTargetInWindow(normalizedHandle, SECONDS_PER_DAY)
