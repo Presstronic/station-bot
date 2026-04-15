@@ -42,6 +42,7 @@ const defaultBatchSize = 20;
 const defaultStaleLockMs = 5 * 60 * 1000;
 const defaultMaxAttempts = 3;
 const defaultPollMs = 8000;
+const progressRefreshIntervalBatches = 5;
 
 async function mapWithConcurrency<T>(items: T[], limit: number, iteratee: (item: T) => Promise<void>) {
   let index = 0;
@@ -124,10 +125,12 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
       }
     });
 
-    lastKnownProgress = await refreshNominationCheckJobProgress(job.id);
-    const batchStatus = lastKnownProgress?.status ?? 'unknown';
-    if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
-      break;
+    if (batchNumber % progressRefreshIntervalBatches === 0) {
+      lastKnownProgress = await refreshNominationCheckJobProgress(job.id);
+      const batchStatus = lastKnownProgress?.status ?? 'unknown';
+      if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
+        break;
+      }
     }
   }
 
