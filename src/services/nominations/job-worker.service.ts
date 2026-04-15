@@ -156,8 +156,13 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 }
 
 export function startNominationCheckWorkerLoop(): NodeJS.Timeout | null {
+  const workerEnabledRaw = process.env.NOMINATION_WORKER_ENABLED;
   if (!envFlag('NOMINATION_WORKER_ENABLED', false)) {
-    logger.info('Nomination worker disabled (NOMINATION_WORKER_ENABLED=false).');
+    const reason =
+      workerEnabledRaw === undefined
+        ? 'NOMINATION_WORKER_ENABLED is not set (defaulting to disabled)'
+        : `NOMINATION_WORKER_ENABLED=${workerEnabledRaw} (not truthy)`;
+    logger.info(`Nomination worker disabled - ${reason}.`);
     return null;
   }
 

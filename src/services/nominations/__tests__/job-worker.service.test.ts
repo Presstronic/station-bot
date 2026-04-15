@@ -190,6 +190,88 @@ describe('runNominationCheckWorkerCycle', () => {
 });
 
 describe('startNominationCheckWorkerLoop', () => {
+  it('logs when NOMINATION_WORKER_ENABLED is unset and defaults to disabled', async () => {
+    const enabledBackup = process.env.NOMINATION_WORKER_ENABLED;
+    delete process.env.NOMINATION_WORKER_ENABLED;
+
+    const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => logger,
+    }));
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
+      claimNextRunnableNominationCheckJob: jest.fn(),
+      claimNominationCheckJobItems: jest.fn(),
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress: jest.fn(),
+    }));
+    jest.unstable_mockModule('../org-check.service.js', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      updateOrgCheckResult: jest.fn(),
+    }));
+
+    try {
+      const { startNominationCheckWorkerLoop } = await import('../job-worker.service.js');
+      const interval = startNominationCheckWorkerLoop();
+
+      expect(interval).toBeNull();
+      expect(logger.info).toHaveBeenCalledWith(
+        'Nomination worker disabled - NOMINATION_WORKER_ENABLED is not set (defaulting to disabled).'
+      );
+    } finally {
+      if (enabledBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_ENABLED;
+      } else {
+        process.env.NOMINATION_WORKER_ENABLED = enabledBackup;
+      }
+    }
+  });
+
+  it('logs the raw falsy NOMINATION_WORKER_ENABLED value when disabled explicitly', async () => {
+    const enabledBackup = process.env.NOMINATION_WORKER_ENABLED;
+    process.env.NOMINATION_WORKER_ENABLED = 'false';
+
+    const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => logger,
+    }));
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
+      claimNextRunnableNominationCheckJob: jest.fn(),
+      claimNominationCheckJobItems: jest.fn(),
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress: jest.fn(),
+    }));
+    jest.unstable_mockModule('../org-check.service.js', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      updateOrgCheckResult: jest.fn(),
+    }));
+
+    try {
+      const { startNominationCheckWorkerLoop } = await import('../job-worker.service.js');
+      const interval = startNominationCheckWorkerLoop();
+
+      expect(interval).toBeNull();
+      expect(logger.info).toHaveBeenCalledWith(
+        'Nomination worker disabled - NOMINATION_WORKER_ENABLED=false (not truthy).'
+      );
+    } finally {
+      if (enabledBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_ENABLED;
+      } else {
+        process.env.NOMINATION_WORKER_ENABLED = enabledBackup;
+      }
+    }
+  });
+
   it('sanitizes cycle-level catch log output', async () => {
     const enabledBackup = process.env.NOMINATION_WORKER_ENABLED;
     const pollMsBackup = process.env.NOMINATION_WORKER_POLL_MS;
