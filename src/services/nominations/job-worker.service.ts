@@ -161,12 +161,12 @@ export function startNominationCheckWorkerLoop(): NodeJS.Timeout | null {
     const normalizedWorkerEnabled = workerEnabledRaw?.trim().toLowerCase();
     const sanitizedWorkerEnabled =
       workerEnabledRaw === undefined ? 'undefined' : sanitizeForInlineText(workerEnabledRaw);
-    const reason =
-      workerEnabledRaw === undefined || normalizedWorkerEnabled === ''
-        ? 'NOMINATION_WORKER_ENABLED is not set (defaulting to disabled)'
-        : ['0', 'false', 'no', 'off'].includes(normalizedWorkerEnabled)
-          ? `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (parsed as disabled)`
-          : `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (unrecognized value, defaulting to disabled)`;
+    let reason = 'NOMINATION_WORKER_ENABLED is not set (defaulting to disabled)';
+    if (workerEnabledRaw !== undefined && normalizedWorkerEnabled !== '') {
+      reason = ['0', 'false', 'no', 'off'].includes(normalizedWorkerEnabled)
+        ? `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (parsed as disabled)`
+        : `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (unrecognized value, defaulting to disabled)`;
+    }
     logger.info(`Nomination worker disabled - ${reason}.`);
     return null;
   }
