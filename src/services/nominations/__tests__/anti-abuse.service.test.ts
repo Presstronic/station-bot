@@ -148,10 +148,12 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('cooldown check takes priority over target cap', async () => {
+    const countNominationsForTargetInWindow = jest.fn(async () => 99);
+    const countNominationsByUserInWindow = jest.fn(async () => 99);
     jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => 30),
-      countNominationsForTargetInWindow: jest.fn(async () => 99),
-      countNominationsByUserInWindow: jest.fn(async () => 99),
+      countNominationsForTargetInWindow,
+      countNominationsByUserInWindow,
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
@@ -162,6 +164,8 @@ describe('checkNominationAntiAbuse', () => {
       userMaxPerDay: 1,
     });
     expect(result).toEqual({ kind: 'cooldown', secondsRemaining: 30 });
+    expect(countNominationsForTargetInWindow).not.toHaveBeenCalled();
+    expect(countNominationsByUserInWindow).not.toHaveBeenCalled();
   });
 
   it('returns null when reset time is 0 and re-check shows window has rolled over', async () => {
@@ -201,10 +205,12 @@ describe('checkNominationAntiAbuse', () => {
   });
 
   it('target cap takes priority over user cap', async () => {
+    const countNominationsForTargetInWindow = jest.fn(async () => 1);
+    const countNominationsByUserInWindow = jest.fn(async () => 1);
     jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
-      countNominationsForTargetInWindow: jest.fn(async () => 1),
-      countNominationsByUserInWindow: jest.fn(async () => 1),
+      countNominationsForTargetInWindow,
+      countNominationsByUserInWindow,
       getSecondsUntilUserWindowResets: jest.fn(async () => 0),
     }));
 
@@ -215,5 +221,7 @@ describe('checkNominationAntiAbuse', () => {
       userMaxPerDay: 1,
     });
     expect(result).toEqual({ kind: 'targetDailyLimit', displayHandle: 'PilotNominee' });
+    expect(countNominationsForTargetInWindow).toHaveBeenCalledTimes(1);
+    expect(countNominationsByUserInWindow).toHaveBeenCalledTimes(1);
   });
 });

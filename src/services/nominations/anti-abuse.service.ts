@@ -20,16 +20,24 @@ export async function checkNominationAntiAbuse(
     }
   }
 
-  if (policy.targetMaxPerDay > 0) {
-    const count = await countNominationsForTargetInWindow(normalizedHandle, SECONDS_PER_DAY);
-    if (count >= policy.targetMaxPerDay) {
+  const shouldCheckTargetCap = policy.targetMaxPerDay > 0;
+  const shouldCheckUserCap = policy.userMaxPerDay > 0;
+
+  if (shouldCheckTargetCap || shouldCheckUserCap) {
+    const [targetCount, userCount] = await Promise.all([
+      shouldCheckTargetCap
+        ? countNominationsForTargetInWindow(normalizedHandle, SECONDS_PER_DAY)
+        : Promise.resolve(0),
+      shouldCheckUserCap
+        ? countNominationsByUserInWindow(userId, SECONDS_PER_DAY)
+        : Promise.resolve(0),
+    ]);
+
+    if (shouldCheckTargetCap && targetCount >= policy.targetMaxPerDay) {
       return { kind: 'targetDailyLimit', displayHandle };
     }
-  }
 
-  if (policy.userMaxPerDay > 0) {
-    const count = await countNominationsByUserInWindow(userId, SECONDS_PER_DAY);
-    if (count >= policy.userMaxPerDay) {
+    if (shouldCheckUserCap && userCount >= policy.userMaxPerDay) {
       const secondsUntilReset = await getSecondsUntilUserWindowResets(userId, SECONDS_PER_DAY, policy.userMaxPerDay);
       // Guard against boundary-time skew: if reset time is 0, the window may have rolled
       // over between the count query and the reset query. Re-check before blocking.
