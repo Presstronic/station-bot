@@ -203,6 +203,8 @@ npm run migrate:down
 
 If `DATABASE_URL` is configured and required schema objects are missing, startup will fail fast.
 
+Nomination review queries are backed by composite indexes on `lifecycle_state`, `updated_at`, and `nomination_count`, plus partial indexes for the non-`processed` hot path used by `/nomination-review`.
+
 ---
 
 ## ✅ Quality Commands
