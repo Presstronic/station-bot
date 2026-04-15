@@ -261,7 +261,48 @@ describe('startNominationCheckWorkerLoop', () => {
 
       expect(interval).toBeNull();
       expect(logger.info).toHaveBeenCalledWith(
-        'Nomination worker disabled - NOMINATION_WORKER_ENABLED=false (not truthy).'
+        'Nomination worker disabled - NOMINATION_WORKER_ENABLED=false (parsed as disabled).'
+      );
+    } finally {
+      if (enabledBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_ENABLED;
+      } else {
+        process.env.NOMINATION_WORKER_ENABLED = enabledBackup;
+      }
+    }
+  });
+
+  it('sanitizes unrecognized NOMINATION_WORKER_ENABLED values in the disabled log', async () => {
+    const enabledBackup = process.env.NOMINATION_WORKER_ENABLED;
+    process.env.NOMINATION_WORKER_ENABLED = 'maybe\nline|two`three';
+
+    const logger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() };
+
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => logger,
+    }));
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
+      claimNextRunnableNominationCheckJob: jest.fn(),
+      claimNominationCheckJobItems: jest.fn(),
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress: jest.fn(),
+    }));
+    jest.unstable_mockModule('../org-check.service.js', () => ({
+      checkHasAnyOrgMembership: jest.fn(),
+    }));
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      updateOrgCheckResult: jest.fn(),
+    }));
+
+    try {
+      const { startNominationCheckWorkerLoop } = await import('../job-worker.service.js');
+      const interval = startNominationCheckWorkerLoop();
+
+      expect(interval).toBeNull();
+      expect(logger.info).toHaveBeenCalledWith(
+        "Nomination worker disabled - NOMINATION_WORKER_ENABLED=maybe line/two'three (unrecognized value, defaulting to disabled)."
       );
     } finally {
       if (enabledBackup === undefined) {
