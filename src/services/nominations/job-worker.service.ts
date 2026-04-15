@@ -12,6 +12,8 @@ import {
 } from './job-queue.repository.js';
 
 const logger = getLogger();
+const TRUE_ENV_VALUES = ['1', 'true', 'yes', 'on'] as const;
+const FALSE_ENV_VALUES = ['0', 'false', 'no', 'off'] as const;
 
 function parseEnvInt(name: string, defaultValue: number): number {
   const raw = process.env[name];
@@ -28,10 +30,10 @@ function envFlag(name: string, defaultValue = false): boolean {
     return defaultValue;
   }
   const normalized = raw.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+  if (TRUE_ENV_VALUES.includes(normalized as (typeof TRUE_ENV_VALUES)[number])) {
     return true;
   }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+  if (FALSE_ENV_VALUES.includes(normalized as (typeof FALSE_ENV_VALUES)[number])) {
     return false;
   }
   return defaultValue;
@@ -159,11 +161,10 @@ export function startNominationCheckWorkerLoop(): NodeJS.Timeout | null {
   const workerEnabledRaw = process.env.NOMINATION_WORKER_ENABLED;
   if (!envFlag('NOMINATION_WORKER_ENABLED', false)) {
     const normalizedWorkerEnabled = workerEnabledRaw?.trim().toLowerCase();
-    const sanitizedWorkerEnabled =
-      workerEnabledRaw === undefined ? 'undefined' : sanitizeForInlineText(workerEnabledRaw);
     let reason = 'NOMINATION_WORKER_ENABLED is not set (defaulting to disabled)';
-    if (workerEnabledRaw !== undefined && normalizedWorkerEnabled !== '') {
-      reason = ['0', 'false', 'no', 'off'].includes(normalizedWorkerEnabled)
+    if (workerEnabledRaw !== undefined && normalizedWorkerEnabled !== undefined && normalizedWorkerEnabled !== '') {
+      const sanitizedWorkerEnabled = sanitizeForInlineText(workerEnabledRaw);
+      reason = FALSE_ENV_VALUES.includes(normalizedWorkerEnabled as (typeof FALSE_ENV_VALUES)[number])
         ? `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (parsed as disabled)`
         : `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (unrecognized value, defaulting to disabled)`;
     }
