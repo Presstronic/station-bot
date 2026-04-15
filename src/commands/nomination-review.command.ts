@@ -107,6 +107,10 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
     const limitValue   =  interaction.options.getInteger(limitOptionName) ?? 25;
     const showDetail   =  interaction.options.getBoolean(detailOptionName) ?? false;
+    const filterContext = i18n.__mf(
+      { phrase: 'commands.nominationReview.responses.filterContext', locale },
+      { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
+    );
 
     // Fetch one extra to detect truncation without a COUNT query
     const nominations = await getUnprocessedNominations({
@@ -123,10 +127,7 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
         : 'commands.nominationReview.responses.none';
       const content = statusFilter
         ? i18n.__mf({ phrase, locale }, {
-            filterContext: i18n.__mf(
-              { phrase: 'commands.nominationReview.responses.filterContext', locale },
-              { status: statusFilter, sort: sortChoice, limit: String(limitValue) }
-            ),
+            filterContext,
           })
         : i18n.__({ phrase, locale });
       await interaction.editReply({ content, allowedMentions: { parse: [] } });
@@ -139,11 +140,6 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
 
     const lastCheckTimes = displayNominations.map((n) => n.lastOrgCheckAt ?? null);
     const lastRefreshedAt = toDateString(getLastRefreshedAtUtc(lastCheckTimes));
-
-    const filterContext = i18n.__mf(
-      { phrase: 'commands.nominationReview.responses.filterContext', locale },
-      { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
-    );
 
     const reasonCounts = createEmptyReasonCounts();
     for (const nomination of displayNominations) {
@@ -244,9 +240,16 @@ export async function handleNominationReviewCommand(interaction: ChatInputComman
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';
+    const statusFilter = interaction.options.getString(statusOptionName) as NominationStatusFilter | null;
+    const sortChoice   = (interaction.options.getString(sortOptionName) ?? 'newest') as NominationSortOption;
+    const limitValue   =  interaction.options.getInteger(limitOptionName) ?? 25;
+    const filterContext = i18n.__mf(
+      { phrase: 'commands.nominationReview.responses.filterContext', locale },
+      { status: statusFilter ?? 'all', sort: sortChoice, limit: String(limitValue) }
+    );
 
     await interaction.editReply({
-      content: i18n.__({ phrase, locale }),
+      content: `${filterContext}\n${i18n.__({ phrase, locale })}`,
       allowedMentions: { parse: [] },
     });
   }
