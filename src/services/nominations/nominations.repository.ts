@@ -441,6 +441,16 @@ export async function markAllNominationsProcessed(processedByUserId: string): Pr
   return result.rowCount ?? 0;
 }
 
+/**
+ * @remarks
+ * This helper is intentionally read-safe when `DATABASE_URL` is unset and
+ * returns `null` instead of throwing. Anti-abuse reads are advisory and are
+ * allowed to fail open so nomination submission can still surface the
+ * authoritative persistence misconfiguration from the write path, especially
+ * `recordNomination()`. This differs from most repository helpers, which call
+ * `assertDatabaseConfigured()` because they are part of the authoritative DB
+ * read/write contract.
+ */
 export async function getSecondsSinceLastNominationByUser(userId: string): Promise<number | null> {
   if (!isDatabaseConfigured()) return null;
   await ensureNominationsSchema();
@@ -462,6 +472,16 @@ export async function getSecondsSinceLastNominationByUser(userId: string): Promi
   return Number(result.rows[0].seconds_ago);
 }
 
+/**
+ * @remarks
+ * This helper is intentionally read-safe when `DATABASE_URL` is unset and
+ * returns `0` instead of throwing. Anti-abuse reads are advisory and are
+ * allowed to fail open so nomination submission can still surface the
+ * authoritative persistence misconfiguration from the write path, especially
+ * `recordNomination()`. This differs from most repository helpers, which call
+ * `assertDatabaseConfigured()` because they are part of the authoritative DB
+ * read/write contract.
+ */
 export async function countNominationsForTargetInWindow(
   normalizedHandle: string,
   windowSeconds: number
@@ -484,6 +504,16 @@ export async function countNominationsForTargetInWindow(
   return Number(result.rows[0].event_count);
 }
 
+/**
+ * @remarks
+ * This helper is intentionally read-safe when `DATABASE_URL` is unset and
+ * returns `0` instead of throwing. Anti-abuse reads are advisory and are
+ * allowed to fail open so nomination submission can still surface the
+ * authoritative persistence misconfiguration from the write path, especially
+ * `recordNomination()`. This differs from most repository helpers, which call
+ * `assertDatabaseConfigured()` because they are part of the authoritative DB
+ * read/write contract.
+ */
 export async function countNominationsByUserInWindow(
   userId: string,
   windowSeconds: number
