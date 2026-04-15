@@ -143,7 +143,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
     );
   } else if (cappedByLimit) {
     logger.warn(
-      `Nomination worker hit batch cap for job ${job.id} — items remain unprocessed; job stays running and will be retried on a subsequent poll once items become claimable (after staleLockMs elapses)`,
+      `Nomination worker hit batch cap for job ${job.id} — items remain unprocessed; job stays running and will be retried on the next poll. Any still-locked items will become claimable after staleLockMs (${staleLockMs}ms) elapses.`,
       { jobId: job.id, status: jobStatus, completed: finishedJob?.completedCount ?? 0, failed: finishedJob?.failedCount ?? 0, staleLockMs }
     );
   } else {
