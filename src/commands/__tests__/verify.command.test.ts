@@ -59,7 +59,7 @@ async function loadHandleVerifyCommand({
       __: effectiveI18n,
       __mf: jest.fn(
         (_opts: unknown, vars: Record<string, string>) =>
-          `${vars.user ?? ''} code:${vars.code ?? ''} seconds:${vars.seconds ?? ''} minutes:${vars.minutes ?? ''} ${vars.verifyButtonLabel ?? ''}`.trim()
+          `${vars.user ?? ''} code:${vars.code ?? ''} seconds:${vars.seconds ?? ''} minutes:${vars.minutes ?? ''} ${vars.verifyButtonLabel ?? ''} url:${vars.rsiProfileEditUrl ?? ''}`.trim()
       ),
     },
   }));
@@ -110,6 +110,15 @@ describe('handleVerifyCommand — handle validation', () => {
     // Should show the verification code message, not an error
     expect(call.components).toBeDefined();
     expect(call.content).toContain('TEST-CODE-123');
+  });
+
+  it('includes the RSI profile edit URL in the reply message', async () => {
+    const { handleVerifyCommand } = await loadHandleVerifyCommand();
+    const interaction = makeVerifyInteraction('Testhandle123');
+    await handleVerifyCommand(interaction);
+
+    const call = ((interaction.reply as jest.Mock).mock.calls[0] as [{ content?: string; components?: unknown[] }])[0];
+    expect(call.content).toContain('url:https://robertsspaceindustries.com/en/account/profile');
   });
 
   it('rejects a full RSI URL input', async () => {

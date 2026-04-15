@@ -15,6 +15,7 @@ import {
   verifyRateLimitPerHour,
   verifySessionTtlMinutes,
 } from '../config/runtime-flags.js';
+import { getRsiProfileEditUrl } from '../config/rsi.config.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -160,6 +161,7 @@ export async function handleVerifyCommand(interaction: ChatInputCommandInteracti
       user: interaction.user.toString(),
       code: dreadnoughtValidationCode,
       verifyButtonLabel,
+      rsiProfileEditUrl: getRsiProfileEditUrl(),
     }
   );
 

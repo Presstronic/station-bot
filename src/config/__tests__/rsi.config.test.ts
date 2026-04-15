@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { buildCitizenUrl, getRsiConfig } from '../rsi.config.js';
+import { buildCitizenUrl, getRsiConfig, getRsiProfileEditUrl } from '../rsi.config.js';
 
 describe('getRsiConfig', () => {
   const originalEnv = process.env.RSI_CITIZEN_URL_PATTERN;
@@ -40,6 +40,38 @@ describe('getRsiConfig', () => {
     const config = getRsiConfig();
     expect(config.bioParentSelector).toBe('div.entry.bio');
     expect(config.bioChildSelector).toBe('div.value');
+  });
+});
+
+describe('getRsiProfileEditUrl', () => {
+  const originalEnv = process.env.RSI_PROFILE_EDIT_URL;
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.RSI_PROFILE_EDIT_URL;
+    } else {
+      process.env.RSI_PROFILE_EDIT_URL = originalEnv;
+    }
+  });
+
+  it('returns the default URL when RSI_PROFILE_EDIT_URL is not set', () => {
+    delete process.env.RSI_PROFILE_EDIT_URL;
+    expect(getRsiProfileEditUrl()).toBe('https://robertsspaceindustries.com/en/account/profile');
+  });
+
+  it('returns the env-var URL when RSI_PROFILE_EDIT_URL is set', () => {
+    process.env.RSI_PROFILE_EDIT_URL = 'https://custom.example.com/account/profile';
+    expect(getRsiProfileEditUrl()).toBe('https://custom.example.com/account/profile');
+  });
+
+  it('falls back to the default when RSI_PROFILE_EDIT_URL is whitespace-only', () => {
+    process.env.RSI_PROFILE_EDIT_URL = '   ';
+    expect(getRsiProfileEditUrl()).toBe('https://robertsspaceindustries.com/en/account/profile');
+  });
+
+  it('trims leading/trailing whitespace from RSI_PROFILE_EDIT_URL', () => {
+    process.env.RSI_PROFILE_EDIT_URL = '  https://custom.example.com/account/profile  ';
+    expect(getRsiProfileEditUrl()).toBe('https://custom.example.com/account/profile');
   });
 });
 
