@@ -79,9 +79,10 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   let cappedByLimit = false;
   // Tracks the most recent refreshNominationCheckJobProgress result. Reused as
   // finishedJob after the loop to avoid a redundant DB round-trip whenever the
-  // last refresh is still current (terminal break, empty-items break after ≥1
-  // batch, or cap break after ≥1 batch). Null when zero batches were processed.
+  // last refresh is still current (for example, a terminal break on the same
+  // batch that refreshed progress). Null when zero batches were processed.
   let lastKnownProgress: Awaited<ReturnType<typeof refreshNominationCheckJobProgress>> = null;
+  let lastProgressRefreshBatchNumber = 0;
 
   while (true) {
     if (batchNumber >= maxBatches) {
@@ -127,6 +128,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 
     if (batchNumber % progressRefreshIntervalBatches === 0) {
       lastKnownProgress = await refreshNominationCheckJobProgress(job.id);
+      lastProgressRefreshBatchNumber = batchNumber;
       const batchStatus = lastKnownProgress?.status ?? 'unknown';
       if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
         break;
@@ -134,10 +136,12 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
     }
   }
 
-  // Use the cached result when available (any break path after ≥1 processed batch
-  // leaves lastKnownProgress current). Fall back to a fresh refresh only when zero
-  // batches were processed (first claim returned empty).
-  const finishedJob = lastKnownProgress ?? await refreshNominationCheckJobProgress(job.id);
+  // Reuse the cached result only when it came from the final processed batch.
+  // If the loop exited on a later empty-claim or cap path, refresh once more so
+  // counts/status cannot remain stale.
+  const finishedJob = lastKnownProgress && lastProgressRefreshBatchNumber === batchNumber
+    ? lastKnownProgress
+    : await refreshNominationCheckJobProgress(job.id);
   const jobStatus = finishedJob?.status ?? 'unknown';
   const isTerminal = jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled';
   if (isTerminal) {

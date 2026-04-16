@@ -138,8 +138,8 @@ describe('runNominationCheckWorkerCycle', () => {
       requestedScope: 'all',
       totalCount: 1,
     }));
-    // With throttled refreshes, the in-loop progress update no longer runs on
-    // every batch. This path now relies on the post-loop fallback refresh.
+    // With throttled refreshes, the queue drains before the next in-loop refresh
+    // and the post-loop fallback refresh finalizes job status.
     const claimNominationCheckJobItems = jest
       .fn<() => Promise<any[]>>()
       .mockImplementationOnce(async () => [{ id: 1, normalizedHandle: 'pilotone', attemptCount: 1 }])
@@ -161,11 +161,11 @@ describe('runNominationCheckWorkerCycle', () => {
       jest.unstable_mockModule('../job-queue.repository.js', () => ({
         claimNextRunnableNominationCheckJob,
         claimNominationCheckJobItems,
-        completeNominationCheckJobItem: jest.fn(),
-        requeueNominationCheckJobItem,
-        failNominationCheckJobItem,
-        refreshNominationCheckJobProgress: jest.fn<() => Promise<any>>()
-          .mockResolvedValueOnce({ status: 'failed', completedCount: 0, failedCount: 1 }),  // post-loop fallback after the queue drains
+      completeNominationCheckJobItem: jest.fn(),
+      requeueNominationCheckJobItem,
+      failNominationCheckJobItem,
+      refreshNominationCheckJobProgress: jest.fn<() => Promise<any>>()
+          .mockResolvedValueOnce({ status: 'failed', completedCount: 0, failedCount: 1 }),  // post-loop fallback after queue drain
       }));
       jest.unstable_mockModule('../org-check.service.js', () => ({
         checkHasAnyOrgMembership,
@@ -189,7 +189,7 @@ describe('runNominationCheckWorkerCycle', () => {
     }
   });
 
-  it('refreshes job progress every 5 batches and reuses the last in-loop refresh after exit', async () => {
+  it('reuses the in-loop refresh when batch 5 reports a terminal status', async () => {
     const claimNextRunnableNominationCheckJob = jest.fn(async () => ({
       id: 202,
       requestedScope: 'all',
@@ -201,11 +201,10 @@ describe('runNominationCheckWorkerCycle', () => {
       .mockImplementationOnce(async () => [{ id: 2, normalizedHandle: 'pilot2', attemptCount: 1 }])
       .mockImplementationOnce(async () => [{ id: 3, normalizedHandle: 'pilot3', attemptCount: 1 }])
       .mockImplementationOnce(async () => [{ id: 4, normalizedHandle: 'pilot4', attemptCount: 1 }])
-      .mockImplementationOnce(async () => [{ id: 5, normalizedHandle: 'pilot5', attemptCount: 1 }])
-      .mockImplementationOnce(async () => []);
+      .mockImplementationOnce(async () => [{ id: 5, normalizedHandle: 'pilot5', attemptCount: 1 }]);
     const refreshNominationCheckJobProgress = jest
       .fn<() => Promise<any>>()
-      .mockResolvedValue({ status: 'running', completedCount: 5, failedCount: 0 });
+      .mockResolvedValue({ status: 'completed', completedCount: 5, failedCount: 0 });
 
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }),
@@ -236,8 +235,68 @@ describe('runNominationCheckWorkerCycle', () => {
       const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
       await runNominationCheckWorkerCycle();
 
-      expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(6);
+      expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(5);
       expect(refreshNominationCheckJobProgress).toHaveBeenCalledTimes(1);
+    } finally {
+      if (batchSizeBackup === undefined) {
+        delete process.env.NOMINATION_WORKER_BATCH_SIZE;
+      } else {
+        process.env.NOMINATION_WORKER_BATCH_SIZE = batchSizeBackup;
+      }
+    }
+  });
+
+  it('forces a final refresh when the last cached progress is stale', async () => {
+    const claimNextRunnableNominationCheckJob = jest.fn(async () => ({
+      id: 203,
+      requestedScope: 'all',
+      totalCount: 6,
+    }));
+    const claimNominationCheckJobItems = jest
+      .fn<() => Promise<any[]>>()
+      .mockImplementationOnce(async () => [{ id: 1, normalizedHandle: 'pilot1', attemptCount: 1 }])
+      .mockImplementationOnce(async () => [{ id: 2, normalizedHandle: 'pilot2', attemptCount: 1 }])
+      .mockImplementationOnce(async () => [{ id: 3, normalizedHandle: 'pilot3', attemptCount: 1 }])
+      .mockImplementationOnce(async () => [{ id: 4, normalizedHandle: 'pilot4', attemptCount: 1 }])
+      .mockImplementationOnce(async () => [{ id: 5, normalizedHandle: 'pilot5', attemptCount: 1 }])
+      .mockImplementationOnce(async () => [{ id: 6, normalizedHandle: 'pilot6', attemptCount: 1 }])
+      .mockImplementationOnce(async () => []);
+    const refreshNominationCheckJobProgress = jest
+      .fn<() => Promise<any>>()
+      .mockResolvedValueOnce({ status: 'running', completedCount: 5, failedCount: 0 })
+      .mockResolvedValueOnce({ status: 'completed', completedCount: 6, failedCount: 0 });
+
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn() }),
+    }));
+    jest.unstable_mockModule('../job-queue.repository.js', () => ({
+      claimNextRunnableNominationCheckJob,
+      claimNominationCheckJobItems,
+      completeNominationCheckJobItem: jest.fn(async () => undefined),
+      requeueNominationCheckJobItem: jest.fn(),
+      failNominationCheckJobItem: jest.fn(),
+      refreshNominationCheckJobProgress,
+    }));
+    jest.unstable_mockModule('../org-check.service.js', () => ({
+      checkHasAnyOrgMembership: jest.fn(async () => ({
+        code: 'in_org',
+        status: 'in_org',
+        checkedAt: '2026-01-01T00:00:00.000Z',
+      })),
+    }));
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      updateOrgCheckResult: jest.fn(async () => undefined),
+    }));
+
+    const batchSizeBackup = process.env.NOMINATION_WORKER_BATCH_SIZE;
+    process.env.NOMINATION_WORKER_BATCH_SIZE = '1';
+
+    try {
+      const { runNominationCheckWorkerCycle } = await import('../job-worker.service.js');
+      await runNominationCheckWorkerCycle();
+
+      expect(claimNominationCheckJobItems).toHaveBeenCalledTimes(7);
+      expect(refreshNominationCheckJobProgress).toHaveBeenCalledTimes(2);
     } finally {
       if (batchSizeBackup === undefined) {
         delete process.env.NOMINATION_WORKER_BATCH_SIZE;
