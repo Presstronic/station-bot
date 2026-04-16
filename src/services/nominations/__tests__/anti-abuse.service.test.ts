@@ -228,7 +228,11 @@ describe('checkNominationAntiAbuse', () => {
   it('returns targetDailyLimit without waiting for the user-cap query to settle', async () => {
     const countNominationsForTargetInWindow = jest.fn(async () => 1);
     const countNominationsByUserInWindow = jest.fn(
-      () => new Promise<number>(() => undefined)
+      () =>
+        new Promise<number>(() => {
+          // Intentionally never settle: this test verifies that target-cap
+          // violations return without waiting for the user-cap query.
+        })
     );
     jest.unstable_mockModule('../nominations.repository.js', () => ({
       getSecondsSinceLastNominationByUser: jest.fn(async () => null),
