@@ -251,5 +251,5 @@ describe('checkNominationAntiAbuse', () => {
     ).resolves.toEqual({ kind: 'targetDailyLimit', displayHandle: 'PilotNominee' });
     expect(countNominationsForTargetInWindow).toHaveBeenCalledTimes(1);
     expect(countNominationsByUserInWindow).toHaveBeenCalledTimes(1);
-  });
+  }, 250);
 });

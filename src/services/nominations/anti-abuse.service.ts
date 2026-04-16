@@ -35,8 +35,7 @@ export async function checkNominationAntiAbuse(
       ? countNominationsByUserInWindow(userId, SECONDS_PER_DAY)
       : Promise.resolve(0);
     void userCountPromise.catch(() => undefined);
-    let targetCount: number;
-    targetCount = await targetCountPromise;
+    const targetCount = await targetCountPromise;
 
     if (shouldCheckTargetCap && targetCount >= policy.targetMaxPerDay) {
       return { kind: 'targetDailyLimit', displayHandle };
