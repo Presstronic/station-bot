@@ -80,7 +80,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   // Tracks the most recent refreshNominationCheckJobProgress result. Reused as
   // finishedJob after the loop to avoid a redundant DB round-trip whenever the
   // last refresh is still current (for example, a terminal break on the same
-  // batch that refreshed progress). Null when zero batches were processed.
+  // batch that refreshed progress). Null until the first progress refresh runs.
   let lastKnownProgress: Awaited<ReturnType<typeof refreshNominationCheckJobProgress>> = null;
   let lastProgressRefreshBatchNumber = 0;
 
