@@ -116,3 +116,38 @@ describe('recordNomination', () => {
     });
   });
 });
+
+describe('countUnprocessedNominations', () => {
+  it('returns 0 when no unprocessed nominations exist', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({ rows: [{ count: 0 }] });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { countUnprocessedNominations } = await import('../nominations.repository.js');
+
+    await expect(countUnprocessedNominations()).resolves.toBe(0);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('SELECT COUNT(*)::int AS count'));
+  });
+
+  it('returns the unprocessed nomination count when rows exist', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({ rows: [{ count: 3 }] });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { countUnprocessedNominations } = await import('../nominations.repository.js');
+
+    await expect(countUnprocessedNominations()).resolves.toBe(3);
+  });
+});

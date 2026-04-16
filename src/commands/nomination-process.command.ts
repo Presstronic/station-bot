@@ -9,6 +9,7 @@ import {
 } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
 import {
+  countUnprocessedNominations,
   getUnprocessedNominationByHandle,
   getUnprocessedNominations,
   markAllNominationsProcessed,
@@ -206,8 +207,8 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     }
 
     // Bulk path — get count and show confirmation dialog
-    const pending = await getUnprocessedNominations();
-    if (pending.length === 0) {
+    const pendingCount = await countUnprocessedNominations();
+    if (pendingCount === 0) {
       await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominationProcess.responses.noneToProcess', locale }),
         allowedMentions: { parse: [] },
@@ -232,7 +233,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     const response = await interaction.editReply({
       content: i18n.__mf(
         { phrase: 'commands.nominationProcess.responses.confirmBulkPrompt', locale },
-        { count: String(pending.length) }
+        { count: String(pendingCount) }
       ),
       components: [row],
       allowedMentions: { parse: [] },
