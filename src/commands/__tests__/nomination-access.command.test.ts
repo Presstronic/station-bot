@@ -5,6 +5,76 @@ beforeEach(() => {
 });
 
 describe('nomination-access command', () => {
+  it('add uses a markdown-safe non-mention role label in the confirmation', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(async () => ({ added: true, roleIds: ['role-1'] })),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => []),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const interaction: any = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'u1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: {
+        getString: () => 'add',
+        getRole: () => ({ id: 'role-1', name: 'Ops`Lead*' }),
+      },
+      replied: false,
+      deferred: false,
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    };
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("`Ops'Lead*`"),
+      })
+    );
+    expect((editReply as jest.Mock).mock.calls[0][0].content).not.toContain('@Ops');
+  });
+
+  it('remove uses a markdown-safe non-mention role label in the confirmation', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(async () => ({ removed: true, roleIds: [] })),
+      getReviewProcessRoleIds: jest.fn(async () => []),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn(async () => undefined);
+    const interaction: any = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'u1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: {
+        getString: () => 'remove',
+        getRole: () => ({ id: 'role-1', name: 'Ops`Lead*' }),
+      },
+      replied: false,
+      deferred: false,
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    };
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("`Ops'Lead*`"),
+      })
+    );
+    expect((editReply as jest.Mock).mock.calls[0][0].content).not.toContain('@Ops');
+  });
+
   it('returns configuration guidance when database is misconfigured', async () => {
     jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
       addReviewProcessRoleId: jest.fn(async () => {
