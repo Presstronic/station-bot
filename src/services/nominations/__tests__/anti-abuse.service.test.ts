@@ -224,4 +224,28 @@ describe('checkNominationAntiAbuse', () => {
     expect(countNominationsForTargetInWindow).toHaveBeenCalledTimes(1);
     expect(countNominationsByUserInWindow).toHaveBeenCalledTimes(1);
   });
+
+  it('returns targetDailyLimit without waiting for the user-cap query to settle', async () => {
+    const countNominationsForTargetInWindow = jest.fn(async () => 1);
+    const countNominationsByUserInWindow = jest.fn(
+      () => new Promise<number>(() => undefined)
+    );
+    jest.unstable_mockModule('../nominations.repository.js', () => ({
+      getSecondsSinceLastNominationByUser: jest.fn(async () => null),
+      countNominationsForTargetInWindow,
+      countNominationsByUserInWindow,
+      getSecondsUntilUserWindowResets: jest.fn(async () => 0),
+    }));
+
+    const { checkNominationAntiAbuse } = await import('../anti-abuse.service.js');
+    await expect(
+      checkNominationAntiAbuse('u1', 'pilot', 'PilotNominee', {
+        userCooldownSeconds: 0,
+        targetMaxPerDay: 1,
+        userMaxPerDay: 1,
+      })
+    ).resolves.toEqual({ kind: 'targetDailyLimit', displayHandle: 'PilotNominee' });
+    expect(countNominationsForTargetInWindow).toHaveBeenCalledTimes(1);
+    expect(countNominationsByUserInWindow).toHaveBeenCalledTimes(1);
+  });
 });
