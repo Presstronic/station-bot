@@ -9,6 +9,7 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
+import { sanitizeForInlineCode } from '../utils/sanitize.js';
 import {
   addReviewProcessRoleId,
   getReviewProcessRoleIds,
@@ -73,8 +74,7 @@ function formatRoleIds(roleIds: string[]): string {
 }
 
 function formatRoleLabel(roleName: string): string {
-  const inlineCodeSafeRoleName = roleName.replace(/`/g, "'").replace(/[\r\n]+/g, ' ');
-  return `\`${inlineCodeSafeRoleName}\``;
+  return `\`${sanitizeForInlineCode(roleName)}\``;
 }
 
 export async function handleNominationAccessCommand(interaction: ChatInputCommandInteraction) {
