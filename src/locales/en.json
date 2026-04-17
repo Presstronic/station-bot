@@ -24,7 +24,7 @@
         }
       },
       "buttonLabel": "Verify",
-      "replyMessage": "Hello {user}, please add the following verification code to your RSI profile's short bio:\n\n {code}\n\n Once you've done that, click the {verifyButtonLabel} button below.",
+      "replyMessage": "Hello {user}, please add the following verification code to your RSI profile's short bio:\n\n {code}\n\n You can edit your profile bio here: {rsiProfileEditUrl}\n\n Once you've done that, click the {verifyButtonLabel} button below.",
       "responses": {
         "success": "✅ {rsiName} has been verified with RSI for Discord member {username}!",
         "assignFailed": "❌ Could not assign the \"Verified\" role for Discord member {username} for RSI profile {rsiName}. Please try again.",
@@ -109,6 +109,8 @@
         "none": "There are no unprocessed nominations.",
         "noneFiltered": "{filterContext}\nNo nominations match the current filter.",
         "filterContext": "Filter: status={status} | sort={sort} | limit={limit}",
+        "configurationErrorWithFilterContext": "{filterContext}\nNomination features are not configured correctly right now. Please contact a server admin.",
+        "unexpectedErrorWithFilterContext": "{filterContext}\nSomething went wrong while handling this command. Please try again.",
         "truncatedHint": " — results may be truncated; increase the limit (up to 100) or narrow the filter to see more",
         "summaryBusiness": "{filterContext}\nUnprocessed nominations (persisted status):\n```\n{table}\n```\nQualified: {qualifiedCount}\nDisqualified: {disqualifiedCount}\nNeeds Attention: {needsAttentionCount}\nNew: {newCount}\nNominations shown: {totalCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /nomination-refresh to refresh statuses now.",
         "summaryBusinessAttachment": "{filterContext}\nUnprocessed nominations are attached as a file.\nQualified: {qualifiedCount}\nDisqualified: {disqualifiedCount}\nNeeds Attention: {needsAttentionCount}\nNew: {newCount}\nNominations shown: {totalCount}\nLast refresh (UTC): {lastRefreshedAt}\nTip: run /nomination-refresh to refresh statuses now.",

@@ -134,7 +134,7 @@ export async function handleNominationRefreshCommand(interaction: ChatInputComma
     });
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error(`nomination-refresh command failed: ${errorMessage}`);
+    logger.error(`nomination-refresh command failed: ${sanitizeForInlineText(errorMessage)}`);
     const phrase = isNominationConfigurationError(error)
       ? 'commands.nominationCommon.responses.configurationError'
       : 'commands.nominationCommon.responses.unexpectedError';

@@ -12,6 +12,8 @@ import {
 } from './job-queue.repository.js';
 
 const logger = getLogger();
+const TRUE_ENV_VALUES = ['1', 'true', 'yes', 'on'] as const;
+const FALSE_ENV_VALUES = ['0', 'false', 'no', 'off'] as const;
 
 function parseEnvInt(name: string, defaultValue: number): number {
   const raw = process.env[name];
@@ -28,10 +30,10 @@ function envFlag(name: string, defaultValue = false): boolean {
     return defaultValue;
   }
   const normalized = raw.trim().toLowerCase();
-  if (['1', 'true', 'yes', 'on'].includes(normalized)) {
+  if (TRUE_ENV_VALUES.includes(normalized as (typeof TRUE_ENV_VALUES)[number])) {
     return true;
   }
-  if (['0', 'false', 'no', 'off'].includes(normalized)) {
+  if (FALSE_ENV_VALUES.includes(normalized as (typeof FALSE_ENV_VALUES)[number])) {
     return false;
   }
   return defaultValue;
@@ -42,6 +44,7 @@ const defaultBatchSize = 20;
 const defaultStaleLockMs = 5 * 60 * 1000;
 const defaultMaxAttempts = 3;
 const defaultPollMs = 8000;
+const progressRefreshIntervalBatches = 5;
 
 async function mapWithConcurrency<T>(items: T[], limit: number, iteratee: (item: T) => Promise<void>) {
   let index = 0;
@@ -78,9 +81,10 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
   let cappedByLimit = false;
   // Tracks the most recent refreshNominationCheckJobProgress result. Reused as
   // finishedJob after the loop to avoid a redundant DB round-trip whenever the
-  // last refresh is still current (terminal break, empty-items break after ≥1
-  // batch, or cap break after ≥1 batch). Null when zero batches were processed.
+  // last refresh is still current (for example, a terminal break on the same
+  // batch that refreshed progress). Null until the first progress refresh runs.
   let lastKnownProgress: Awaited<ReturnType<typeof refreshNominationCheckJobProgress>> = null;
+  let lastProgressRefreshBatchNumber = 0;
 
   while (true) {
     if (batchNumber >= maxBatches) {
@@ -124,17 +128,22 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
       }
     });
 
-    lastKnownProgress = await refreshNominationCheckJobProgress(job.id);
-    const batchStatus = lastKnownProgress?.status ?? 'unknown';
-    if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
-      break;
+    if (batchNumber % progressRefreshIntervalBatches === 0) {
+      lastKnownProgress = await refreshNominationCheckJobProgress(job.id);
+      lastProgressRefreshBatchNumber = batchNumber;
+      const batchStatus = lastKnownProgress?.status ?? 'unknown';
+      if (batchStatus === 'completed' || batchStatus === 'failed' || batchStatus === 'cancelled') {
+        break;
+      }
     }
   }
 
-  // Use the cached result when available (any break path after ≥1 processed batch
-  // leaves lastKnownProgress current). Fall back to a fresh refresh only when zero
-  // batches were processed (first claim returned empty).
-  const finishedJob = lastKnownProgress ?? await refreshNominationCheckJobProgress(job.id);
+  // Reuse the cached result only when it came from the final processed batch.
+  // If the loop exited on a later empty-claim or cap path, refresh once more so
+  // counts/status cannot remain stale.
+  const finishedJob = lastKnownProgress && lastProgressRefreshBatchNumber === batchNumber
+    ? lastKnownProgress
+    : await refreshNominationCheckJobProgress(job.id);
   const jobStatus = finishedJob?.status ?? 'unknown';
   const isTerminal = jobStatus === 'completed' || jobStatus === 'failed' || jobStatus === 'cancelled';
   if (isTerminal) {
@@ -143,7 +152,7 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
     );
   } else if (cappedByLimit) {
     logger.warn(
-      `Nomination worker hit batch cap for job ${job.id} — items remain unprocessed; job stays running and will be retried on a subsequent poll once items become claimable (after staleLockMs elapses)`,
+      `Nomination worker hit batch cap for job ${job.id} — items remain unprocessed; job stays running and will be retried on the next poll. Any still-locked items will become claimable after staleLockMs (${staleLockMs}ms) elapses.`,
       { jobId: job.id, status: jobStatus, completed: finishedJob?.completedCount ?? 0, failed: finishedJob?.failedCount ?? 0, staleLockMs }
     );
   } else {
@@ -156,8 +165,17 @@ export async function runNominationCheckWorkerCycle(): Promise<boolean> {
 }
 
 export function startNominationCheckWorkerLoop(): NodeJS.Timeout | null {
+  const workerEnabledRaw = process.env.NOMINATION_WORKER_ENABLED;
   if (!envFlag('NOMINATION_WORKER_ENABLED', false)) {
-    logger.info('Nomination worker disabled (NOMINATION_WORKER_ENABLED=false).');
+    const normalizedWorkerEnabled = workerEnabledRaw?.trim().toLowerCase();
+    let reason = 'NOMINATION_WORKER_ENABLED is not set (defaulting to disabled)';
+    if (workerEnabledRaw !== undefined && normalizedWorkerEnabled !== undefined && normalizedWorkerEnabled !== '') {
+      const sanitizedWorkerEnabled = sanitizeForInlineText(workerEnabledRaw);
+      reason = FALSE_ENV_VALUES.includes(normalizedWorkerEnabled as (typeof FALSE_ENV_VALUES)[number])
+        ? `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (parsed as disabled)`
+        : `NOMINATION_WORKER_ENABLED=${sanitizedWorkerEnabled} (unrecognized value, defaulting to disabled)`;
+    }
+    logger.info(`Nomination worker disabled - ${reason}.`);
     return null;
   }
 

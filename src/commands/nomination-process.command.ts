@@ -234,8 +234,8 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     }
 
     // Bulk path — get count and show confirmation dialog
-    const pending = await nominationsRepository.getUnprocessedNominations();
-    if (pending.length === 0) {
+    const pendingCount = await nominationsRepository.countUnprocessedNominations();
+    if (pendingCount === 0) {
       await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominationProcess.responses.noneToProcess', locale }),
         allowedMentions: { parse: [] },
@@ -260,7 +260,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     const response = await interaction.editReply({
       content: i18n.__mf(
         { phrase: 'commands.nominationProcess.responses.confirmBulkPrompt', locale },
-        { count: String(pending.length) }
+        { count: String(pendingCount) }
       ),
       components: [row],
       allowedMentions: { parse: [] },
