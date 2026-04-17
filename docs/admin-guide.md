@@ -9,10 +9,10 @@ Full reference for all admin-level bot features.
 | Command | Who can use it |
 |---|---|
 | `/nominate-player` | Org member role or higher |
-| `/nomination-review` | Org member role or higher (or roles granted via `/nomination-access`) |
-| `/nomination-refresh` | Org member role or higher (or roles granted via `/nomination-access`) |
-| `/nomination-job-status` | Org member role or higher (or roles granted via `/nomination-access`) |
-| `/nomination-process` | Org member role or higher (or roles granted via `/nomination-access`) |
+| `/nomination-review` | Administrators or roles granted via `/nomination-access` |
+| `/nomination-refresh` | Administrators or roles granted via `/nomination-access` |
+| `/nomination-job-status` | Administrators or roles granted via `/nomination-access` |
+| `/nomination-process` | Administrators or roles granted via `/nomination-access` |
 | `/nomination-access` | **Admins only** |
 | `/nomination-audit` | **Admins only** |
 | `/healthcheck` | **Admins only** |
@@ -21,7 +21,7 @@ Full reference for all admin-level bot features.
 
 ## Managing review/process access
 
-By default only admins and org members can review and process nominations. You can grant additional roles access without giving them full admin privileges.
+By default only administrators can review and process nominations. You can grant additional non-admin roles access with `/nomination-access` without giving them full admin privileges.
 
 ```
 /nomination-access action: add role: @HR-Team
@@ -82,6 +82,7 @@ Show only bulk processing events:
 |---|---|
 | `nomination_processed_single` | A single nomination was marked as processed |
 | `nomination_processed_bulk` | All nominations were bulk-processed |
+| `nomination_check_refresh_triggered` | A `/nomination-refresh` request queued an org-check job for one nomination or all current unprocessed nominations |
 | `nomination_access_role_added` | A role was granted review/process access |
 | `nomination_access_role_removed` | A role had review/process access removed |
 | `nomination_access_roles_reset` | All custom access roles were cleared |
@@ -100,7 +101,7 @@ Returns a quick status snapshot: bot tag, current UTC time, read-only mode statu
 
 ## Nomination review and processing
 
-Admins have full access to all review and processing commands. See the [HR guide](hr-nomination-processing.md) for full details on those workflows.
+Admins always have full access to all review and processing commands. Non-admins can use them only if their role has been explicitly granted access through `/nomination-access`. See the [HR guide](hr-nomination-processing.md) for full details on those workflows.
 
 To see the full technical breakdown (HTTP timeouts, rate limits, parse failures, etc.) alongside the standard summary, pass `detail: true`:
 
@@ -120,4 +121,4 @@ When the bot is in read-only mode (set via the `BOT_READ_ONLY_MODE` environment 
 
 The nomination org-check worker runs automatically in the background when `NOMINATION_WORKER_ENABLED=true`. It processes the org-check job queue, retrying failed checks up to the configured maximum attempts.
 
-You don't need to manage the worker directly — use `/nomination-refresh` to queue jobs and `/nomination-job-status` to monitor them. If a job appears stuck, contact your server operator to check the worker logs.
+You don't need to manage the worker directly. Authorized review/process users can use `/nomination-refresh` to queue jobs and `/nomination-job-status` to monitor them. If a job appears stuck, contact your server operator to check the worker logs.
