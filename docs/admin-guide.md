@@ -2,6 +2,8 @@
 
 Full reference for all admin-level bot features.
 
+In this guide, "Administrators" means Discord members with the `Administrator` permission.
+
 ---
 
 ## Command permissions overview
@@ -13,9 +15,9 @@ Full reference for all admin-level bot features.
 | `/nomination-refresh` | Administrators or roles granted via `/nomination-access` |
 | `/nomination-job-status` | Administrators or roles granted via `/nomination-access` |
 | `/nomination-process` | Administrators or roles granted via `/nomination-access` |
-| `/nomination-access` | **Admins only** |
-| `/nomination-audit` | **Admins only** |
-| `/healthcheck` | **Admins only** |
+| `/nomination-access` | **Administrators only** |
+| `/nomination-audit` | **Administrators only** |
+| `/healthcheck` | **Administrators only** |
 
 ---
 
@@ -101,7 +103,7 @@ Returns a quick status snapshot: bot tag, current UTC time, read-only mode statu
 
 ## Nomination review and processing
 
-Admins always have full access to all review and processing commands. Non-admins can use them only if their role has been explicitly granted access through `/nomination-access`. See the [HR guide](hr-nomination-processing.md) for full details on those workflows.
+Administrators always have full access to all review and processing commands. Non-admins can use them only if their role has been explicitly granted access through `/nomination-access`. See the [HR guide](hr-nomination-processing.md) for full details on those workflows.
 
 To see the full technical breakdown (HTTP timeouts, rate limits, parse failures, etc.) alongside the standard summary, pass `detail: true`:
 
