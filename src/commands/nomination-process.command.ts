@@ -11,7 +11,6 @@ import i18n from '../utils/i18n-config.js';
 import {
   countUnprocessedNominations,
   getUnprocessedNominationByHandle,
-  getUnprocessedNominations,
   markAllNominationsProcessed,
   markNominationProcessedByHandle,
   type NominationLifecycleState,
