@@ -289,6 +289,24 @@ export async function getUnprocessedNominationByHandle(rsiHandle: string): Promi
   );
 }
 
+export async function getNominatorUserIdsByHandle(normalizedHandle: string): Promise<string[]> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT DISTINCT nominator_user_id
+      FROM nomination_events
+      WHERE normalized_handle = $1
+      `,
+      [normalizedHandle]
+    )
+  );
+
+  return result.rows.map((row) => row.nominator_user_id as string);
+}
+
 export async function updateOrgCheckResult(
   normalizedHandle: string,
   result: OrgCheckResult
@@ -422,6 +440,10 @@ export async function markNominationProcessedByHandle(
 }
 
 export async function markAllNominationsProcessed(processedByUserId: string): Promise<number> {
+  return (await markAllNominationsProcessedWithHandles(processedByUserId)).length;
+}
+
+export async function markAllNominationsProcessedWithHandles(processedByUserId: string): Promise<string[]> {
   assertDatabaseConfigured();
   await ensureNominationsSchema();
 
@@ -434,11 +456,13 @@ export async function markAllNominationsProcessed(processedByUserId: string): Pr
           processed_at = NOW(),
           updated_at = NOW()
       WHERE lifecycle_state != 'processed'
+      RETURNING normalized_handle
       `,
       [processedByUserId]
     )
   );
-  return result.rowCount ?? 0;
+
+  return result.rows.map((row) => row.normalized_handle as string);
 }
 
 export async function getSecondsSinceLastNominationByUser(userId: string): Promise<number | null> {

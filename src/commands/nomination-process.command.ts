@@ -8,13 +8,9 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
-import {
-  getUnprocessedNominationByHandle,
-  getUnprocessedNominations,
-  markAllNominationsProcessed,
-  markNominationProcessedByHandle,
-  type NominationLifecycleState,
-} from '../services/nominations/nominations.repository.js';
+import * as nominationsRepository from '../services/nominations/nominations.repository.js';
+import type { NominationLifecycleState } from '../services/nominations/nominations.repository.js';
+import { notifyNominators } from '../services/nominations/nominator-notify.service.js';
 import {
   ensureCanManageReviewProcessing,
   getCommandLocale,
@@ -51,6 +47,19 @@ export const nominationProcessCommandBuilder = new SlashCommandBuilder()
       .setRequired(false)
   );
 
+async function notifyNominatorsForHandle(
+  interaction: ChatInputCommandInteraction,
+  normalizedHandle: string
+): Promise<void> {
+  try {
+    const nominatorIds = await nominationsRepository.getNominatorUserIdsByHandle(normalizedHandle);
+    await notifyNominators(interaction.client, nominatorIds);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.warn(`Failed to notify nominators for ${normalizedHandle}: ${errorMessage}`);
+  }
+}
+
 export async function handleNominationProcessCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   // Defer immediately — permission checks below involve async Discord/DB work.
@@ -66,7 +75,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     const handle = interaction.options.getString(rsiHandleOptionName)?.trim() || null;
 
     if (handle) {
-      const nomination = await getUnprocessedNominationByHandle(handle);
+      const nomination = await nominationsRepository.getUnprocessedNominationByHandle(handle);
 
       if (!nomination) {
         await interaction.editReply({
@@ -82,7 +91,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         // Qualified — process immediately without confirmation dialog
         let updated = false;
         try {
-          updated = await markNominationProcessedByHandle(handle, interaction.user.id);
+          updated = await nominationsRepository.markNominationProcessedByHandle(handle, interaction.user.id);
           recordAuditEvent({
             eventType: 'nomination_processed_single',
             actorUserId: interaction.user.id,
@@ -101,6 +110,9 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
             errorMessage: err instanceof Error ? err.message : String(err),
           }).catch((auditErr) => logger.error(`audit write failed: ${String(auditErr)}`));
           throw err;
+        }
+        if (updated) {
+          await notifyNominatorsForHandle(interaction, nomination.normalizedHandle);
         }
         await interaction.editReply({
           content: updated
@@ -169,7 +181,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
       await singleConfirmation.deferUpdate();
       let forcedUpdated = false;
       try {
-        forcedUpdated = await markNominationProcessedByHandle(handle, interaction.user.id);
+        forcedUpdated = await nominationsRepository.markNominationProcessedByHandle(handle, interaction.user.id);
         recordAuditEvent({
           eventType: 'nomination_processed_single',
           actorUserId: interaction.user.id,
@@ -195,6 +207,9 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         await interaction.editReply({ content: i18n.__({ phrase, locale }), components: [], allowedMentions: { parse: [] } });
         return;
       }
+      if (forcedUpdated) {
+        await notifyNominatorsForHandle(interaction, nomination.normalizedHandle);
+      }
       await interaction.editReply({
         content: forcedUpdated
           ? i18n.__mf({ phrase: 'commands.nominationProcess.responses.singleProcessed', locale }, { rsiHandle: displayHandle })
@@ -206,7 +221,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     }
 
     // Bulk path — get count and show confirmation dialog
-    const pending = await getUnprocessedNominations();
+    const pending = await nominationsRepository.getUnprocessedNominations();
     if (pending.length === 0) {
       await interaction.editReply({
         content: i18n.__({ phrase: 'commands.nominationProcess.responses.noneToProcess', locale }),
@@ -265,7 +280,13 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
     await confirmation.deferUpdate();
     let count = 0;
     try {
-      count = await markAllNominationsProcessed(interaction.user.id);
+      const processedHandles = await nominationsRepository.markAllNominationsProcessedWithHandles(interaction.user.id);
+      count = processedHandles.length;
+      if (count > 0) {
+        await Promise.allSettled(
+          processedHandles.map((normalizedHandle) => notifyNominatorsForHandle(interaction, normalizedHandle))
+        );
+      }
       recordAuditEvent({
         eventType: 'nomination_processed_bulk',
         actorUserId: interaction.user.id,

@@ -116,3 +116,79 @@ describe('recordNomination', () => {
     });
   });
 });
+
+describe('getNominatorUserIdsByHandle', () => {
+  it('returns an empty array when no nomination events exist for the handle', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({ rows: [] });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominatorUserIdsByHandle } = await import('../nominations.repository.js');
+
+    await expect(getNominatorUserIdsByHandle('pilotnominee')).resolves.toEqual([]);
+  });
+
+  it('returns distinct nominator ids for the handle', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { nominator_user_id: 'user-1' },
+          { nominator_user_id: 'user-2' },
+        ],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominatorUserIdsByHandle } = await import('../nominations.repository.js');
+
+    await expect(getNominatorUserIdsByHandle('pilotnominee')).resolves.toEqual(['user-1', 'user-2']);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('SELECT DISTINCT nominator_user_id'), ['pilotnominee']);
+  });
+});
+
+describe('markAllNominationsProcessedWithHandles', () => {
+  it('returns only the handles updated by the bulk processing operation', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { normalized_handle: 'pilot1' },
+          { normalized_handle: 'pilot2' },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [
+          { normalized_handle: 'pilot1' },
+          { normalized_handle: 'pilot2' },
+        ],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { markAllNominationsProcessedWithHandles, markAllNominationsProcessed } =
+      await import('../nominations.repository.js');
+
+    await expect(markAllNominationsProcessedWithHandles('admin-1')).resolves.toEqual(['pilot1', 'pilot2']);
+    await expect(markAllNominationsProcessed('admin-1')).resolves.toBe(2);
+    expect(query).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('RETURNING normalized_handle'),
+      ['admin-1']
+    );
+  });
+});
