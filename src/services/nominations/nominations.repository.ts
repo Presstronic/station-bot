@@ -256,6 +256,21 @@ export async function getUnprocessedNominations(
   );
 }
 
+export async function countUnprocessedNominations(): Promise<number> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `SELECT COUNT(*)::int AS count
+       FROM nominations
+       WHERE lifecycle_state != 'processed'`
+    )
+  );
+
+  return Number(result.rows[0].count);
+}
+
 export async function getUnprocessedNominationByHandle(rsiHandle: string): Promise<NominationRecord | null> {
   assertDatabaseConfigured();
   await ensureNominationsSchema();

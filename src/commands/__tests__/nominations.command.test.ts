@@ -241,10 +241,12 @@ describe('nominations commands', () => {
   });
 
   it('bulk process: shows confirmation prompt with unprocessed nomination count', async () => {
-    const fakePending = [{ normalizedHandle: 'pilot1' }, { normalizedHandle: 'pilot2' }];
+    const countUnprocessedNominations = jest.fn(async () => 2);
+    const getUnprocessedNominations = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
-      getUnprocessedNominations: jest.fn(async () => fakePending),
+      countUnprocessedNominations,
+      getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
@@ -270,12 +272,15 @@ describe('nominations commands', () => {
       content: expect.stringContaining('2'),
       components: expect.any(Array),
     }));
+    expect(countUnprocessedNominations).toHaveBeenCalledTimes(1);
+    expect(getUnprocessedNominations).not.toHaveBeenCalled();
   });
 
   it('bulk process: processes all nominations when Confirm button clicked', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 1),
       getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
@@ -314,6 +319,7 @@ describe('nominations commands', () => {
     const markAllNominationsProcessed = jest.fn(async () => 0);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 1),
       getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
@@ -352,6 +358,7 @@ describe('nominations commands', () => {
     const markAllNominationsProcessed = jest.fn(async () => 0);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 1),
       getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
@@ -382,9 +389,12 @@ describe('nominations commands', () => {
   });
 
   it('bulk process: shows none-to-process when no unprocessed nominations exist', async () => {
+    const countUnprocessedNominations = jest.fn(async () => 0);
+    const getUnprocessedNominations = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
-      getUnprocessedNominations: jest.fn(async () => []),
+      countUnprocessedNominations,
+      getUnprocessedNominations,
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
       markNominationProcessedByHandle: jest.fn(async () => false),
@@ -408,12 +418,15 @@ describe('nominations commands', () => {
     expect(interaction.editReply).toHaveBeenCalledWith(expect.objectContaining({
       content: expect.stringContaining('no unprocessed nominations'),
     }));
+    expect(countUnprocessedNominations).toHaveBeenCalledTimes(1);
+    expect(getUnprocessedNominations).not.toHaveBeenCalled();
   });
 
   it('bulk process: allows configured non-admin role to run process command', async () => {
     const markAllNominationsProcessed = jest.fn(async () => 1);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 1),
       getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
@@ -454,6 +467,9 @@ describe('nominations commands', () => {
   it('returns configuration guidance for process command when database is misconfigured', async () => {
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => {
+        throw new Error('DATABASE_URL is required for nomination persistence');
+      }),
       getUnprocessedNominations: jest.fn(async () => {
         throw new Error('DATABASE_URL is required for nomination persistence');
       }),
@@ -488,6 +504,7 @@ describe('nominations commands', () => {
     const markAllNominationsProcessed = jest.fn(async () => { throw new Error('DB write failed'); });
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 1),
       getUnprocessedNominations: jest.fn(async () => [{ normalizedHandle: 'pilot1' }]),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
@@ -528,6 +545,7 @@ describe('nominations commands', () => {
   it('returns configuration guidance when delegated access check cannot read role config', async () => {
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 1),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(),
       updateOrgCheckResult: jest.fn(),
@@ -1934,6 +1952,7 @@ describe('nominations commands', () => {
     }));
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 0),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle,
       updateOrgCheckResult: jest.fn(),
@@ -1966,6 +1985,7 @@ describe('nominations commands', () => {
     const markNominationProcessedByHandle = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 0),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(async () => null),
       updateOrgCheckResult: jest.fn(),
@@ -1997,6 +2017,7 @@ describe('nominations commands', () => {
     const markNominationProcessedByHandle = jest.fn(async () => true);
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 0),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(async () => ({
         normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
@@ -2040,6 +2061,7 @@ describe('nominations commands', () => {
     const markNominationProcessedByHandle = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 0),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(async () => ({
         normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
@@ -2083,6 +2105,7 @@ describe('nominations commands', () => {
     const markNominationProcessedByHandle = jest.fn(async () => false); // concurrently processed
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 0),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(async () => ({
         normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
@@ -2118,6 +2141,7 @@ describe('nominations commands', () => {
     const markNominationProcessedByHandle = jest.fn(async () => false); // concurrently processed
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 0),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(async () => ({
         normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
@@ -2160,6 +2184,7 @@ describe('nominations commands', () => {
     const markNominationProcessedByHandle = jest.fn();
     jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
       recordNomination: jest.fn(),
+      countUnprocessedNominations: jest.fn(async () => 0),
       getUnprocessedNominations: jest.fn(),
       getUnprocessedNominationByHandle: jest.fn(async () => ({
         normalizedHandle: 'somepilot', displayHandle: 'SomePilot', nominationCount: 1,
