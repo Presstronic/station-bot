@@ -60,6 +60,19 @@ async function notifyNominatorsForHandle(
   }
 }
 
+async function notifyNominatorsForHandles(
+  interaction: ChatInputCommandInteraction,
+  normalizedHandles: string[]
+): Promise<void> {
+  try {
+    const nominatorIds = await nominationsRepository.getNominatorUserIdsByHandles(normalizedHandles);
+    await notifyNominators(interaction.client, nominatorIds);
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.warn(`Failed to notify nominators for bulk process: ${errorMessage}`);
+  }
+}
+
 export async function handleNominationProcessCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
   // Defer immediately — permission checks below involve async Discord/DB work.
@@ -283,9 +296,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
       const processedHandles = await nominationsRepository.markAllNominationsProcessedWithHandles(interaction.user.id);
       count = processedHandles.length;
       if (count > 0) {
-        await Promise.allSettled(
-          processedHandles.map((normalizedHandle) => notifyNominatorsForHandle(interaction, normalizedHandle))
-        );
+        await notifyNominatorsForHandles(interaction, processedHandles);
       }
       recordAuditEvent({
         eventType: 'nomination_processed_bulk',

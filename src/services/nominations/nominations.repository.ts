@@ -290,17 +290,25 @@ export async function getUnprocessedNominationByHandle(rsiHandle: string): Promi
 }
 
 export async function getNominatorUserIdsByHandle(normalizedHandle: string): Promise<string[]> {
+  return getNominatorUserIdsByHandles([normalizedHandle]);
+}
+
+export async function getNominatorUserIdsByHandles(normalizedHandles: string[]): Promise<string[]> {
   assertDatabaseConfigured();
   await ensureNominationsSchema();
+
+  if (normalizedHandles.length === 0) {
+    return [];
+  }
 
   const result = await withClient((client) =>
     client.query(
       `
       SELECT DISTINCT nominator_user_id
       FROM nomination_events
-      WHERE normalized_handle = $1
+      WHERE normalized_handle = ANY($1::text[])
       `,
-      [normalizedHandle]
+      [normalizedHandles]
     )
   );
 
