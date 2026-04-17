@@ -2,6 +2,18 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 beforeEach(() => {
   jest.resetModules();
+  jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
+    recordAuditEvent: jest.fn(async () => undefined),
+  }));
+  jest.unstable_mockModule('../../utils/logger.js', () => ({
+    getLogger: () => ({
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+      trace: jest.fn(),
+    }),
+  }));
 });
 
 describe('nomination-access command', () => {
