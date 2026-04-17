@@ -22,7 +22,6 @@ import {
 } from './nomination.helpers.js';
 import { recordAuditEvent } from '../services/nominations/audit.repository.js';
 import { getLogger } from '../utils/logger.js';
-import { sanitizeForInlineText } from '../utils/sanitize.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -74,7 +73,8 @@ function formatRoleIds(roleIds: string[]): string {
 }
 
 function formatRoleLabel(roleName: string): string {
-  return `\`${sanitizeForInlineText(roleName)}\``;
+  const inlineCodeSafeRoleName = roleName.replace(/`/g, "'").replace(/[\r\n]+/g, ' ');
+  return `\`${inlineCodeSafeRoleName}\``;
 }
 
 export async function handleNominationAccessCommand(interaction: ChatInputCommandInteraction) {
