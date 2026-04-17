@@ -14,7 +14,7 @@ describe('nomination-access command', () => {
     }));
 
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
-    const editReply = jest.fn(async () => undefined);
+    const editReply = jest.fn<(arg: { content: string }) => Promise<void>>(async () => undefined);
     const interaction: any = {
       inGuild: () => true,
       locale: 'en-US',
@@ -37,7 +37,9 @@ describe('nomination-access command', () => {
         content: expect.stringContaining("`Ops'Lead*`"),
       })
     );
-    expect((editReply as jest.Mock).mock.calls[0][0].content).not.toContain('@Ops');
+    const addReplyArg = editReply.mock.calls[0]?.[0];
+    expect(addReplyArg).toBeDefined();
+    expect(addReplyArg!.content).not.toContain('@Ops');
   });
 
   it('remove uses a markdown-safe non-mention role label in the confirmation', async () => {
@@ -49,7 +51,7 @@ describe('nomination-access command', () => {
     }));
 
     const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
-    const editReply = jest.fn(async () => undefined);
+    const editReply = jest.fn<(arg: { content: string }) => Promise<void>>(async () => undefined);
     const interaction: any = {
       inGuild: () => true,
       locale: 'en-US',
@@ -72,7 +74,9 @@ describe('nomination-access command', () => {
         content: expect.stringContaining("`Ops'Lead*`"),
       })
     );
-    expect((editReply as jest.Mock).mock.calls[0][0].content).not.toContain('@Ops');
+    const removeReplyArg = editReply.mock.calls[0]?.[0];
+    expect(removeReplyArg).toBeDefined();
+    expect(removeReplyArg!.content).not.toContain('@Ops');
   });
 
   it('returns configuration guidance when database is misconfigured', async () => {
