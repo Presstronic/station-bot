@@ -35,7 +35,12 @@ afterEach(() => {
 
 async function loadIndexAndRunReady(
   readOnlyMode: 'true' | 'false',
-  options: { purgeJobsEnabled?: 'true' | 'false' } = {}
+  options: {
+    purgeJobsEnabled?: 'true' | 'false';
+    nominationDigestEnabled?: 'true' | 'false';
+    nominationDigestConfigErrors?: string[];
+    dbConfigured?: boolean;
+  } = {}
 ) {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
   if (options.purgeJobsEnabled !== undefined) {
@@ -43,13 +48,19 @@ async function loadIndexAndRunReady(
   } else {
     delete process.env.PURGE_JOBS_ENABLED;
   }
+  if (options.nominationDigestEnabled !== undefined) {
+    process.env.NOMINATION_DIGEST_ENABLED = options.nominationDigestEnabled;
+  } else {
+    delete process.env.NOMINATION_DIGEST_ENABLED;
+  }
 
   const registerAllCommands = jest.fn(async () => ({ passed: [], failed: [] }));
   const ensureNominationsSchema = jest.fn(async () => undefined);
-  const isDatabaseConfigured = jest.fn(() => false);
+  const isDatabaseConfigured = jest.fn(() => options.dbConfigured ?? false);
   const addMissingDefaultRoles = jest.fn(async () => undefined);
   const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: jest.fn() }));
   const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: jest.fn() }));
+  const scheduleNominationDigest = jest.fn(() => ({ stop: jest.fn() }));
   const startNominationCheckWorkerLoop = jest.fn();
   const buildStartupBanner = jest.fn(() => '[startup banner]');
   const logger = {
@@ -78,8 +89,20 @@ async function loadIndexAndRunReady(
     scheduleTemporaryMemberCleanup,
     schedulePotentialApplicantCleanup,
   }));
+  await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
+    scheduleNominationDigest,
+  }));
   await jest.unstable_mockModule('../services/role.services.js', () => ({
     addMissingDefaultRoles,
+  }));
+  await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
+    isNominationDigestEnabled: () => options.nominationDigestEnabled === 'true',
+    validateNominationDigestConfig: () => options.nominationDigestConfigErrors ?? [],
+    getNominationDigestConfig: () => ({
+      channelId: 'digest-channel',
+      roleId: 'digest-role',
+      cronSchedule: '0 9 * * *',
+    }),
   }));
   await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
     startNominationCheckWorkerLoop,
@@ -163,6 +186,7 @@ async function loadIndexAndRunReady(
     addMissingDefaultRoles,
     scheduleTemporaryMemberCleanup,
     schedulePotentialApplicantCleanup,
+    scheduleNominationDigest,
     startNominationCheckWorkerLoop,
     buildStartupBanner,
     logger,
@@ -202,6 +226,42 @@ describe('startup wiring with read-only mode', () => {
     expect(scheduleTemporaryMemberCleanup).toHaveBeenCalledTimes(1);
     expect(schedulePotentialApplicantCleanup).toHaveBeenCalledTimes(1);
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
+  });
+
+  it('schedules the nomination digest job when enabled and the database is configured', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const { scheduleNominationDigest, buildStartupBanner } = await loadIndexAndRunReady(
+      'false',
+      { purgeJobsEnabled: 'false', nominationDigestEnabled: 'true', dbConfigured: true },
+    );
+
+    expect(scheduleNominationDigest).toHaveBeenCalledTimes(1);
+    expect(buildStartupBanner).toHaveBeenCalledWith(
+      expect.objectContaining({ nominationDigestJobActive: true }),
+    );
+  });
+
+  it('does not schedule the nomination digest job when enabled but config validation fails', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const { scheduleNominationDigest, logger, buildStartupBanner } = await loadIndexAndRunReady(
+      'false',
+      {
+        purgeJobsEnabled: 'false',
+        nominationDigestEnabled: 'true',
+        nominationDigestConfigErrors: ['NOMINATION_DIGEST_CHANNEL_ID is required when NOMINATION_DIGEST_ENABLED=true'],
+        dbConfigured: true,
+      },
+    );
+
+    expect(scheduleNominationDigest).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.stringContaining('[nomination-digest] Configuration error:'),
+    );
+    expect(buildStartupBanner).toHaveBeenCalledWith(
+      expect.objectContaining({ nominationDigestJobActive: false }),
+    );
   });
 
   it('skips purge jobs when PURGE_JOBS_ENABLED=false even if not in read-only mode', async () => {
@@ -259,8 +319,20 @@ describe('startup wiring with read-only mode', () => {
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
     }));
+    await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
+      scheduleNominationDigest: jest.fn(() => ({ stop: jest.fn() })),
+    }));
     await jest.unstable_mockModule('../services/role.services.js', () => ({
       addMissingDefaultRoles,
+    }));
+    await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
+      isNominationDigestEnabled: () => false,
+      validateNominationDigestConfig: () => [],
+      getNominationDigestConfig: () => ({
+        channelId: 'digest-channel',
+        roleId: 'digest-role',
+        cronSchedule: '0 9 * * *',
+      }),
     }));
     await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
@@ -368,7 +440,19 @@ describe('startup wiring with read-only mode', () => {
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
     }));
+    await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
+      scheduleNominationDigest: jest.fn(() => ({ stop: jest.fn() })),
+    }));
     await jest.unstable_mockModule('../services/role.services.js', () => ({ addMissingDefaultRoles }));
+    await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
+      isNominationDigestEnabled: () => false,
+      validateNominationDigestConfig: () => [],
+      getNominationDigestConfig: () => ({
+        channelId: 'digest-channel',
+        roleId: 'digest-role',
+        cronSchedule: '0 9 * * *',
+      }),
+    }));
     await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
     }));
