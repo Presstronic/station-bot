@@ -52,6 +52,10 @@ describe('nomination-access command', () => {
     const addReplyArg = editReply.mock.calls[0]?.[0];
     expect(addReplyArg).toBeDefined();
     expect(addReplyArg!.content).not.toContain('@Ops');
+    expect(addReplyArg!.content).not.toContain('<@&');
+    expect(addReplyArg!.content).not.toContain('@&');
+    expect(addReplyArg!.content).not.toContain('@everyone');
+    expect(addReplyArg!.content).not.toContain('@here');
   });
 
   it('add preserves pipes in inline-code role labels', async () => {
@@ -123,6 +127,10 @@ describe('nomination-access command', () => {
     const removeReplyArg = editReply.mock.calls[0]?.[0];
     expect(removeReplyArg).toBeDefined();
     expect(removeReplyArg!.content).not.toContain('@Ops');
+    expect(removeReplyArg!.content).not.toContain('<@&');
+    expect(removeReplyArg!.content).not.toContain('@&');
+    expect(removeReplyArg!.content).not.toContain('@everyone');
+    expect(removeReplyArg!.content).not.toContain('@here');
   });
 
   it('returns configuration guidance when database is misconfigured', async () => {
