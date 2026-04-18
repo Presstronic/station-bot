@@ -23,7 +23,7 @@ In this guide, "Administrators" means Discord members with the `Administrator` p
 
 ## Managing review/process access
 
-By default only administrators can review and process nominations. You can grant additional non-admin roles access with `/nomination-access` without giving them full admin privileges.
+By default only Administrators can review and process nominations. You can grant additional non-admin roles access with `/nomination-access` without giving them full admin privileges.
 
 ```
 /nomination-access action: add role: @HR-Team
@@ -84,7 +84,7 @@ Show only bulk processing events:
 |---|---|
 | `nomination_processed_single` | A single nomination was marked as processed |
 | `nomination_processed_bulk` | All nominations were bulk-processed |
-| `nomination_check_refresh_triggered` | A `/nomination-refresh` request queued an org-check job for one nomination or all current unprocessed nominations |
+| `nomination_check_refresh_triggered` | A `/nomination-refresh` request created or reused an org-check job for one nomination or all current unprocessed nominations |
 | `nomination_access_role_added` | A role was granted review/process access |
 | `nomination_access_role_removed` | A role had review/process access removed |
 | `nomination_access_roles_reset` | All custom access roles were cleared |
