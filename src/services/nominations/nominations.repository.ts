@@ -463,6 +463,9 @@ export async function markNominationProcessedByHandle(
 }
 
 export async function markAllNominationsProcessed(processedByUserId: string): Promise<number> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
   const result = await withClient((client) =>
     client.query(
       `
