@@ -78,7 +78,6 @@ function getEffectiveAuditFlags() {
     verificationEnabled: verificationEnabled && !readOnlyMode,
     purgeJobsEnabled: purgeJobsEnabled && !readOnlyMode,
     manufacturingEnabled: manufacturingEnabled && !readOnlyMode,
-    nominationDigestEnabled: nominationDigestEnabled && !readOnlyMode,
   };
 }
 
@@ -232,11 +231,13 @@ client.once('clientReady', async () => {
       } else {
         const { channelId, roleId, cronSchedule } = getNominationDigestConfig();
         nominationDigestCronTask = scheduleNominationDigest(client);
-        logger.info('[nomination-digest] Scheduled daily nomination digest job.', {
-          channelId,
-          roleId,
-          cronSchedule,
-        });
+        if (nominationDigestCronTask) {
+          logger.info('[nomination-digest] Scheduled daily nomination digest job.', {
+            channelId,
+            roleId,
+            cronSchedule,
+          });
+        }
       }
     }
     if (isDatabaseConfigured()) {

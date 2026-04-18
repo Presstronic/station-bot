@@ -6,12 +6,6 @@ import { getLogger } from '../../utils/logger.js';
 
 const logger = getLogger();
 
-function createNoOpScheduledTask(): cron.ScheduledTask {
-  const task = cron.schedule('* * * * *', () => undefined, { timezone: 'UTC' });
-  task.stop();
-  return task;
-}
-
 function buildDigestMessage(roleId: string, count: number): string {
   if (count === 0) {
     return `<@&${roleId}> Daily nomination digest: there are currently no unprocessed nominations in the queue.`;
@@ -20,14 +14,14 @@ function buildDigestMessage(roleId: string, count: number): string {
   return `<@&${roleId}> Daily nomination digest: **${count}** unprocessed nomination(s) are currently in the queue.`;
 }
 
-export function scheduleNominationDigest(client: Client): cron.ScheduledTask {
+export function scheduleNominationDigest(client: Client): cron.ScheduledTask | null {
   const { cronSchedule } = getNominationDigestConfig();
 
   if (!cron.validate(cronSchedule)) {
     logger.error('[nomination-digest] Invalid NOMINATION_DIGEST_CRON_SCHEDULE — job will not run', {
       cronSchedule,
     });
-    return createNoOpScheduledTask();
+    return null;
   }
 
   return cron.schedule(

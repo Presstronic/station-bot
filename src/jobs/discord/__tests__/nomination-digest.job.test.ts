@@ -66,7 +66,7 @@ function makeTextChannel() {
 }
 
 describe('scheduleNominationDigest', () => {
-  it('returns a stopped no-op task when the cron schedule is invalid', async () => {
+  it('returns null when the cron schedule is invalid', async () => {
     const { scheduleNominationDigest, mocks } = await setupMocks({
       cronSchedule: 'not-a-valid-cron',
     });
@@ -75,7 +75,7 @@ describe('scheduleNominationDigest', () => {
 
     const task = scheduleNominationDigest({ channels: { fetch: jest.fn() } } as any);
 
-    expect(task).toBeDefined();
+    expect(task).toBeNull();
     expect(mocks.error).toHaveBeenCalledWith(
       expect.stringContaining('Invalid NOMINATION_DIGEST_CRON_SCHEDULE'),
       expect.any(Object),

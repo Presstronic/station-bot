@@ -40,6 +40,7 @@ async function loadIndexAndRunReady(
     nominationDigestEnabled?: 'true' | 'false';
     nominationDigestConfigErrors?: string[];
     dbConfigured?: boolean;
+    scheduleNominationDigestResult?: { stop: () => void } | null;
   } = {}
 ) {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
@@ -60,7 +61,12 @@ async function loadIndexAndRunReady(
   const addMissingDefaultRoles = jest.fn(async () => undefined);
   const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: jest.fn() }));
   const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: jest.fn() }));
-  const scheduleNominationDigest = jest.fn(() => ({ stop: jest.fn() }));
+  const scheduleNominationDigest = jest.fn(
+    () =>
+      options.scheduleNominationDigestResult !== undefined
+        ? options.scheduleNominationDigestResult
+        : { stop: jest.fn() },
+  );
   const startNominationCheckWorkerLoop = jest.fn();
   const buildStartupBanner = jest.fn(() => '[startup banner]');
   const logger = {
@@ -258,6 +264,29 @@ describe('startup wiring with read-only mode', () => {
     expect(scheduleNominationDigest).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith(
       expect.stringContaining('[nomination-digest] Configuration error:'),
+    );
+    expect(buildStartupBanner).toHaveBeenCalledWith(
+      expect.objectContaining({ nominationDigestJobActive: false }),
+    );
+  });
+
+  it('keeps the nomination digest job inactive when scheduling returns null', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const { scheduleNominationDigest, logger, buildStartupBanner } = await loadIndexAndRunReady(
+      'false',
+      {
+        purgeJobsEnabled: 'false',
+        nominationDigestEnabled: 'true',
+        dbConfigured: true,
+        scheduleNominationDigestResult: null,
+      },
+    );
+
+    expect(scheduleNominationDigest).toHaveBeenCalledTimes(1);
+    expect(logger.info).not.toHaveBeenCalledWith(
+      expect.stringContaining('[nomination-digest] Scheduled daily nomination digest job.'),
+      expect.any(Object),
     );
     expect(buildStartupBanner).toHaveBeenCalledWith(
       expect.objectContaining({ nominationDigestJobActive: false }),
