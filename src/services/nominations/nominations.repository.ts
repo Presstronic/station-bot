@@ -463,7 +463,21 @@ export async function markNominationProcessedByHandle(
 }
 
 export async function markAllNominationsProcessed(processedByUserId: string): Promise<number> {
-  return (await markAllNominationsProcessedWithHandles(processedByUserId)).length;
+  const result = await withClient((client) =>
+    client.query(
+      `
+      UPDATE nominations
+      SET lifecycle_state = 'processed',
+          processed_by_user_id = $1,
+          processed_at = NOW(),
+          updated_at = NOW()
+      WHERE lifecycle_state != 'processed'
+      `,
+      [processedByUserId]
+    )
+  );
+
+  return result.rowCount ?? 0;
 }
 
 export async function markAllNominationsProcessedWithHandles(processedByUserId: string): Promise<string[]> {

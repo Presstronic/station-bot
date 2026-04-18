@@ -246,10 +246,8 @@ describe('markAllNominationsProcessedWithHandles', () => {
         ],
       })
       .mockResolvedValueOnce({
-        rows: [
-          { normalized_handle: 'pilot1' },
-          { normalized_handle: 'pilot2' },
-        ],
+        rows: [],
+        rowCount: 2,
       });
     const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
 
@@ -267,6 +265,11 @@ describe('markAllNominationsProcessedWithHandles', () => {
     expect(query).toHaveBeenNthCalledWith(
       1,
       expect.stringContaining('RETURNING normalized_handle'),
+      ['admin-1']
+    );
+    expect(query).toHaveBeenNthCalledWith(
+      2,
+      expect.not.stringContaining('RETURNING normalized_handle'),
       ['admin-1']
     );
   });

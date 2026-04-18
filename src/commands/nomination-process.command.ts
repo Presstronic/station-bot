@@ -125,7 +125,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
           throw err;
         }
         if (updated) {
-          await notifyNominatorsForHandle(interaction, nomination.normalizedHandle);
+          void notifyNominatorsForHandle(interaction, nomination.normalizedHandle);
         }
         await interaction.editReply({
           content: updated
@@ -221,7 +221,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
         return;
       }
       if (forcedUpdated) {
-        await notifyNominatorsForHandle(interaction, nomination.normalizedHandle);
+        void notifyNominatorsForHandle(interaction, nomination.normalizedHandle);
       }
       await interaction.editReply({
         content: forcedUpdated
@@ -296,7 +296,7 @@ export async function handleNominationProcessCommand(interaction: ChatInputComma
       const processedHandles = await nominationsRepository.markAllNominationsProcessedWithHandles(interaction.user.id);
       count = processedHandles.length;
       if (count > 0) {
-        await notifyNominatorsForHandles(interaction, processedHandles);
+        void notifyNominatorsForHandles(interaction, processedHandles);
       }
       recordAuditEvent({
         eventType: 'nomination_processed_bulk',
