@@ -2,9 +2,137 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 beforeEach(() => {
   jest.resetModules();
+  jest.unstable_mockModule('../../services/nominations/audit.repository.js', () => ({
+    recordAuditEvent: jest.fn(async () => undefined),
+  }));
+  jest.unstable_mockModule('../../utils/logger.js', () => ({
+    getLogger: () => ({
+      error: jest.fn(),
+      warn: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+      trace: jest.fn(),
+    }),
+  }));
 });
 
 describe('nomination-access command', () => {
+  it('add uses a markdown-safe non-mention role label in the confirmation', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(async () => ({ added: true, roleIds: ['role-1'] })),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => []),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn<(arg: { content: string }) => Promise<void>>(async () => undefined);
+    const interaction: any = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'u1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: {
+        getString: () => 'add',
+        getRole: () => ({ id: 'role-1', name: 'Ops`Lead*' }),
+      },
+      replied: false,
+      deferred: false,
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    };
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("`Ops'Lead*`"),
+      })
+    );
+    const addReplyArg = editReply.mock.calls[0]?.[0];
+    expect(addReplyArg).toBeDefined();
+    expect(addReplyArg!.content).not.toContain('@Ops');
+    expect(addReplyArg!.content).not.toContain('<@&');
+    expect(addReplyArg!.content).not.toContain('@&');
+    expect(addReplyArg!.content).not.toContain('@everyone');
+    expect(addReplyArg!.content).not.toContain('@here');
+  });
+
+  it('add preserves pipes in inline-code role labels', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(async () => ({ added: true, roleIds: ['role-1'] })),
+      removeReviewProcessRoleId: jest.fn(),
+      getReviewProcessRoleIds: jest.fn(async () => []),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn<(arg: { content: string }) => Promise<void>>(async () => undefined);
+    const interaction: any = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'u1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: {
+        getString: () => 'add',
+        getRole: () => ({ id: 'role-1', name: 'A|B`Team' }),
+      },
+      replied: false,
+      deferred: false,
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    };
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("`A|B'Team`"),
+      })
+    );
+  });
+
+  it('remove uses a markdown-safe non-mention role label in the confirmation', async () => {
+    jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
+      addReviewProcessRoleId: jest.fn(),
+      removeReviewProcessRoleId: jest.fn(async () => ({ removed: true, roleIds: [] })),
+      getReviewProcessRoleIds: jest.fn(async () => []),
+      resetReviewProcessRoleIds: jest.fn(),
+    }));
+
+    const { handleNominationAccessCommand } = await import('../nomination-access.command.js');
+    const editReply = jest.fn<(arg: { content: string }) => Promise<void>>(async () => undefined);
+    const interaction: any = {
+      inGuild: () => true,
+      locale: 'en-US',
+      user: { id: 'u1', tag: 'admin#0001' },
+      memberPermissions: { has: () => true },
+      options: {
+        getString: () => 'remove',
+        getRole: () => ({ id: 'role-1', name: 'Ops`Lead*' }),
+      },
+      replied: false,
+      deferred: false,
+      editReply,
+      deferReply: jest.fn(async () => { interaction.deferred = true; }),
+    };
+
+    await handleNominationAccessCommand(interaction);
+
+    expect(editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining("`Ops'Lead*`"),
+      })
+    );
+    const removeReplyArg = editReply.mock.calls[0]?.[0];
+    expect(removeReplyArg).toBeDefined();
+    expect(removeReplyArg!.content).not.toContain('@Ops');
+    expect(removeReplyArg!.content).not.toContain('<@&');
+    expect(removeReplyArg!.content).not.toContain('@&');
+    expect(removeReplyArg!.content).not.toContain('@everyone');
+    expect(removeReplyArg!.content).not.toContain('@here');
+  });
+
   it('returns configuration guidance when database is misconfigured', async () => {
     jest.unstable_mockModule('../../services/nominations/access-control.repository.js', () => ({
       addReviewProcessRoleId: jest.fn(async () => {

@@ -9,6 +9,7 @@ import {
   SlashCommandBuilder,
 } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
+import { sanitizeForInlineCode } from '../utils/sanitize.js';
 import {
   addReviewProcessRoleId,
   getReviewProcessRoleIds,
@@ -72,6 +73,10 @@ function formatRoleIds(roleIds: string[]): string {
   return roleIds.length > 0 ? roleIds.join(', ') : 'none';
 }
 
+function formatRoleLabel(roleName: string): string {
+  return `\`${sanitizeForInlineCode(roleName)}\``;
+}
+
 export async function handleNominationAccessCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
 
@@ -126,7 +131,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.added', locale },
           {
-            roleMention: `@${role!.name}`,
+            roleMention: formatRoleLabel(role!.name),
             changed: addResult.added ? 'yes' : 'no',
             roles: formatRoleIds(addResult.roleIds),
           }
@@ -163,7 +168,7 @@ export async function handleNominationAccessCommand(interaction: ChatInputComman
         content: i18n.__mf(
           { phrase: 'commands.nominationAccess.responses.removed', locale },
           {
-            roleMention: `@${role!.name}`,
+            roleMention: formatRoleLabel(role!.name),
             changed: removeResult.removed ? 'yes' : 'no',
             roles: formatRoleIds(removeResult.roleIds),
           }
