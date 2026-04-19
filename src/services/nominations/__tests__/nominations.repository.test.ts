@@ -286,6 +286,26 @@ describe('markAllNominationsProcessedWithHandles', () => {
       withClient,
     }));
 
+    const { markAllNominationsProcessedWithHandles } = await import('../nominations.repository.js');
+
+    await expect(markAllNominationsProcessedWithHandles('admin-1')).rejects.toThrow(
+      'DATABASE_URL is required for nomination persistence'
+    );
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
+describe('markAllNominationsProcessed', () => {
+  it('throws a friendly error before querying when DATABASE_URL is unset', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>();
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => false,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
     const { markAllNominationsProcessed } = await import('../nominations.repository.js');
 
     await expect(markAllNominationsProcessed('admin-1')).rejects.toThrow(
