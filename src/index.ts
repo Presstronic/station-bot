@@ -9,9 +9,15 @@ import {
   schedulePotentialApplicantCleanup,
 } from './jobs/discord/purge-member.job.js';
 import { scheduleCreateOrderKeepAlive } from './jobs/discord/manufacturing-keepalive.job.js';
+import { scheduleNominationDigest } from './jobs/discord/nomination-digest.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
+import {
+  getNominationDigestConfig,
+  isNominationDigestEnabled,
+  validateNominationDigestConfig,
+} from './config/nomination-digest.config.js';
 import {
   validateManufacturingConfig,
   isManufacturingEnabled,
@@ -43,6 +49,7 @@ const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
 let manufacturingEnabled = isManufacturingEnabled();
+const nominationDigestEnabled = isNominationDigestEnabled();
 
 // Disables manufacturing for the rest of this process lifetime. Mutates both
 // the local flag and MANUFACTURING_ENABLED so that isManufacturingEnabled()
@@ -100,6 +107,7 @@ let loopMonitorHandle: NodeJS.Timeout | null = null;
 let tempMemberCronTask: { stop: () => void } | null = null;
 let potentialApplicantCronTask: { stop: () => void } | null = null;
 let keepAliveCronTask: { stop: () => void } | null = null;
+let nominationDigestCronTask: { stop: () => void } | null = null;
 let shuttingDown = false;
 
 // Subscribe to undici TCP-level diagnostics before any HTTP activity begins.
@@ -120,6 +128,7 @@ const shutdown = () => {
   tempMemberCronTask?.stop();
   potentialApplicantCronTask?.stop();
   keepAliveCronTask?.stop();
+  nominationDigestCronTask?.stop();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -141,6 +150,7 @@ client.once('clientReady', async () => {
   logger.info(`Length of guilds list: ${client.guilds.cache.size}`);
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
   logger.info(`MANUFACTURING_ENABLED=${manufacturingEnabled}`);
+  logger.info(`NOMINATION_DIGEST_ENABLED=${nominationDigestEnabled}`);
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
@@ -211,6 +221,25 @@ client.once('clientReady', async () => {
     } else {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
+    if (nominationDigestEnabled && isDatabaseConfigured()) {
+      const nominationDigestConfigErrors = validateNominationDigestConfig();
+      if (nominationDigestConfigErrors.length > 0) {
+        for (const error of nominationDigestConfigErrors) {
+          logger.error(`[nomination-digest] Configuration error: ${error}`);
+        }
+        logger.error('[nomination-digest] Digest job will not be scheduled until configuration errors are fixed.');
+      } else {
+        const { channelId, roleId, cronSchedule } = getNominationDigestConfig();
+        nominationDigestCronTask = scheduleNominationDigest(client);
+        if (nominationDigestCronTask) {
+          logger.info('[nomination-digest] Scheduled daily nomination digest job.', {
+            channelId,
+            roleId,
+            cronSchedule,
+          });
+        }
+      }
+    }
     if (isDatabaseConfigured()) {
       workerHandle = startNominationCheckWorkerLoop();
       if (workerHandle) {
@@ -243,6 +272,7 @@ client.once('clientReady', async () => {
       readOnlyMode,
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
+      nominationDigestJobActive: nominationDigestCronTask !== null,
       purgeJobsEnabled: !readOnlyMode && purgeJobsEnabled,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
