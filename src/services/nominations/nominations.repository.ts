@@ -304,6 +304,32 @@ export async function getUnprocessedNominationByHandle(rsiHandle: string): Promi
   );
 }
 
+export async function getNominatorUserIdsByHandle(normalizedHandle: string): Promise<string[]> {
+  return getNominatorUserIdsByHandles([normalizedHandle]);
+}
+
+export async function getNominatorUserIdsByHandles(normalizedHandles: string[]): Promise<string[]> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
+  if (normalizedHandles.length === 0) {
+    return [];
+  }
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT DISTINCT nominator_user_id
+      FROM nomination_events
+      WHERE normalized_handle = ANY($1::text[])
+      `,
+      [normalizedHandles]
+    )
+  );
+
+  return result.rows.map((row) => row.nominator_user_id as string);
+}
+
 export async function updateOrgCheckResult(
   normalizedHandle: string,
   result: OrgCheckResult
@@ -453,7 +479,30 @@ export async function markAllNominationsProcessed(processedByUserId: string): Pr
       [processedByUserId]
     )
   );
+
   return result.rowCount ?? 0;
+}
+
+export async function markAllNominationsProcessedWithHandles(processedByUserId: string): Promise<string[]> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      UPDATE nominations
+      SET lifecycle_state = 'processed',
+          processed_by_user_id = $1,
+          processed_at = NOW(),
+          updated_at = NOW()
+      WHERE lifecycle_state != 'processed'
+      RETURNING normalized_handle
+      `,
+      [processedByUserId]
+    )
+  );
+
+  return result.rows.map((row) => row.normalized_handle as string);
 }
 
 /**

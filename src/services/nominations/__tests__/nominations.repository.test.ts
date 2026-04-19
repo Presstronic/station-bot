@@ -151,3 +151,166 @@ describe('countUnprocessedNominations', () => {
     await expect(countUnprocessedNominations()).resolves.toBe(3);
   });
 });
+
+describe('getNominatorUserIdsByHandle', () => {
+  it('returns an empty array when no nomination events exist for the handle', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({ rows: [] });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominatorUserIdsByHandle } = await import('../nominations.repository.js');
+
+    await expect(getNominatorUserIdsByHandle('pilotnominee')).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('SELECT DISTINCT nominator_user_id'), [['pilotnominee']]);
+  });
+
+  it('returns distinct nominator ids for the handle', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { nominator_user_id: 'user-1' },
+          { nominator_user_id: 'user-2' },
+        ],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominatorUserIdsByHandle } = await import('../nominations.repository.js');
+
+    await expect(getNominatorUserIdsByHandle('pilotnominee')).resolves.toEqual(['user-1', 'user-2']);
+    expect(query).toHaveBeenCalledWith(expect.stringContaining('SELECT DISTINCT nominator_user_id'), [['pilotnominee']]);
+  });
+});
+
+describe('getNominatorUserIdsByHandles', () => {
+  it('returns an empty array without querying when given no handles', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>();
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominatorUserIdsByHandles } = await import('../nominations.repository.js');
+
+    await expect(getNominatorUserIdsByHandles([])).resolves.toEqual([]);
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('returns distinct nominator ids across all handles in one query', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { nominator_user_id: 'user-1' },
+          { nominator_user_id: 'user-2' },
+        ],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominatorUserIdsByHandles } = await import('../nominations.repository.js');
+
+    await expect(getNominatorUserIdsByHandles(['pilot1', 'pilot2'])).resolves.toEqual(['user-1', 'user-2']);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE normalized_handle = ANY($1::text[])'),
+      [['pilot1', 'pilot2']]
+    );
+  });
+});
+
+describe('markAllNominationsProcessedWithHandles', () => {
+  it('returns only the handles updated by the bulk processing operation', async () => {
+    const ensureNominationsSchema = jest.fn(async () => undefined);
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { normalized_handle: 'pilot1' },
+          { normalized_handle: 'pilot2' },
+        ],
+      })
+      .mockResolvedValueOnce({
+        rows: [],
+        rowCount: 2,
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema,
+      withClient,
+    }));
+
+    const { markAllNominationsProcessedWithHandles, markAllNominationsProcessed } =
+      await import('../nominations.repository.js');
+
+    await expect(markAllNominationsProcessedWithHandles('admin-1')).resolves.toEqual(['pilot1', 'pilot2']);
+    await expect(markAllNominationsProcessed('admin-1')).resolves.toBe(2);
+    expect(query).toHaveBeenNthCalledWith(
+      1,
+      expect.stringContaining('RETURNING normalized_handle'),
+      ['admin-1']
+    );
+    expect(query).toHaveBeenNthCalledWith(
+      2,
+      expect.not.stringContaining('RETURNING normalized_handle'),
+      ['admin-1']
+    );
+    expect(ensureNominationsSchema).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws a friendly error before querying when DATABASE_URL is unset', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>();
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => false,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { markAllNominationsProcessedWithHandles } = await import('../nominations.repository.js');
+
+    await expect(markAllNominationsProcessedWithHandles('admin-1')).rejects.toThrow(
+      'DATABASE_URL is required for nomination persistence'
+    );
+    expect(query).not.toHaveBeenCalled();
+  });
+});
+
+describe('markAllNominationsProcessed', () => {
+  it('throws a friendly error before querying when DATABASE_URL is unset', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>();
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => false,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { markAllNominationsProcessed } = await import('../nominations.repository.js');
+
+    await expect(markAllNominationsProcessed('admin-1')).rejects.toThrow(
+      'DATABASE_URL is required for nomination persistence'
+    );
+    expect(query).not.toHaveBeenCalled();
+  });
+});
