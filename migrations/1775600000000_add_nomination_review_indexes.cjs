@@ -1,6 +1,6 @@
-exports.up = (pgm) => {
-  pgm.noTransaction();
+exports.noTransaction = true;
 
+exports.up = (pgm) => {
   // Hot path: unprocessed review queue without a status filter.
   pgm.createIndex(
     'nominations',
@@ -56,8 +56,6 @@ exports.up = (pgm) => {
 };
 
 exports.down = (pgm) => {
-  pgm.noTransaction();
-
   pgm.createIndex('nominations', ['lifecycle_state'], {
     concurrently: true,
     name: 'idx_nominations_lifecycle_state',
