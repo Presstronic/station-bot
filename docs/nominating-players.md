@@ -50,3 +50,29 @@ Fill in the handle, optionally add a reason, and hit Enter. The bot will reply o
 - **Multiple people can nominate the same player.** Each nomination adds to the count, which helps the recruitment team prioritize.
 - **There are daily limits** to keep things tidy — you'll get a message if you've hit yours (including how long until it resets) or if the player has already been nominated the maximum number of times today.
 - **Only you can see the bot's reply.** Your nomination is private to you.
+
+---
+
+## View your nomination history
+
+Want to see how many nominations you've submitted over time? Use:
+
+```
+/my-nominations
+```
+
+The reply is ephemeral and shows:
+- your nomination count by year, newest year first
+- your lifetime total across all years
+
+Example:
+
+```
+Your nomination history:
+2026: 12 nominations
+2025: 8 nominations
+──────────────────────
+Lifetime total: 20 nominations
+```
+
+If you haven't nominated anyone yet, the bot will tell you that instead.

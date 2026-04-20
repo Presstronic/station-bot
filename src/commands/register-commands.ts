@@ -7,6 +7,7 @@ import { nominationRefreshCommandBuilder } from './nomination-refresh.command.js
 import { nominationProcessCommandBuilder } from './nomination-process.command.js';
 import { nominationAccessCommandBuilder } from './nomination-access.command.js';
 import { nominationAuditCommandBuilder } from './nomination-audit.command.js';
+import { myNominationsCommandBuilder } from './my-nominations.command.js';
 import { nominationJobStatusCommandBuilder } from './nomination-job-status.command.js';
 import { verifyCommandBuilder } from './verify.command.js';
 import { healthcheckCommandBuilder } from './healthcheck.command.js';
@@ -29,6 +30,7 @@ const allCommands = [
   nominationProcessCommandBuilder,
   nominationAccessCommandBuilder,
   nominationAuditCommandBuilder,
+  myNominationsCommandBuilder,
   orderCommandBuilder,
   manufacturingCommandBuilder,
 ];

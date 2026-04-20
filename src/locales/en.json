@@ -84,6 +84,15 @@
         "citizenNotFound": "That handle doesn't appear to belong to a valid Citizen in the 'Verse. Please check the name and try again."
       }
     },
+    "myNominations": {
+      "name": "my-nominations",
+      "description": "See how many player nominations you've submitted over time.",
+      "responses": {
+        "none": "You haven't nominated any players yet.",
+        "historyTitle": "Your nomination history:",
+        "lifetimeTotal": "Lifetime total: {count}"
+      }
+    },
     "nominationReview": {
       "name": "nomination-review",
       "description": "Review unprocessed player nominations (up to 25; filter, sort, or adjust via options).",
