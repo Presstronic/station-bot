@@ -94,6 +94,10 @@ describe('handleInteraction in read-only mode', () => {
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -175,6 +179,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
@@ -259,6 +267,10 @@ describe('handleInteraction in read-only mode', () => {
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
         debug: jest.fn(),
@@ -339,6 +351,10 @@ describe('handleInteraction in read-only mode', () => {
     jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({
@@ -428,6 +444,10 @@ describe('handleInteraction error handling', () => {
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
     }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
+    }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),
     }));
@@ -511,6 +531,10 @@ describe('handleInteraction error handling', () => {
     jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
       NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
       handleNominationAuditCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
     }));
     jest.unstable_mockModule('../../utils/logger.js', () => ({
       getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),

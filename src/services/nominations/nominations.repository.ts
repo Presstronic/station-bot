@@ -16,6 +16,11 @@ export interface GetUnprocessedNominationsOptions {
   limit?: number;
 }
 
+export interface UserNominationCountByYear {
+  year: number;
+  count: number;
+}
+
 const SORT_CLAUSE_MAP: Record<NominationSortOption, string> = {
   newest:                'updated_at DESC',
   oldest:                'updated_at ASC',
@@ -269,6 +274,30 @@ export async function countUnprocessedNominations(): Promise<number> {
   );
 
   return Number(result.rows[0].count);
+}
+
+export async function getNominationCountsByUser(userId: string): Promise<UserNominationCountByYear[]> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT EXTRACT(YEAR FROM created_at AT TIME ZONE 'UTC')::int AS year,
+             COUNT(*)::int AS count
+      FROM nomination_events
+      WHERE nominator_user_id = $1
+      GROUP BY EXTRACT(YEAR FROM created_at AT TIME ZONE 'UTC')::int
+      ORDER BY year DESC
+      `,
+      [userId]
+    )
+  );
+
+  return result.rows.map((row) => ({
+    year: Number(row.year),
+    count: Number(row.count),
+  }));
 }
 
 export async function getUnprocessedNominationByHandle(rsiHandle: string): Promise<NominationRecord | null> {

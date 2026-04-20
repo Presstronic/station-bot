@@ -314,3 +314,49 @@ describe('markAllNominationsProcessed', () => {
     expect(query).not.toHaveBeenCalled();
   });
 });
+
+describe('getNominationCountsByUser', () => {
+  it('returns an empty array when the user has no nomination events', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({ rows: [] });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominationCountsByUser } = await import('../nominations.repository.js');
+
+    await expect(getNominationCountsByUser('user-1')).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE nominator_user_id = $1'),
+      ['user-1']
+    );
+  });
+
+  it('returns nomination counts grouped by year in descending order', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { year: 2026, count: 12 },
+          { year: 2025, count: 8 },
+        ],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getNominationCountsByUser } = await import('../nominations.repository.js');
+
+    await expect(getNominationCountsByUser('user-1')).resolves.toEqual([
+      { year: 2026, count: 12 },
+      { year: 2025, count: 8 },
+    ]);
+  });
+});

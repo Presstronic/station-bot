@@ -36,6 +36,10 @@ import {
   NOMINATION_AUDIT_COMMAND_NAME,
 } from '../commands/nomination-audit.command.js';
 import {
+  handleMyNominationsCommand,
+  MY_NOMINATIONS_COMMAND_NAME,
+} from '../commands/my-nominations.command.js';
+import {
   handleOrderCommand,
   handleOrderItemModal,
   handleOrderButtonInteraction,
@@ -146,6 +150,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleNominationAccessCommand(interaction);
         } else if (interaction.commandName === NOMINATION_AUDIT_COMMAND_NAME) {
           await handleNominationAuditCommand(interaction);
+        } else if (interaction.commandName === MY_NOMINATIONS_COMMAND_NAME) {
+          await handleMyNominationsCommand(interaction);
         } else if (interaction.commandName === ORDER_COMMAND_NAME) {
           await handleOrderCommand(interaction);
         } else if (interaction.commandName === MANUFACTURING_SETUP_COMMAND_NAME) {
