@@ -40,7 +40,7 @@ services:
       - /etc/localtime:/etc/localtime:ro # Sync container time with host
       - ./logs:/app/logs # Persistent writable logs directory
     environment:
-      DATABASE_URL: "${DATABASE_URL}"
+      DATABASE_URL: "${DATABASE_URL:?DATABASE_URL is required in .env.production}"
 
 networks:
   bot-network:
