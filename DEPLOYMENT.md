@@ -21,13 +21,13 @@ Minimum required variables:
 DISCORD_BOT_TOKEN=
 CLIENT_ID=
 
-# Database — use the postgres service container name
-DATABASE_URL=postgresql://station_bot:yourpassword@postgres:5432/station_bot
-
-# Postgres container credentials (must match DATABASE_URL above)
+# Postgres container credentials (must match DATABASE_URL)
 POSTGRES_DB=station_bot
 POSTGRES_USER=station_bot
 POSTGRES_PASSWORD=yourpassword
+
+# Database — use the postgres service container name
+DATABASE_URL=postgresql://station_bot:yourpassword@postgres:5432/station_bot
 
 # Nominations worker
 NOMINATION_WORKER_ENABLED=true
@@ -65,23 +65,24 @@ mkdir -p /opt/station-bot/logs
 ### 5. Run migrations
 
 ```bash
-DATABASE_URL=postgresql://station_bot:yourpassword@localhost:5432/station_bot \
-  npm run migrate:up
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d postgres
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml run --rm discord-bot npm run migrate:up
 ```
 
-> Run this after the postgres container is healthy. Only needed on first deploy or when a release includes new migrations.
+> Run this only after the `postgres` service is healthy. This is needed on first deploy and whenever a release includes new migrations.
+> Production compose now expects `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD` to be present in `.env.production`; missing values should be treated as a configuration error.
 
 ### 6. Deploy
 
 ```bash
-docker compose -f /opt/station-bot/docker-compose.prod.yml up -d
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d discord-bot
 ```
 
 ### 7. Verify
 
 ```bash
 # Both containers
-docker compose -f /opt/station-bot/docker-compose.prod.yml logs -f --tail=50
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml logs -f --tail=50
 
 # Bot only
 docker logs -f --tail=50 station-bot
@@ -99,17 +100,26 @@ docker logs -f --tail=50 station-bot-postgres
    docker pull ghcr.io/presstronic/station-bot:latest
    ```
 
-2. Check the release notes for any new `.env.production` variables and add them.
+2. Check the release notes for any new `.env.production` variables and add them. In particular, ensure `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, and `DATABASE_URL` are all present and consistent.
 
-3. If the release includes migrations, run them before restarting:
+3. Stop the running bot before migrations or other schema-affecting upgrades:
    ```bash
-   DATABASE_URL=... npm run migrate:up
+   docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml stop discord-bot
    ```
 
-4. Restart:
+4. Start or refresh Postgres first:
    ```bash
-   docker compose -f /opt/station-bot/docker-compose.prod.yml down
-   docker compose -f /opt/station-bot/docker-compose.prod.yml up -d
+   docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d postgres
    ```
 
-5. Verify with the log commands above.
+5. If the release includes migrations, run them before starting the bot:
+   ```bash
+   docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml run --rm discord-bot npm run migrate:up
+   ```
+
+6. Start the bot:
+   ```bash
+   docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d discord-bot
+   ```
+
+7. Verify with the direct `docker logs` commands above. If you use `docker compose ... logs` instead, include `--env-file /opt/station-bot/.env.production`.
