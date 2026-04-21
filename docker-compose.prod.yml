@@ -3,8 +3,6 @@ services:
     container_name: station-bot-postgres
     image: postgres:16-alpine
     restart: unless-stopped
-    env_file:
-      - .env.production
     environment:
       POSTGRES_DB: "${POSTGRES_DB:?POSTGRES_DB is required in .env.production}"
       POSTGRES_USER: "${POSTGRES_USER:?POSTGRES_USER is required in .env.production}"

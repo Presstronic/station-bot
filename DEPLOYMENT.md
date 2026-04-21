@@ -21,7 +21,7 @@ Minimum required variables:
 DISCORD_BOT_TOKEN=
 CLIENT_ID=
 
-# Postgres container credentials (must match DATABASE_URL above)
+# Postgres container credentials (must match DATABASE_URL)
 POSTGRES_DB=station_bot
 POSTGRES_USER=station_bot
 POSTGRES_PASSWORD=yourpassword
@@ -65,8 +65,8 @@ mkdir -p /opt/station-bot/logs
 ### 5. Run migrations
 
 ```bash
-docker compose --env-file .env.production -f /opt/station-bot/docker-compose.prod.yml up -d postgres
-docker compose --env-file .env.production -f /opt/station-bot/docker-compose.prod.yml run --rm discord-bot npm run migrate:up
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d postgres
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml run --rm discord-bot npm run migrate:up
 ```
 
 > Run this only after the `postgres` service is healthy. This is needed on first deploy and whenever a release includes new migrations.
@@ -75,14 +75,14 @@ docker compose --env-file .env.production -f /opt/station-bot/docker-compose.pro
 ### 6. Deploy
 
 ```bash
-docker compose --env-file .env.production -f /opt/station-bot/docker-compose.prod.yml up -d discord-bot
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d discord-bot
 ```
 
 ### 7. Verify
 
 ```bash
 # Both containers
-docker compose -f /opt/station-bot/docker-compose.prod.yml logs -f --tail=50
+docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml logs -f --tail=50
 
 # Bot only
 docker logs -f --tail=50 station-bot
@@ -104,17 +104,17 @@ docker logs -f --tail=50 station-bot-postgres
 
 3. Start or refresh Postgres first:
    ```bash
-   docker compose --env-file .env.production -f /opt/station-bot/docker-compose.prod.yml up -d postgres
+   docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d postgres
    ```
 
 4. If the release includes migrations, run them before starting the bot:
    ```bash
-   docker compose --env-file .env.production -f /opt/station-bot/docker-compose.prod.yml run --rm discord-bot npm run migrate:up
+   docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml run --rm discord-bot npm run migrate:up
    ```
 
 5. Start the bot:
    ```bash
-   docker compose --env-file .env.production -f /opt/station-bot/docker-compose.prod.yml up -d discord-bot
+   docker compose --env-file /opt/station-bot/.env.production -f /opt/station-bot/docker-compose.prod.yml up -d discord-bot
    ```
 
-6. Verify with the log commands above.
+6. Verify with the direct `docker logs` commands above. If you use `docker compose ... logs` instead, include `--env-file /opt/station-bot/.env.production`.
