@@ -144,6 +144,9 @@ async function loadIndexAndRunReady(
   await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
     seedGuildConfigsFromEnv: jest.fn(async () => undefined),
   }));
+  await jest.unstable_mockModule('../domain/guild-config/guild-config.service.js', () => ({
+    getGuildConfigOrNull: jest.fn(async () => null),
+  }));
   await jest.unstable_mockModule('discord.js', () => {
     class MockClient {
       guilds = {
@@ -400,6 +403,9 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
       seedGuildConfigsFromEnv: jest.fn(async () => undefined),
     }));
+    await jest.unstable_mockModule('../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => null),
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
@@ -519,6 +525,9 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
       seedGuildConfigsFromEnv: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => null),
     }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
