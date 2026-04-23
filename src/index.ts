@@ -28,6 +28,7 @@ import {
   ensureNominationsSchema,
   isDatabaseConfigured,
 } from './services/nominations/db.js';
+import { seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -160,6 +161,7 @@ client.once('clientReady', async () => {
       process.exit(1);
       return;
     }
+    await seedGuildConfigsFromEnv(client);
   }
 
   const commandRegistration = await registerAllCommands();
