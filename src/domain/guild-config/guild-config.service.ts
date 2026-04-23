@@ -1,4 +1,4 @@
-import { getGuildConfig, type GuildConfig } from './guild-config.repository.js';
+import { getGuildConfig, getAllGuildConfigs as getAllGuildConfigsRepo, type GuildConfig } from './guild-config.repository.js';
 
 export type { GuildConfig };
 
@@ -14,6 +14,10 @@ const FEATURE_FLAG_MAP: Record<GuildFeature, keyof GuildConfig> = {
 
 export async function getGuildConfigOrNull(guildId: string): Promise<GuildConfig | null> {
   return getGuildConfig(guildId);
+}
+
+export async function getAllGuildConfigs(): Promise<GuildConfig[]> {
+  return getAllGuildConfigsRepo();
 }
 
 export function isFeatureEnabledForGuild(
