@@ -141,6 +141,9 @@ async function loadIndexAndRunReady(
     MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
     MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
   }));
+  await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+    seedGuildConfigsFromEnv: jest.fn(async () => undefined),
+  }));
   await jest.unstable_mockModule('discord.js', () => {
     class MockClient {
       guilds = {
@@ -394,6 +397,9 @@ describe('startup wiring with read-only mode', () => {
       MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
       MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
     }));
+    await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+      seedGuildConfigsFromEnv: jest.fn(async () => undefined),
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
@@ -510,6 +516,9 @@ describe('startup wiring with read-only mode', () => {
       MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
       MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
       MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+    }));
+    await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+      seedGuildConfigsFromEnv: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
