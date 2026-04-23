@@ -9,15 +9,11 @@ import {
   schedulePotentialApplicantCleanup,
 } from './jobs/discord/purge-member.job.js';
 import { scheduleCreateOrderKeepAlive } from './jobs/discord/manufacturing-keepalive.job.js';
-import { scheduleNominationDigest } from './jobs/discord/nomination-digest.job.js';
+import { scheduleNominationDigests } from './jobs/discord/nomination-digest.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
-import {
-  getNominationDigestConfig,
-  isNominationDigestEnabled,
-  validateNominationDigestConfig,
-} from './config/nomination-digest.config.js';
+import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
 import {
   validateManufacturingConfig,
   isManufacturingEnabled,
@@ -29,7 +25,7 @@ import {
   isDatabaseConfigured,
 } from './services/nominations/db.js';
 import { seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
-import { getGuildConfigOrNull } from './domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, getAllGuildConfigs } from './domain/guild-config/guild-config.service.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -109,7 +105,7 @@ let loopMonitorHandle: NodeJS.Timeout | null = null;
 let tempMemberCronTask: { stop: () => void } | null = null;
 let potentialApplicantCronTask: { stop: () => void } | null = null;
 let keepAliveCronTask: { stop: () => void } | null = null;
-let nominationDigestCronTask: { stop: () => void } | null = null;
+let nominationDigestCronTasks: Map<string, { stop: () => void }> = new Map();
 let shuttingDown = false;
 
 // Subscribe to undici TCP-level diagnostics before any HTTP activity begins.
@@ -130,7 +126,7 @@ const shutdown = () => {
   tempMemberCronTask?.stop();
   potentialApplicantCronTask?.stop();
   keepAliveCronTask?.stop();
-  nominationDigestCronTask?.stop();
+  for (const task of nominationDigestCronTasks.values()) task.stop();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -226,22 +222,10 @@ client.once('clientReady', async () => {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
     if (nominationDigestEnabled && isDatabaseConfigured()) {
-      const nominationDigestConfigErrors = validateNominationDigestConfig();
-      if (nominationDigestConfigErrors.length > 0) {
-        for (const error of nominationDigestConfigErrors) {
-          logger.error(`[nomination-digest] Configuration error: ${error}`);
-        }
-        logger.error('[nomination-digest] Digest job will not be scheduled until configuration errors are fixed.');
-      } else {
-        const { channelId, roleId, cronSchedule } = getNominationDigestConfig();
-        nominationDigestCronTask = scheduleNominationDigest(client);
-        if (nominationDigestCronTask) {
-          logger.info('[nomination-digest] Scheduled daily nomination digest job.', {
-            channelId,
-            roleId,
-            cronSchedule,
-          });
-        }
+      const allGuildConfigs = await getAllGuildConfigs();
+      nominationDigestCronTasks = scheduleNominationDigests(client, allGuildConfigs);
+      if (nominationDigestCronTasks.size > 0) {
+        logger.info('[nomination-digest] Scheduled digest jobs.', { guilds: nominationDigestCronTasks.size });
       }
     }
     if (isDatabaseConfigured()) {
@@ -276,7 +260,7 @@ client.once('clientReady', async () => {
       readOnlyMode,
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
-      nominationDigestJobActive: nominationDigestCronTask !== null,
+      nominationDigestJobActive: nominationDigestCronTasks.size > 0,
       purgeJobsEnabled: !readOnlyMode && purgeJobsEnabled,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
