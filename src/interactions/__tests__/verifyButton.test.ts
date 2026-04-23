@@ -10,11 +10,13 @@ async function loadHandlerWithMocks({
   rsiProfileVerified = false,
   rsiCanonicalHandle = 'PilotOne',
   rsiProfileError,
+  guildConfig = { verifiedRoleName: 'Verified' },
 }: {
   userData: { rsiProfileName: string; dreadnoughtValidationCode: string } | undefined;
   rsiProfileVerified?: boolean;
   rsiCanonicalHandle?: string;
   rsiProfileError?: Error;
+  guildConfig?: { verifiedRoleName: string } | null;
 }) {
   const getUserVerificationData = jest.fn(() => userData);
   const clearUserVerificationData = jest.fn();
@@ -24,6 +26,7 @@ async function loadHandlerWithMocks({
   });
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
+  const getGuildConfigOrNull = jest.fn(async () => guildConfig);
 
   const loggerWarn = jest.fn();
   const loggerError = jest.fn();
@@ -41,6 +44,9 @@ async function loadHandlerWithMocks({
     assignVerifiedRole,
     removeVerifiedRole,
   }));
+  await jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
+    getGuildConfigOrNull,
+  }));
 
   const { handleVerifyButtonInteraction } = await import('../verifyButton.js');
 
@@ -51,6 +57,7 @@ async function loadHandlerWithMocks({
     verifyRSIProfile,
     assignVerifiedRole,
     removeVerifiedRole,
+    getGuildConfigOrNull,
     loggerWarn,
     loggerError,
   };
@@ -67,6 +74,7 @@ function makeButtonInteraction(customId = 'verify', { hasManageNicknames = true 
     user: { id: 'user-123', username: 'TestUser' },
     appPermissions: { has: jest.fn(() => hasManageNicknames) },
     guild: {
+      id: 'guild-123',
       members: {
         fetch: jest.fn(async () => member),
       },

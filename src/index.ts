@@ -28,6 +28,8 @@ import {
   ensureNominationsSchema,
   isDatabaseConfigured,
 } from './services/nominations/db.js';
+import { seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
+import { getGuildConfigOrNull } from './domain/guild-config/guild-config.service.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -160,6 +162,7 @@ client.once('clientReady', async () => {
       process.exit(1);
       return;
     }
+    await seedGuildConfigsFromEnv(client);
   }
 
   const commandRegistration = await registerAllCommands();
@@ -203,7 +206,8 @@ client.once('clientReady', async () => {
       await Promise.all(
         [...client.guilds.cache.values()].map(async (guild) => {
           try {
-            await addMissingDefaultRoles(guild, client);
+            const guildConfig = await getGuildConfigOrNull(guild.id);
+            await addMissingDefaultRoles(guild, client, guildConfig);
           } catch (error) {
             logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
           }
@@ -292,7 +296,8 @@ client.on('guildCreate', async (guild) => {
     logger.info(`[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`);
   } else {
     try {
-      await addMissingDefaultRoles(guild, client);
+      const guildConfig = await getGuildConfigOrNull(guild.id);
+      await addMissingDefaultRoles(guild, client, guildConfig);
       logger.info(`[${guild.name}] Successfully ensured required roles.`);
     } catch (error) {
       logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);

@@ -3,6 +3,7 @@ import { getUserVerificationData, clearUserVerificationData } from '../commands/
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
 import { verifyRSIProfile } from '../services/rsi.services.js';
+import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
 import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
@@ -68,12 +69,24 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
 
+  const guildId = interaction.guild?.id;
+  if (!guildId) {
+    await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
+    return;
+  }
+  const guildConfig = await getGuildConfigOrNull(guildId);
+  if (!guildConfig) {
+    logger.warn('No guild config found during verify button interaction', { guildId });
+    await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
+    return;
+  }
+
   try {
     const { verified: rsiProfileVerified, canonicalHandle } = await verifyRSIProfile(interaction.user.id);
     logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
 
     if (rsiProfileVerified) {
-      const success = await assignVerifiedRole(interaction, interaction.user.id);
+      const success = await assignVerifiedRole(interaction, interaction.user.id, guildConfig.verifiedRoleName);
       logger.debug(`Role assignment success: ${success}`);
 
       if (success) {
@@ -115,7 +128,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
       return;
     }
 
-    await removeVerifiedRole(interaction, interaction.user.id);
+    await removeVerifiedRole(interaction, interaction.user.id, guildConfig.verifiedRoleName);
     await respond(
       i18n.__mf(
         { phrase: 'commands.verify.responses.verificationFailed', locale },
