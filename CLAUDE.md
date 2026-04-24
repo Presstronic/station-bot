@@ -1,5 +1,15 @@
 # Claude Code instructions for station-bot
 
+## Implementation Protocol
+
+Before writing any code for a ticket:
+
+1. **Read first.** Read every file listed in the issue's Technical Elaboration, plus any adjacent files that establish the patterns the new code must follow (e.g. a sibling repository, a similar command handler, the config module for the same feature area). Do not write a single line until this step is done.
+2. **Identify existing patterns.** Note the naming conventions, function signature shapes, error-handling style, and module structure already in use. New code must match these — do not introduce a new style unless the existing one is demonstrably wrong, and flag it explicitly if so.
+3. **State design decisions before implementing.** For any non-trivial choice (function signature, error boundary, abstraction shape), briefly describe the decision and the pattern being followed. This surfaces misalignments before the code is written, not during review.
+4. **Flag uncertainty rather than guess.** If the spec is ambiguous or a pattern isn't clear from the existing code, surface the question before writing. Do not silently pick an approach and hope it matches.
+5. **Self-review before marking done.** After implementation, re-read every changed file from the perspective of a senior principal engineer. Check for: naming clarity, SRP, unnecessary abstraction, missing or overly broad error handling, test coverage gaps, and consistency with the patterns identified in step 2. Surface any concerns explicitly before opening the PR.
+
 ## Commits
 - Never include `Co-Authored-By` trailers or any AI attribution in commit messages.
 - Before committing any code, always run `npm run quality` locally and confirm it passes.
