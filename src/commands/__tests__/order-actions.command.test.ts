@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { ManufacturingOrder } from '../../domain/manufacturing/types.js';
+import type { GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 
 beforeEach(() => {
   jest.resetModules();
@@ -9,14 +10,42 @@ beforeEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const BASE_CONFIG = {
-  forumChannelId: 'forum-ch',
-  staffChannelId: 'staff-ch',
-  manufacturingRoleId: 'mfg-role',
-  organizationMemberRoleId: 'org-role',
-  orderLimit: 5,
-  maxItemsPerOrder: 10,
-};
+function makeGuildConfig(overrides: Partial<GuildConfig> = {}): GuildConfig {
+  return {
+    guildId: 'guild-1',
+    verificationEnabled: true,
+    verifiedRoleName: 'Verified',
+    tempMemberRoleName: 'Temporary Member',
+    potentialApplicantRoleName: 'Potential Applicant',
+    orgMemberRoleId: null,
+    orgMemberRoleName: null,
+    nominationDigestEnabled: false,
+    nominationDigestChannelId: null,
+    nominationDigestRoleId: null,
+    nominationDigestCronSchedule: '0 9 * * *',
+    manufacturingEnabled: true,
+    manufacturingForumChannelId: 'forum-ch',
+    manufacturingStaffChannelId: 'staff-ch',
+    manufacturingRoleId: 'mfg-role',
+    manufacturingCreateOrderThreadId: null,
+    manufacturingOrderLimit: 5,
+    manufacturingMaxItemsPerOrder: 10,
+    manufacturingOrderRateLimitPer5Min: 1,
+    manufacturingOrderRateLimitPerHour: 5,
+    manufacturingCreateOrderPostTitle: '📋 Create Order',
+    manufacturingCreateOrderPostMessage: 'Click the button below to submit a new manufacturing order.',
+    manufacturingKeepaliveCronSchedule: '0 6 * * *',
+    purgeJobsEnabled: false,
+    tempMemberHoursToExpire: 48,
+    tempMemberPurgeCronSchedule: '0 3 * * *',
+    birthdayEnabled: false,
+    birthdayChannelId: null,
+    birthdayCronSchedule: '0 12 * * *',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
 function makeOrder(overrides: Partial<ManufacturingOrder> = {}): ManufacturingOrder {
   return {
@@ -105,9 +134,14 @@ async function setupMocks(overrides: {
   const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
 
   jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
-    getManufacturingConfig: () => BASE_CONFIG,
     isManufacturingEnabled: () => manufacturingEnabled,
-    validateManufacturingConfig: () => [],
+  }));
+
+  jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
+    getGuildConfigOrNull: jest.fn(async () => makeGuildConfig()),
+    getAllGuildConfigs: jest.fn(async () => []),
+    isFeatureEnabledForGuild: jest.fn(() => false),
+    upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
   }));
 
   jest.unstable_mockModule('../../domain/manufacturing/manufacturing.repository.js', () => ({

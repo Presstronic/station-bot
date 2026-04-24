@@ -14,7 +14,8 @@ import {
   type ForumChannel,
   type ThreadChannel,
 } from 'discord.js';
-import { getManufacturingConfig, isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
 import { submitOrder } from '../domain/manufacturing/manufacturing.service.js';
 import {
   countActiveByUserId,
@@ -180,11 +181,40 @@ export async function triggerOrderModal(
     return;
   }
 
+  if (!interaction.inGuild()) {
+    await interaction.reply({
+      content: 'This command can only be used in a server.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (!isDatabaseConfigured()) {
+    await interaction.reply({
+      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  if (!guildConfig) {
+    await interaction.reply({
+      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   const userId = interaction.user.id;
   const now = Date.now();
   const oneHourAgo = now - 60 * 60 * 1000;
   const fiveMinutesAgo = now - 5 * 60 * 1000;
-  const { orderRateLimitPer5Min, orderRateLimitPerHour, orderLimit } = getManufacturingConfig();
+  const {
+    manufacturingOrderRateLimitPer5Min: orderRateLimitPer5Min,
+    manufacturingOrderRateLimitPerHour: orderRateLimitPerHour,
+    manufacturingOrderLimit: orderLimit,
+  } = guildConfig;
 
   const submitEntries = (orderSubmitTimestamps.get(userId) ?? []).filter(e => e.ts > oneHourAgo);
   if (submitEntries.length > 0) {
@@ -209,26 +239,6 @@ export async function triggerOrderModal(
     const minutesRemaining = Math.ceil((limitingTs + 60 * 60 * 1000 - now) / (60 * 1000));
     await interaction.reply({
       content: `You've reached the hourly order submission limit. Please try again in ${minutesRemaining} minute(s).`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  // Run cheap sync guards before reserving the rate-limit slot. Because these
-  // checks never yield to the event loop they cannot create a window where a
-  // concurrent invocation sees a pending reservation that later rolls back and
-  // produces a false-positive rate-limit rejection for an ineligible attempt.
-  if (!interaction.inGuild()) {
-    await interaction.reply({
-      content: 'This command can only be used in a server.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (!isDatabaseConfigured()) {
-    await interaction.reply({
-      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -319,7 +329,8 @@ export async function handleOrderItemModal(
 
   const items = session.items;
 
-  const { maxItemsPerOrder } = getManufacturingConfig();
+  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  const maxItemsPerOrder = guildConfig?.manufacturingMaxItemsPerOrder ?? 10;
   if (items.length >= maxItemsPerOrder) {
     await interaction.reply({
       content: `You can only add up to ${maxItemsPerOrder} items to an order.`,
@@ -393,7 +404,8 @@ export async function handleOrderButtonInteraction(
     return;
   }
 
-  const { maxItemsPerOrder } = getManufacturingConfig();
+  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  const maxItemsPerOrder = guildConfig?.manufacturingMaxItemsPerOrder ?? 10;
 
   if (prefix === ADD_ITEM_BUTTON_PREFIX) {
     if (items.length >= maxItemsPerOrder) {
@@ -429,7 +441,7 @@ export async function handleOrderButtonInteraction(
   try {
     // Validate the forum channel before persisting the order so a misconfigured
     // channel ID never produces an orphaned order that can't be managed.
-    const { forumChannelId } = getManufacturingConfig();
+    const forumChannelId = guildConfig?.manufacturingForumChannelId ?? '';
     const channel = await interaction.client.channels.fetch(forumChannelId);
 
     if (!channel || channel.type !== ChannelType.GuildForum) {
@@ -450,6 +462,7 @@ export async function handleOrderButtonInteraction(
       interaction.user.id,
       interaction.user.username,
       submittedItems,
+      guildConfig?.manufacturingOrderLimit ?? 5,
     );
 
     let tagIds: Map<string, string> | undefined;
@@ -511,7 +524,8 @@ export async function handleOrderButtonInteraction(
       });
     }
 
-    const { manufacturingRoleId, staffChannelId } = getManufacturingConfig();
+    const manufacturingRoleId = guildConfig?.manufacturingRoleId ?? null;
+    const staffChannelId = guildConfig?.manufacturingStaffChannelId ?? null;
     if (manufacturingRoleId) {
       try {
         await thread.send({

@@ -54,6 +54,7 @@ describe('getGuildConfigOrNull', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig,
       getAllGuildConfigs: jest.fn(async () => []),
+      upsertGuildConfig: jest.fn(async () => config),
     }));
 
     const { getGuildConfigOrNull } = await import('../guild-config.service.js');
@@ -69,6 +70,7 @@ describe('getGuildConfigOrNull', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig,
       getAllGuildConfigs: jest.fn(async () => []),
+      upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
     }));
 
     const { getGuildConfigOrNull } = await import('../guild-config.service.js');
@@ -85,6 +87,7 @@ describe('isFeatureEnabledForGuild', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
+      upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');
@@ -98,6 +101,7 @@ describe('isFeatureEnabledForGuild', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
+      upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');
@@ -110,6 +114,7 @@ describe('isFeatureEnabledForGuild', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
+      upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');
@@ -132,6 +137,7 @@ describe('isFeatureEnabledForGuild', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
+      upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');

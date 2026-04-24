@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { ManufacturingOrder } from '../../domain/manufacturing/types.js';
+import type { GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 
 let latestCleanup: (() => void) | undefined;
 
@@ -16,16 +17,42 @@ afterEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const BASE_CONFIG = {
-  forumChannelId: 'forum-ch',
-  staffChannelId: 'staff-ch',
-  manufacturingRoleId: 'mfg-role',
-  organizationMemberRoleId: 'org-role',
-  orderLimit: 5,
-  maxItemsPerOrder: 3,
-  orderRateLimitPer5Min: 10,  // high default so existing tests never hit the rate limit
-  orderRateLimitPerHour: 100,
-};
+function makeGuildConfig(overrides: Partial<GuildConfig> = {}): GuildConfig {
+  return {
+    guildId: 'guild-1',
+    verificationEnabled: true,
+    verifiedRoleName: 'Verified',
+    tempMemberRoleName: 'Temporary Member',
+    potentialApplicantRoleName: 'Potential Applicant',
+    orgMemberRoleId: null,
+    orgMemberRoleName: null,
+    nominationDigestEnabled: false,
+    nominationDigestChannelId: null,
+    nominationDigestRoleId: null,
+    nominationDigestCronSchedule: '0 9 * * *',
+    manufacturingEnabled: true,
+    manufacturingForumChannelId: 'forum-ch',
+    manufacturingStaffChannelId: 'staff-ch',
+    manufacturingRoleId: 'mfg-role',
+    manufacturingCreateOrderThreadId: null,
+    manufacturingOrderLimit: 5,
+    manufacturingMaxItemsPerOrder: 3, // low default so max-items tests work
+    manufacturingOrderRateLimitPer5Min: 10, // high default so tests never hit rate limit
+    manufacturingOrderRateLimitPerHour: 100,
+    manufacturingCreateOrderPostTitle: '📋 Create Order',
+    manufacturingCreateOrderPostMessage: 'Click the button below to submit a new manufacturing order.',
+    manufacturingKeepaliveCronSchedule: '0 6 * * *',
+    purgeJobsEnabled: false,
+    tempMemberHoursToExpire: 48,
+    tempMemberPurgeCronSchedule: '0 3 * * *',
+    birthdayEnabled: false,
+    birthdayChannelId: null,
+    birthdayCronSchedule: '0 12 * * *',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
 function makeOrder(overrides: Partial<ManufacturingOrder> = {}): ManufacturingOrder {
   return {
@@ -117,13 +144,13 @@ async function setupMocks(overrides: {
   submitOrder?: jest.Mock;
   updateForumThreadId?: jest.Mock;
   updateStaffThreadId?: jest.Mock;
-  configOverrides?: Partial<typeof BASE_CONFIG>;
+  guildConfigOverrides?: Partial<GuildConfig>;
 } = {}) {
   const hasRole = overrides.hasRole ?? true;
   const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
   const databaseConfigured = overrides.databaseConfigured ?? true;
   const activeCount = overrides.activeCount ?? 0;
-  const config = { ...BASE_CONFIG, ...overrides.configOverrides };
+  const guildConfig = makeGuildConfig(overrides.guildConfigOverrides);
 
   const warnMock = jest.fn();
   jest.unstable_mockModule('../../utils/logger.js', () => ({
@@ -148,9 +175,14 @@ async function setupMocks(overrides: {
   }));
 
   jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
-    getManufacturingConfig: () => config,
     isManufacturingEnabled: () => manufacturingEnabled,
-    validateManufacturingConfig: () => [],
+  }));
+
+  jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
+    getGuildConfigOrNull: jest.fn(async () => guildConfig),
+    getAllGuildConfigs: jest.fn(async () => []),
+    isFeatureEnabledForGuild: jest.fn(() => false),
+    upsertGuildConfig: jest.fn(async () => guildConfig),
   }));
 
   const submitOrderMock = overrides.submitOrder ?? jest.fn(async () => makeOrder());
@@ -275,7 +307,7 @@ describe('handleOrderCommand', () => {
   });
 
   it('replies with an active-order limit error including the count when limit is reached', async () => {
-    const h = await setupMocks({ activeCount: 5, configOverrides: { orderLimit: 5 } });
+    const h = await setupMocks({ activeCount: 5, guildConfigOverrides: { manufacturingOrderLimit: 5 } });
     const i = makeSlashInteraction();
     await h.handleOrderCommand(i as any);
     const reply = (i.reply as jest.Mock).mock.calls[0][0] as { content: string };
@@ -341,7 +373,7 @@ describe('triggerOrderModal (button interaction)', () => {
     jest.useFakeTimers();
     jest.setSystemTime(1_700_000_000_000);
     try {
-      const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+      const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 5 } });
 
       const makeBtn = (id: string) => ({
         inGuild: () => true,
@@ -385,7 +417,7 @@ describe('handleOrderCommand — rate limiting', () => {
   });
 
   it('first submission in a fresh window passes through', async () => {
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 5 } });
     const i = makeSlashInteraction({ id: 'sess-1' });
     await h.handleOrderCommand(i as any);
     expect(i.showModal).toHaveBeenCalledTimes(1);
@@ -393,7 +425,7 @@ describe('handleOrderCommand — rate limiting', () => {
   });
 
   it('second submission within 5 minutes is rejected with the per-5-min message and seconds remaining', async () => {
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 5 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any);
 
     jest.setSystemTime(base + 60_000); // 60 s later — still inside the 5-min window
@@ -410,7 +442,7 @@ describe('handleOrderCommand — rate limiting', () => {
 
   it('submission after the hourly cap is hit is rejected with the hourly message and minutes remaining', async () => {
     // Two calls spaced 6 min apart so each clears the 5-min window; third blocked by hourly cap
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 2 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 2 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any);
 
     jest.setSystemTime(base + 6 * 60_000);
@@ -429,7 +461,7 @@ describe('handleOrderCommand — rate limiting', () => {
   });
 
   it('entries older than 60 minutes are pruned and the submission proceeds', async () => {
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 1 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 1 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any); // fills hourly slot
 
     jest.setSystemTime(base + 61 * 60_000); // 61 min later — stale entry pruned
@@ -443,7 +475,7 @@ describe('handleOrderCommand — rate limiting', () => {
 
   it('background sweep removes entries whose newest timestamp is older than 60 minutes', async () => {
     // Set limits to 1/1 so a submission fills the slot
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 1 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 1 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-sweep-1' }) as any);
 
     // Advance past the hourly sweep interval — the background interval fires and removes the stale entry
@@ -696,6 +728,7 @@ describe('handleOrderButtonInteraction', () => {
       'user-1',
       'TestUser',
       expect.arrayContaining([expect.objectContaining({ itemName: 'Steel Plate' })]),
+      5,
     );
     expect(updateForumThreadIdMock).toHaveBeenCalledWith(99, 'thread-id');
     expect(btn.editReply).toHaveBeenCalledWith(
@@ -899,7 +932,7 @@ describe('handleOrderButtonInteraction', () => {
 
   it('skips the role ping when manufacturingRoleId is not configured', async () => {
     const sendMock = jest.fn(async () => {});
-    const h = await setupMocks({ configOverrides: { manufacturingRoleId: '' } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingRoleId: null } });
 
     await createSession(h, 'no-role');
     await addItemToSession(h, 'no-role');
