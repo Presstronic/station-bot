@@ -128,7 +128,15 @@ export async function getGuildConfig(guildId: string): Promise<GuildConfig | nul
 
 export async function upsertGuildConfig(guildId: string, patch: GuildConfigPatch): Promise<GuildConfig> {
   return withClient(async (client) => {
-    const entries = Object.entries(patch) as [keyof GuildConfigPatch, unknown][];
+    const rawEntries = Object.entries(patch).filter(([, val]) => val !== undefined);
+
+    for (const [key] of rawEntries) {
+      if (!(key in PATCH_COLUMN_MAP)) {
+        throw new Error(`upsertGuildConfig: unknown patch key "${key}"`);
+      }
+    }
+
+    const entries = rawEntries as [keyof GuildConfigPatch, unknown][];
 
     if (entries.length === 0) {
       const result = await client.query(

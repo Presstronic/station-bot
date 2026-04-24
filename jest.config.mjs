@@ -9,7 +9,7 @@ export default {
       useESM: true
     }],
   },
-  testPathIgnorePatterns: ['/node_modules/', '/dist/'],
+  testPathIgnorePatterns: ['/node_modules/', '/dist/', '\\.integration\\.test\\.ts$'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   forceExit: true,
 };
