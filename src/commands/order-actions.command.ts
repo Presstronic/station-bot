@@ -7,7 +7,8 @@ import {
   type GuildMemberRoleManager,
   type ThreadChannel,
 } from 'discord.js';
-import { getManufacturingConfig, isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
 import {
   cancelOrder,
   findById,
@@ -37,10 +38,9 @@ function parseOrderId(customId: string): number | null {
   return isNaN(id) ? null : id;
 }
 
-function hasMfgStaffRole(interaction: ButtonInteraction): boolean {
+function hasMfgStaffRole(interaction: ButtonInteraction, manufacturingRoleId: string | null): boolean {
   if (!interaction.inGuild()) return false;
   if (interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) return true;
-  const { manufacturingRoleId } = getManufacturingConfig();
   if (!manufacturingRoleId) return false;
   const member = interaction.member;
   if (!member) return false;
@@ -53,9 +53,9 @@ async function applyPostTransition(
   interaction: ButtonInteraction,
   updatedOrder: ManufacturingOrder,
   toStatus: OrderStatus,
+  staffChannelId: string | null,
 ): Promise<void> {
   const thread = interaction.channel as ThreadChannel;
-  const { staffChannelId } = getManufacturingConfig();
 
   // Determine whether the button was clicked from the staff thread or the public thread.
   // Advance/cancel buttons live in the staff thread, so interactions normally originate there.
@@ -177,10 +177,11 @@ async function applyTransition(
   orderId: number,
   fromStatus: OrderStatus,
   toStatus: OrderStatus,
+  staffChannelId: string | null,
 ): Promise<void> {
   try {
     const updatedOrder = await transitionStatus(orderId, fromStatus, toStatus);
-    await applyPostTransition(interaction, updatedOrder, toStatus);
+    await applyPostTransition(interaction, updatedOrder, toStatus, staffChannelId);
   } catch (err) {
     if (err instanceof InvalidStatusTransitionError) {
       const content = TERMINAL_STATUSES.includes(err.from)
@@ -207,10 +208,11 @@ async function applyCancellation(
   interaction: ButtonInteraction,
   orderId: number,
   allowedFromStatuses: readonly OrderStatus[],
+  staffChannelId: string | null,
 ): Promise<void> {
   try {
     const updatedOrder = await cancelOrder(orderId, allowedFromStatuses);
-    await applyPostTransition(interaction, updatedOrder, 'cancelled');
+    await applyPostTransition(interaction, updatedOrder, 'cancelled', staffChannelId);
   } catch (err) {
     if (err instanceof InvalidStatusTransitionError) {
       const content = TERMINAL_STATUSES.includes(err.from)
@@ -252,13 +254,17 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
 
   await interaction.deferUpdate();
 
-  const order = await findById(orderId);
+  const [guildConfig, order] = await Promise.all([
+    getGuildConfigOrNull(interaction.guildId ?? ''),
+    findById(orderId),
+  ]);
+
   if (!order) {
     await interaction.followUp({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
     return;
   }
 
-  const isStaff = hasMfgStaffRole(interaction);
+  const isStaff = hasMfgStaffRole(interaction, guildConfig?.manufacturingRoleId ?? null);
   const isOwner = order.discordUserId === interaction.user.id;
 
   if (!isOwner && !isStaff) {
@@ -292,7 +298,7 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
   const allowedFromStatuses: readonly OrderStatus[] = isStaff
     ? ['new', 'accepted', 'processing', 'ready_for_pickup']
     : ['new', 'accepted'];
-  await applyCancellation(interaction, orderId, allowedFromStatuses);
+  await applyCancellation(interaction, orderId, allowedFromStatuses, guildConfig?.manufacturingStaffChannelId ?? null);
 }
 
 // ---------------------------------------------------------------------------
@@ -311,7 +317,9 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
-  if (!hasMfgStaffRole(interaction)) {
+  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+
+  if (!hasMfgStaffRole(interaction, guildConfig?.manufacturingRoleId ?? null)) {
     await interaction.reply({
       content: 'You do not have permission to perform this action.',
       flags: MessageFlags.Ephemeral,
@@ -335,7 +343,7 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
-  await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup']);
+  await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup'], guildConfig?.manufacturingStaffChannelId ?? null);
 }
 
 // ---------------------------------------------------------------------------
@@ -378,7 +386,9 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
-  if (!hasMfgStaffRole(interaction)) {
+  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+
+  if (!hasMfgStaffRole(interaction, guildConfig?.manufacturingRoleId ?? null)) {
     await interaction.reply({
       content: 'You do not have permission to perform this action.',
       flags: MessageFlags.Ephemeral,
@@ -410,6 +420,5 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
-  await applyTransition(interaction, orderId, order.status, toStatus);
+  await applyTransition(interaction, orderId, order.status, toStatus, guildConfig?.manufacturingStaffChannelId ?? null);
 }
-

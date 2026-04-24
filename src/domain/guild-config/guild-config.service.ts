@@ -1,6 +1,12 @@
-import { getGuildConfig, getAllGuildConfigs as getAllGuildConfigsRepo, type GuildConfig } from './guild-config.repository.js';
+import {
+  getGuildConfig,
+  getAllGuildConfigs as getAllGuildConfigsRepo,
+  upsertGuildConfig as upsertGuildConfigRepo,
+  type GuildConfig,
+  type GuildConfigPatch,
+} from './guild-config.repository.js';
 
-export type { GuildConfig };
+export type { GuildConfig, GuildConfigPatch };
 
 export type GuildFeature = 'verification' | 'nominationDigest' | 'manufacturing' | 'purgeJobs' | 'birthday';
 
@@ -18,6 +24,10 @@ export async function getGuildConfigOrNull(guildId: string): Promise<GuildConfig
 
 export async function getAllGuildConfigs(): Promise<GuildConfig[]> {
   return getAllGuildConfigsRepo();
+}
+
+export async function upsertGuildConfig(guildId: string, patch: GuildConfigPatch): Promise<GuildConfig> {
+  return upsertGuildConfigRepo(guildId, patch);
 }
 
 export function isFeatureEnabledForGuild(

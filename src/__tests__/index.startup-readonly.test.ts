@@ -97,6 +97,10 @@ async function loadIndexAndRunReady(
     scheduleNominationDigests,
     rescheduleGuildDigest: jest.fn(),
   }));
+  await jest.unstable_mockModule('../jobs/discord/manufacturing-keepalive.job.js', () => ({
+    scheduleManufacturingKeepalives: jest.fn(() => new Map()),
+    rescheduleGuildKeepalive: jest.fn(),
+  }));
   await jest.unstable_mockModule('../services/role.services.js', () => ({
     addMissingDefaultRoles,
   }));
@@ -326,6 +330,10 @@ describe('startup wiring with read-only mode', () => {
       scheduleNominationDigests: jest.fn(() => new Map()),
       rescheduleGuildDigest: jest.fn(),
     }));
+    await jest.unstable_mockModule('../jobs/discord/manufacturing-keepalive.job.js', () => ({
+      scheduleManufacturingKeepalives: jest.fn(() => new Map()),
+      rescheduleGuildKeepalive: jest.fn(),
+    }));
     await jest.unstable_mockModule('../services/role.services.js', () => ({
       addMissingDefaultRoles,
     }));
@@ -448,6 +456,10 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
       scheduleNominationDigests: jest.fn(() => new Map()),
       rescheduleGuildDigest: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/manufacturing-keepalive.job.js', () => ({
+      scheduleManufacturingKeepalives: jest.fn(() => new Map()),
+      rescheduleGuildKeepalive: jest.fn(),
     }));
     await jest.unstable_mockModule('../services/role.services.js', () => ({ addMissingDefaultRoles }));
     await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
