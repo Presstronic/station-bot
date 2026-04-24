@@ -2,7 +2,7 @@
  * Integration tests for guild-config.repository.
  *
  * Requires a real Postgres instance with DATABASE_URL set and migrations applied.
- * Run via: DATABASE_URL=... npx jest guild-config.repository.integration
+ * Run via: DATABASE_URL=... npm run test:integration -- --testPathPattern=guild-config.repository.integration
  */
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
 import { getDbPool, endDbPoolIfInitialized } from '../../../services/nominations/db.js';

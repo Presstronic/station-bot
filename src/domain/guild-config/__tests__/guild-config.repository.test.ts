@@ -73,6 +73,7 @@ describe('getGuildConfig', () => {
       .mockResolvedValueOnce({ rows: [row] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 
@@ -95,6 +96,7 @@ describe('getGuildConfig', () => {
       .mockResolvedValueOnce({ rows: [] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 
@@ -115,6 +117,7 @@ describe('upsertGuildConfig', () => {
       .mockResolvedValueOnce({ rows: [row] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 
@@ -134,6 +137,7 @@ describe('upsertGuildConfig', () => {
       .mockResolvedValueOnce({ rows: [row] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 
@@ -161,6 +165,7 @@ describe('upsertGuildConfig', () => {
       .mockResolvedValueOnce({ rows: [row] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 
@@ -180,6 +185,7 @@ describe('upsertGuildConfig', () => {
       .mockResolvedValueOnce({ rows: [row] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 
@@ -206,6 +212,7 @@ describe('getAllGuildConfigs', () => {
       .mockResolvedValueOnce({ rows: [row1, row2] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 
@@ -224,6 +231,7 @@ describe('getAllGuildConfigs', () => {
       .mockResolvedValueOnce({ rows: [] });
 
     jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
       withClient: makeWithClient(query),
     }));
 

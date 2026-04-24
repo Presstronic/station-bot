@@ -1,4 +1,10 @@
-import { withClient } from '../../services/nominations/db.js';
+import { withClient, isDatabaseConfigured } from '../../services/nominations/db.js';
+
+function assertDatabaseConfigured(): void {
+  if (!isDatabaseConfigured()) {
+    throw new Error('DATABASE_URL is required for guild config');
+  }
+}
 
 export interface GuildConfig {
   guildId: string;
@@ -116,6 +122,7 @@ function mapGuildConfigRow(row: Record<string, unknown>): GuildConfig {
 }
 
 export async function getGuildConfig(guildId: string): Promise<GuildConfig | null> {
+  assertDatabaseConfigured();
   return withClient(async (client) => {
     const result = await client.query(
       `SELECT * FROM guild_configs WHERE guild_id = $1`,
@@ -127,11 +134,12 @@ export async function getGuildConfig(guildId: string): Promise<GuildConfig | nul
 }
 
 export async function upsertGuildConfig(guildId: string, patch: GuildConfigPatch): Promise<GuildConfig> {
+  assertDatabaseConfigured();
   return withClient(async (client) => {
     const rawEntries = Object.entries(patch).filter(([, val]) => val !== undefined);
 
     for (const [key] of rawEntries) {
-      if (!(key in PATCH_COLUMN_MAP)) {
+      if (!Object.hasOwn(PATCH_COLUMN_MAP, key)) {
         throw new Error(`upsertGuildConfig: unknown patch key "${key}"`);
       }
     }
@@ -168,6 +176,7 @@ export async function upsertGuildConfig(guildId: string, patch: GuildConfigPatch
 }
 
 export async function getAllGuildConfigs(): Promise<GuildConfig[]> {
+  assertDatabaseConfigured();
   return withClient(async (client) => {
     const result = await client.query(`SELECT * FROM guild_configs ORDER BY guild_id`);
     return (result.rows as Record<string, unknown>[]).map(mapGuildConfigRow);
