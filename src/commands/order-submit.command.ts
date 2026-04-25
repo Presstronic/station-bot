@@ -206,6 +206,14 @@ export async function triggerOrderModal(
     return;
   }
 
+  if (!guildConfig.manufacturingEnabled) {
+    await interaction.reply({
+      content: 'Manufacturing orders are not currently available.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   const userId = interaction.user.id;
   const now = Date.now();
   const oneHourAgo = now - 60 * 60 * 1000;
@@ -441,8 +449,16 @@ export async function handleOrderButtonInteraction(
   try {
     // Validate the forum channel before persisting the order so a misconfigured
     // channel ID never produces an orphaned order that can't be managed.
-    const forumChannelId = guildConfig?.manufacturingForumChannelId ?? '';
-    const channel = await interaction.client.channels.fetch(forumChannelId);
+    const forumChannelId = guildConfig?.manufacturingForumChannelId;
+    if (!forumChannelId) {
+      logger.error('[manufacturing] Forum channel is not configured');
+      await interaction.editReply({
+        content: 'Manufacturing is not configured correctly (forum channel unavailable). Please contact staff.',
+        components: [],
+      });
+      return;
+    }
+    const channel = await interaction.client.channels.fetch(forumChannelId).catch(() => null);
 
     if (!channel || channel.type !== ChannelType.GuildForum) {
       logger.error(

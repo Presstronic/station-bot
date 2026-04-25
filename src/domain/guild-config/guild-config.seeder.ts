@@ -24,7 +24,15 @@ function envInt(name: string): number | undefined {
   const raw = process.env[name]?.trim();
   if (!raw) return undefined;
   const parsed = parseInt(raw, 10);
-  return isNaN(parsed) ? undefined : parsed;
+  if (isNaN(parsed)) {
+    logger.warn(`[guild-config seeder] Ignoring invalid integer env var ${name}: ${raw}`);
+    return undefined;
+  }
+  if (parsed < 1) {
+    logger.warn(`[guild-config seeder] Ignoring non-positive integer env var ${name}: ${raw}`);
+    return undefined;
+  }
+  return parsed;
 }
 
 function buildPatchFromEnv(): GuildConfigPatch {

@@ -150,8 +150,15 @@ client.once('clientReady', async () => {
     if (verificationEnabled) {
       await Promise.all(
         [...client.guilds.cache.values()].map(async (guild) => {
+          let guildConfig = null;
+          if (isDatabaseConfigured()) {
+            try {
+              guildConfig = await getGuildConfigOrNull(guild.id);
+            } catch (error) {
+              logger.warn(`Failed to load guild config for role setup in guild ${guild.id} (${guild.name}); proceeding with defaults`, error);
+            }
+          }
           try {
-            const guildConfig = await getGuildConfigOrNull(guild.id);
             await addMissingDefaultRoles(guild, client, guildConfig);
           } catch (error) {
             logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
@@ -234,12 +241,21 @@ client.on('guildCreate', async (guild) => {
   } else if (!verificationEnabled) {
     logger.info(`[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`);
   } else {
-    try {
-      const guildConfig = await getGuildConfigOrNull(guild.id);
-      await addMissingDefaultRoles(guild, client, guildConfig);
-      logger.info(`[${guild.name}] Successfully ensured required roles.`);
-    } catch (error) {
-      logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+    {
+      let guildConfig = null;
+      if (isDatabaseConfigured()) {
+        try {
+          guildConfig = await getGuildConfigOrNull(guild.id);
+        } catch (error) {
+          logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; proceeding with defaults`, error);
+        }
+      }
+      try {
+        await addMissingDefaultRoles(guild, client, guildConfig);
+        logger.info(`[${guild.name}] Successfully ensured required roles.`);
+      } catch (error) {
+        logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+      }
     }
   }
 
