@@ -358,6 +358,13 @@ export async function handleOrderItemModal(
       });
       return;
     }
+    if (!guildConfig.manufacturingEnabled) {
+      await interaction.reply({
+        content: 'Manufacturing orders are currently disabled in this server.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
     maxItemsPerOrder = guildConfig.manufacturingMaxItemsPerOrder;
   } catch (error) {
     logger.error('[manufacturing] Failed to load guild config in order item modal', { guildId: interaction.guildId, error });
