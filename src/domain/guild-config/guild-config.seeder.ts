@@ -120,7 +120,18 @@ function buildPatchFromEnv(): GuildConfigPatch {
 
 export async function seedGuildConfigsFromEnv(client: Client): Promise<void> {
   const patch = buildPatchFromEnv();
-  const guilds = [...client.guilds.cache.values()];
+  const homeGuildId = process.env.HOME_GUILD_ID?.trim();
+
+  const guilds = homeGuildId
+    ? client.guilds.cache.has(homeGuildId)
+      ? [client.guilds.cache.get(homeGuildId)!]
+      : []
+    : [...client.guilds.cache.values()];
+
+  if (homeGuildId && guilds.length === 0) {
+    logger.warn(`[guild-config seeder] HOME_GUILD_ID=${homeGuildId} is not in the bot's guild cache — nothing seeded.`);
+    return;
+  }
 
   await Promise.allSettled(
     guilds.map(async (guild) => {

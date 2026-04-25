@@ -21,7 +21,7 @@ import {
   isDatabaseConfigured,
 } from './services/nominations/db.js';
 import { seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
-import { getGuildConfigOrNull, getAllGuildConfigs } from './domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, getAllGuildConfigs, type GuildConfig } from './domain/guild-config/guild-config.service.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -178,7 +178,13 @@ client.once('clientReady', async () => {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
     if (isDatabaseConfigured()) {
-      const allGuildConfigs = await getAllGuildConfigs();
+      let allGuildConfigs: GuildConfig[];
+      try {
+        allGuildConfigs = await getAllGuildConfigs();
+      } catch (error) {
+        logger.error('Failed to load guild configs for job scheduling; skipping digest and keep-alive jobs.', { error });
+        allGuildConfigs = [];
+      }
       if (nominationDigestEnabled) {
         nominationDigestCronTasks = scheduleNominationDigests(client, allGuildConfigs);
         if (nominationDigestCronTasks.size > 0) {

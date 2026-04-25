@@ -93,6 +93,14 @@ export function scheduleManufacturingKeepalives(
     createTaskForGuild(client, guildId, manufacturingKeepaliveCronSchedule);
   }
 
+  const incomingIds = new Set(guildConfigs.map((c) => c.guildId));
+  for (const [guildId, task] of activeTasks) {
+    if (!incomingIds.has(guildId)) {
+      task.stop();
+      activeTasks.delete(guildId);
+    }
+  }
+
   return activeTasks;
 }
 
@@ -101,10 +109,12 @@ export function rescheduleGuildKeepalive(
   guildId: string,
   guildConfig: GuildConfig,
 ): cron.ScheduledTask | null {
-  const existing = activeTasks.get(guildId);
-  if (existing) {
-    existing.stop();
-    activeTasks.delete(guildId);
+  activeTasks.get(guildId)?.stop();
+  activeTasks.delete(guildId);
+
+  if (!guildConfig.manufacturingEnabled) {
+    logger.info('[manufacturing] Keep-alive: manufacturing disabled for guild; not rescheduling', { guildId });
+    return null;
   }
 
   const { manufacturingKeepaliveCronSchedule } = guildConfig;

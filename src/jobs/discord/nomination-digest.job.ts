@@ -92,6 +92,14 @@ export function scheduleNominationDigests(
     logger.info(`[nomination-digest] Scheduled digest for guild ${cfg.guildId}`, { schedule });
   }
 
+  const incomingIds = new Set(guildConfigs.map((c) => c.guildId));
+  for (const [guildId, task] of activeTasks) {
+    if (!incomingIds.has(guildId)) {
+      task.stop();
+      activeTasks.delete(guildId);
+    }
+  }
+
   return activeTasks;
 }
 
