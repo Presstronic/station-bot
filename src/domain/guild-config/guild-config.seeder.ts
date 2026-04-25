@@ -23,11 +23,13 @@ function envBool(name: string): boolean | undefined {
 function envInt(name: string): number | undefined {
   const raw = process.env[name]?.trim();
   if (!raw) return undefined;
-  const parsed = parseInt(raw, 10);
-  if (isNaN(parsed) || parsed <= 0) {
-    if (!isNaN(parsed)) {
-      logger.warn(`[guild-config seeder] ${name} must be a positive integer; got ${parsed} — ignoring.`);
-    }
+  if (!/^\d+$/.test(raw)) {
+    logger.warn(`[guild-config seeder] Ignoring invalid positive integer env var ${name}.`, { value: raw });
+    return undefined;
+  }
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed <= 0) {
+    logger.warn(`[guild-config seeder] Ignoring invalid positive integer env var ${name}.`, { value: raw });
     return undefined;
   }
   return parsed;
@@ -132,6 +134,36 @@ export async function seedGuildConfigFromEnv(guildId: string, guildName: string)
 }
 
 export async function seedGuildConfigsFromEnv(client: Client): Promise<void> {
+  const patch = buildPatchFromEnv();
   const guilds = [...client.guilds.cache.values()];
-  await Promise.allSettled(guilds.map((guild) => seedGuildConfigFromEnv(guild.id, guild.name)));
+
+  const results = await Promise.allSettled(
+    guilds.map(async (guild) => {
+      const existing = await getGuildConfig(guild.id);
+      if (existing) {
+        logger.debug(`[guild-config seeder] Guild ${guild.id} (${guild.name}) already has a config row — skipping.`);
+        return;
+      }
+      await upsertGuildConfig(guild.id, patch);
+      logger.info(`[guild-config seeder] Seeded config for guild ${guild.id} (${guild.name}) from env.`);
+    }),
+  );
+
+  const failedResults: PromiseRejectedResult[] = [];
+  results.forEach((result, index) => {
+    if (result.status === 'rejected') {
+      const guild = guilds[index];
+      failedResults.push(result);
+      logger.warn(`[guild-config seeder] Failed to seed config for guild ${guild.id} (${guild.name}).`, {
+        error: result.reason,
+      });
+    }
+  });
+
+  if (failedResults.length === guilds.length && failedResults.length > 0) {
+    throw new AggregateError(
+      failedResults.map((r) => r.reason),
+      '[guild-config seeder] Failed to seed config for every guild. Check database connectivity and migrations.',
+    );
+  }
 }
