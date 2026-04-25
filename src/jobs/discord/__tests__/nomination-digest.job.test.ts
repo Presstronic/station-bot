@@ -180,6 +180,46 @@ describe('scheduleNominationDigests', () => {
     );
   });
 
+  it('warns and skips when nominationDigestEnabled is false at tick time', async () => {
+    const { runTaskByIndex, mocks } = await setupMocks();
+    const getGuildConfigOrNull = jest.fn(async () =>
+      makeGuildConfig({ nominationDigestEnabled: false }),
+    );
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull,
+      getAllGuildConfigs: jest.fn(),
+    }));
+
+    const { scheduleNominationDigests } = await import('../nomination-digest.job.js');
+    const client = { channels: { fetch: jest.fn() } };
+
+    scheduleNominationDigests(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await expect(runTaskByIndex(0)).resolves.not.toThrow();
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Digest disabled for guild'),
+      expect.any(Object),
+    );
+    expect(client.channels.fetch).not.toHaveBeenCalled();
+  });
+
+  it('stops an existing task before creating a new one for the same guild', async () => {
+    await setupMocks();
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(),
+      getAllGuildConfigs: jest.fn(),
+    }));
+
+    const { scheduleNominationDigests } = await import('../nomination-digest.job.js');
+
+    const firstCall = scheduleNominationDigests({} as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    const firstTask = firstCall.get('guild-1') as unknown as { stop: jest.Mock };
+
+    scheduleNominationDigests({} as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+
+    expect(firstTask.stop).toHaveBeenCalledTimes(1);
+  });
+
   it('sends the zero-count digest message on tick', async () => {
     const { runTaskByIndex, countUnprocessedNominations } = await setupMocks();
     const channel = makeTextChannel();

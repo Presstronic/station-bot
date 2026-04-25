@@ -21,8 +21,14 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
     cronSchedule,
     async () => {
       const guildConfig = await getGuildConfigOrNull(guildId);
-      const channelId = guildConfig?.nominationDigestChannelId;
-      const roleId = guildConfig?.nominationDigestRoleId;
+
+      if (!guildConfig?.nominationDigestEnabled) {
+        logger.warn('[nomination-digest] Digest disabled for guild at tick time; skipping', { guildId });
+        return;
+      }
+
+      const channelId = guildConfig.nominationDigestChannelId;
+      const roleId = guildConfig.nominationDigestRoleId;
 
       if (!channelId || !roleId) {
         logger.warn('[nomination-digest] Guild config missing channel or role; skipping tick', { guildId });
@@ -76,6 +82,7 @@ export function scheduleNominationDigests(
       continue;
     }
 
+    activeTasks.get(cfg.guildId)?.stop();
     const task = createTaskForGuild(client, cfg.guildId, schedule);
     activeTasks.set(cfg.guildId, task);
     logger.info(`[nomination-digest] Scheduled digest for guild ${cfg.guildId}`, { schedule });
