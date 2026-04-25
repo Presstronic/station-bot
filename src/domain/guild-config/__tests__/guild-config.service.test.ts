@@ -76,6 +76,20 @@ describe('getGuildConfigOrNull', () => {
     const { getGuildConfigOrNull } = await import('../guild-config.service.js');
     expect(await getGuildConfigOrNull('unknown')).toBeNull();
   });
+
+  it('propagates errors thrown by the repository', async () => {
+    const dbError = new Error('DB connection failed');
+    const getGuildConfig = jest.fn<() => Promise<GuildConfig>>().mockRejectedValue(dbError);
+
+    jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig,
+      getAllGuildConfigs: jest.fn(async () => []),
+      upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
+    }));
+
+    const { getGuildConfigOrNull } = await import('../guild-config.service.js');
+    await expect(getGuildConfigOrNull('guild-1')).rejects.toThrow('DB connection failed');
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -83,8 +83,8 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
   if (!guildConfig) {
-    logger.warn('No guild config found during verify button interaction', { guildId });
-    await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
+    logger.warn('Guild config not found during verify button interaction', { guildId });
+    await respond('Verification is not configured for this server. Please contact an administrator.');
     return;
   }
 

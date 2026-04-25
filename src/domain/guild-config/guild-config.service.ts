@@ -5,9 +5,6 @@ import {
   type GuildConfig,
   type GuildConfigPatch,
 } from './guild-config.repository.js';
-import { getLogger } from '../../utils/logger.js';
-
-const logger = getLogger();
 
 export type { GuildConfig, GuildConfigPatch };
 
@@ -21,13 +18,11 @@ const FEATURE_FLAG_MAP: Record<GuildFeature, keyof GuildConfig> = {
   birthday:        'birthdayEnabled',
 };
 
+// Returns the config row or null when none exists. Throws on operational errors
+// (DB down, DATABASE_URL not set) so callers can distinguish "not configured"
+// from "temporarily unavailable" and surface the right message to users.
 export async function getGuildConfigOrNull(guildId: string): Promise<GuildConfig | null> {
-  try {
-    return await getGuildConfig(guildId);
-  } catch (error) {
-    logger.error('[guild-config] Failed to load guild config', { guildId, error });
-    return null;
-  }
+  return getGuildConfig(guildId);
 }
 
 export async function getAllGuildConfigs(): Promise<GuildConfig[]> {

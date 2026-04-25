@@ -267,7 +267,12 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
     return;
   }
 
-  if (!guildConfig?.manufacturingEnabled) {
+  if (!guildConfig) {
+    await interaction.followUp({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (!guildConfig.manufacturingEnabled) {
     await interaction.followUp({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
     return;
   }
@@ -339,7 +344,12 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
-  if (!guildConfig?.manufacturingEnabled) {
+  if (!guildConfig) {
+    await interaction.reply({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (!guildConfig.manufacturingEnabled) {
     await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
     return;
   }
@@ -420,7 +430,12 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
-  if (!guildConfig?.manufacturingEnabled) {
+  if (!guildConfig) {
+    await interaction.reply({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (!guildConfig.manufacturingEnabled) {
     await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
     return;
   }
