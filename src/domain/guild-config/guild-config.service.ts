@@ -5,6 +5,9 @@ import {
   type GuildConfig,
   type GuildConfigPatch,
 } from './guild-config.repository.js';
+import { getLogger } from '../../utils/logger.js';
+
+const logger = getLogger();
 
 export type { GuildConfig, GuildConfigPatch };
 
@@ -19,7 +22,12 @@ const FEATURE_FLAG_MAP: Record<GuildFeature, keyof GuildConfig> = {
 };
 
 export async function getGuildConfigOrNull(guildId: string): Promise<GuildConfig | null> {
-  return getGuildConfig(guildId);
+  try {
+    return await getGuildConfig(guildId);
+  } catch (error) {
+    logger.error('[guild-config] Failed to load guild config', { guildId, error });
+    return null;
+  }
 }
 
 export async function getAllGuildConfigs(): Promise<GuildConfig[]> {
