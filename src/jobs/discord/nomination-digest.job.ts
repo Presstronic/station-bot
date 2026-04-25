@@ -72,6 +72,8 @@ export function scheduleNominationDigests(
 
   for (const cfg of guildConfigs) {
     if (!cfg.nominationDigestEnabled || !cfg.nominationDigestChannelId || !cfg.nominationDigestRoleId) {
+      activeTasks.get(cfg.guildId)?.stop();
+      activeTasks.delete(cfg.guildId);
       continue;
     }
 
@@ -82,6 +84,8 @@ export function scheduleNominationDigests(
         guildId: cfg.guildId,
         schedule,
       });
+      activeTasks.get(cfg.guildId)?.stop();
+      activeTasks.delete(cfg.guildId);
       continue;
     }
 

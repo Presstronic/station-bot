@@ -337,8 +337,16 @@ export async function handleOrderItemModal(
 
   const items = session.items;
 
-  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
-  const maxItemsPerOrder = guildConfig?.manufacturingMaxItemsPerOrder ?? 10;
+  let maxItemsPerOrder = 10;
+  try {
+    const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+    maxItemsPerOrder = guildConfig?.manufacturingMaxItemsPerOrder ?? 10;
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config in order item modal', { guildId: interaction.guildId, error });
+    await interaction.reply({ content: 'Unable to load server order settings right now. Please try again in a moment.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   if (items.length >= maxItemsPerOrder) {
     await interaction.reply({
       content: `You can only add up to ${maxItemsPerOrder} items to an order.`,
@@ -412,8 +420,21 @@ export async function handleOrderButtonInteraction(
     return;
   }
 
-  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
-  const maxItemsPerOrder = guildConfig?.manufacturingMaxItemsPerOrder ?? 10;
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config for order button interaction', { guildId: interaction.guildId, error });
+    await interaction.update({ content: 'Order submission is temporarily unavailable. Please try again later.', components: [] });
+    return;
+  }
+
+  if (!guildConfig?.manufacturingEnabled) {
+    await interaction.update({ content: 'Manufacturing orders are currently disabled in this server.', components: [] });
+    return;
+  }
+
+  const maxItemsPerOrder = guildConfig.manufacturingMaxItemsPerOrder;
 
   if (prefix === ADD_ITEM_BUTTON_PREFIX) {
     if (items.length >= maxItemsPerOrder) {

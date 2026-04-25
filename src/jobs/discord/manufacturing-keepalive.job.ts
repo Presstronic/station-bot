@@ -71,15 +71,21 @@ export function scheduleManufacturingKeepalives(
   guildConfigs: GuildConfig[],
 ): Map<string, cron.ScheduledTask> {
   for (const config of guildConfigs) {
-    if (!config.manufacturingEnabled) continue;
-
     const { guildId, manufacturingKeepaliveCronSchedule } = config;
+
+    if (!config.manufacturingEnabled) {
+      activeTasks.get(guildId)?.stop();
+      activeTasks.delete(guildId);
+      continue;
+    }
 
     if (!cron.validate(manufacturingKeepaliveCronSchedule)) {
       logger.error('[manufacturing] Keep-alive: invalid cron schedule — job will not run', {
         guildId,
         manufacturingKeepaliveCronSchedule,
       });
+      activeTasks.get(guildId)?.stop();
+      activeTasks.delete(guildId);
       continue;
     }
 

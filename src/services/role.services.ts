@@ -87,16 +87,9 @@ export async function addMissingDefaultRoles(
   client: Client,
   guildConfig: GuildConfig | null,
 ): Promise<void> {
-  if (guildConfig === null) {
-    logger.warn(`[${guild.name}] No guild config found; skipping role setup.`);
-    return;
-  }
-
-  const roleNames = [
-    guildConfig.verifiedRoleName,
-    guildConfig.tempMemberRoleName,
-    guildConfig.potentialApplicantRoleName,
-  ];
+  const roleNames = guildConfig
+    ? [guildConfig.verifiedRoleName, guildConfig.tempMemberRoleName, guildConfig.potentialApplicantRoleName]
+    : ['Verified', 'Temporary Member', 'Potential Applicant'];
   logger.info(`[${guild.name}] Checking required roles: ${roleNames.join(', ')}`);
 
   try {

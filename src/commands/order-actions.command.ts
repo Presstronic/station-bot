@@ -254,10 +254,18 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
 
   await interaction.deferUpdate();
 
-  const [guildConfig, order] = await Promise.all([
-    getGuildConfigOrNull(interaction.guildId ?? ''),
-    findById(orderId),
-  ]);
+  let guildConfig;
+  let order;
+  try {
+    [guildConfig, order] = await Promise.all([
+      getGuildConfigOrNull(interaction.guildId ?? ''),
+      findById(orderId),
+    ]);
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load cancellation context', { orderId, guildId: interaction.guildId, error });
+    await interaction.followUp({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    return;
+  }
 
   if (!guildConfig?.manufacturingEnabled) {
     await interaction.followUp({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
@@ -322,7 +330,14 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
-  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config for staff cancellation', { orderId, guildId: interaction.guildId, error });
+    await interaction.reply({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    return;
+  }
 
   if (!guildConfig?.manufacturingEnabled) {
     await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
@@ -396,7 +411,14 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
-  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config for advance action', { guildId: interaction.guildId, customId: interaction.customId, error });
+    await interaction.reply({ content: 'Unable to verify manufacturing configuration right now. Please try again later.', flags: MessageFlags.Ephemeral });
+    return;
+  }
 
   if (!guildConfig?.manufacturingEnabled) {
     await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
