@@ -85,6 +85,7 @@ export function scheduleNominationDigests(
       continue;
     }
 
+    activeTasks.get(cfg.guildId)?.stop();
     const task = createTaskForGuild(client, cfg.guildId, schedule);
     activeTasks.set(cfg.guildId, task);
     logger.info(`[nomination-digest] Scheduled digest for guild ${cfg.guildId}`, { schedule });
