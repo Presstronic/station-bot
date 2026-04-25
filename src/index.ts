@@ -28,6 +28,7 @@ import {
   ensureNominationsSchema,
   isDatabaseConfigured,
 } from './services/nominations/db.js';
+import { seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -159,6 +160,18 @@ client.once('clientReady', async () => {
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
       process.exit(1);
       return;
+    }
+    if (!readOnlyMode) {
+      try {
+        await seedGuildConfigsFromEnv(client);
+      } catch (error) {
+        logger.error('Failed to seed guild configs from environment', error);
+        logger.error('DATABASE_URL is set but guild config seeding failed. Aborting startup.');
+        process.exit(1);
+        return;
+      }
+    } else {
+      logger.info('Read-only mode enabled; skipping guild config seeding from environment.');
     }
   }
 
