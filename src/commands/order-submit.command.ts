@@ -197,7 +197,18 @@ export async function triggerOrderModal(
     return;
   }
 
-  const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config for order modal', { guildId: interaction.guildId, error });
+    await interaction.reply({
+      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   if (!guildConfig) {
     await interaction.reply({
       content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
@@ -340,7 +351,14 @@ export async function handleOrderItemModal(
   let maxItemsPerOrder = 10;
   try {
     const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
-    maxItemsPerOrder = guildConfig?.manufacturingMaxItemsPerOrder ?? 10;
+    if (guildConfig === null) {
+      await interaction.reply({
+        content: 'Manufacturing is not configured for this server. Please contact staff.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+    maxItemsPerOrder = guildConfig.manufacturingMaxItemsPerOrder;
   } catch (error) {
     logger.error('[manufacturing] Failed to load guild config in order item modal', { guildId: interaction.guildId, error });
     await interaction.reply({ content: 'Unable to load server order settings right now. Please try again in a moment.', flags: MessageFlags.Ephemeral });
@@ -429,7 +447,15 @@ export async function handleOrderButtonInteraction(
     return;
   }
 
-  if (!guildConfig?.manufacturingEnabled) {
+  if (!guildConfig) {
+    await interaction.update({
+      content: 'Order submission is temporarily unavailable for this server. Please try again later.',
+      components: [],
+    });
+    return;
+  }
+
+  if (!guildConfig.manufacturingEnabled) {
     await interaction.update({ content: 'Manufacturing orders are currently disabled in this server.', components: [] });
     return;
   }

@@ -180,6 +180,26 @@ describe('scheduleNominationDigests', () => {
     );
   });
 
+  it('warns "unavailable or missing" and skips when guild config is null at tick time', async () => {
+    const { runTaskByIndex, mocks } = await setupMocks();
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => null),
+      getAllGuildConfigs: jest.fn(),
+    }));
+
+    const { scheduleNominationDigests } = await import('../nomination-digest.job.js');
+    const client = { channels: { fetch: jest.fn() } };
+
+    scheduleNominationDigests(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await expect(runTaskByIndex(0)).resolves.not.toThrow();
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('unavailable or missing'),
+      expect.any(Object),
+    );
+    expect(client.channels.fetch).not.toHaveBeenCalled();
+  });
+
   it('warns and skips when nominationDigestEnabled is false at tick time', async () => {
     const { runTaskByIndex, mocks } = await setupMocks();
     const getGuildConfigOrNull = jest.fn(async () =>

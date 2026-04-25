@@ -23,8 +23,13 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
       try {
         const guildConfig = await getGuildConfigOrNull(guildId);
 
-        if (!guildConfig?.nominationDigestEnabled) {
-          logger.warn('[nomination-digest] Digest disabled in guild config at tick time; skipping', { guildId });
+        if (guildConfig === null) {
+          logger.warn('[nomination-digest] Guild config unavailable or missing at tick time; skipping', { guildId });
+          return;
+        }
+
+        if (!guildConfig.nominationDigestEnabled) {
+          logger.warn('[nomination-digest] Digest disabled for guild at tick time; skipping', { guildId });
           return;
         }
 

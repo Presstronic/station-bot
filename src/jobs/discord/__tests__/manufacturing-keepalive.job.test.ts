@@ -180,6 +180,36 @@ describe('scheduleManufacturingKeepalives', () => {
     expect(mocks.debug).toHaveBeenCalledWith(expect.stringContaining('active'));
   });
 
+  it('warns "unavailable or missing" and skips fetch when guild config is null at tick time', async () => {
+    const { scheduleManufacturingKeepalives, runTaskByIndex, mocks } = await setupMocks(null);
+    const client = makeClient();
+
+    scheduleManufacturingKeepalives(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await runTaskByIndex(0);
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('unavailable or missing'),
+      expect.any(Object),
+    );
+    expect(client.channels.fetch).not.toHaveBeenCalled();
+  });
+
+  it('warns "manufacturing disabled" and skips fetch when guild config shows it disabled at tick time', async () => {
+    const { scheduleManufacturingKeepalives, runTaskByIndex, mocks } = await setupMocks(
+      makeGuildConfig({ manufacturingEnabled: false }),
+    );
+    const client = makeClient();
+
+    scheduleManufacturingKeepalives(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await runTaskByIndex(0);
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('manufacturing disabled'),
+      expect.any(Object),
+    );
+    expect(client.channels.fetch).not.toHaveBeenCalled();
+  });
+
   it('warns and skips fetch when createOrderThreadId is null in re-fetched config', async () => {
     const { scheduleManufacturingKeepalives, runTaskByIndex, mocks } = await setupMocks(
       makeGuildConfig({ manufacturingCreateOrderThreadId: null }),
@@ -270,6 +300,22 @@ describe('rescheduleGuildKeepalive', () => {
     expect(existingTask.stop).toHaveBeenCalledTimes(1);
     expect(newTask).not.toBeNull();
     expect(newTask).not.toBe(existingTask);
+  });
+
+  it('returns null and logs info when manufacturingEnabled is false', async () => {
+    const { rescheduleGuildKeepalive, mocks } = await setupMocks();
+
+    const result = rescheduleGuildKeepalive(
+      {} as never,
+      'guild-1',
+      makeGuildConfig({ manufacturingEnabled: false }),
+    );
+
+    expect(result).toBeNull();
+    expect(mocks.info).toHaveBeenCalledWith(
+      expect.stringContaining('manufacturing disabled'),
+      expect.any(Object),
+    );
   });
 
   it('returns null and logs error when the new cron schedule is invalid', async () => {

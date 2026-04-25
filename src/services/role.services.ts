@@ -1,6 +1,7 @@
 import { ButtonInteraction, Client, Guild, PermissionFlagsBits } from 'discord.js';
 import { getLogger } from '../utils/logger.js';
 import type { GuildConfig } from '../domain/guild-config/guild-config.service.js';
+import { DEFAULT_ROLE_NAMES } from '../config/roles.config.js';
 
 const logger = getLogger();
 
@@ -89,7 +90,7 @@ export async function addMissingDefaultRoles(
 ): Promise<void> {
   const roleNames = guildConfig
     ? [guildConfig.verifiedRoleName, guildConfig.tempMemberRoleName, guildConfig.potentialApplicantRoleName]
-    : ['Verified', 'Temporary Member', 'Potential Applicant'];
+    : [...DEFAULT_ROLE_NAMES];
   logger.info(`[${guild.name}] Checking required roles: ${roleNames.join(', ')}`);
 
   try {

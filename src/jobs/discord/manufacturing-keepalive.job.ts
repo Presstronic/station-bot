@@ -14,7 +14,12 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
       try {
         const guildConfig = await getGuildConfigOrNull(guildId);
 
-        if (!guildConfig?.manufacturingEnabled) {
+        if (guildConfig === null) {
+          logger.warn('[manufacturing] Keep-alive: guild config unavailable or missing at tick time; skipping', { guildId });
+          return;
+        }
+
+        if (!guildConfig.manufacturingEnabled) {
           logger.warn('[manufacturing] Keep-alive: manufacturing disabled for guild at tick time; skipping', { guildId });
           return;
         }

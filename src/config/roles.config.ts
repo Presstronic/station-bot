@@ -1,4 +1,4 @@
-const DEFAULT_ROLE_NAMES = ['Verified', 'Temporary Member', 'Potential Applicant'] as const;
+export const DEFAULT_ROLE_NAMES = ['Verified', 'Temporary Member', 'Potential Applicant'] as const;
 
 const PARSED_ROLES = (process.env.DEFAULT_ROLES ?? '')
   .split(',')
