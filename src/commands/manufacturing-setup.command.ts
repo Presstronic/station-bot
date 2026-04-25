@@ -65,7 +65,14 @@ export async function handleManufacturingSetupCommand(
     return null;
   });
 
-  const forumChannelId = guildConfig?.manufacturingForumChannelId;
+  if (!guildConfig) {
+    await interaction.editReply({
+      content: 'Manufacturing is not configured for this server.',
+    });
+    return;
+  }
+
+  const forumChannelId = guildConfig.manufacturingForumChannelId;
   if (!forumChannelId) {
     await interaction.editReply({
       content: 'Manufacturing forum channel is not configured for this server.',

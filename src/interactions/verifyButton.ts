@@ -74,7 +74,14 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
     return;
   }
-  const guildConfig = await getGuildConfigOrNull(guildId);
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(guildId);
+  } catch (error) {
+    logger.error('Failed to load guild config during verify button interaction', { guildId, error });
+    await respond('Verification is temporarily unavailable. Please try again later or contact a server administrator.');
+    return;
+  }
   if (!guildConfig) {
     logger.warn('No guild config found during verify button interaction', { guildId });
     await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));

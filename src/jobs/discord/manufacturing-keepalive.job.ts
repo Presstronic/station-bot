@@ -13,7 +13,13 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
     async () => {
       try {
         const guildConfig = await getGuildConfigOrNull(guildId);
-        const createOrderThreadId = guildConfig?.manufacturingCreateOrderThreadId;
+
+        if (!guildConfig?.manufacturingEnabled) {
+          logger.warn('[manufacturing] Keep-alive: manufacturing disabled for guild at tick time; skipping', { guildId });
+          return;
+        }
+
+        const createOrderThreadId = guildConfig.manufacturingCreateOrderThreadId;
 
         if (!createOrderThreadId) {
           logger.warn('[manufacturing] Keep-alive: no createOrderThreadId configured for guild', { guildId });
@@ -64,8 +70,6 @@ export function scheduleManufacturingKeepalives(
   client: Client,
   guildConfigs: GuildConfig[],
 ): Map<string, cron.ScheduledTask> {
-  const tasks = new Map<string, cron.ScheduledTask>();
-
   for (const config of guildConfigs) {
     if (!config.manufacturingEnabled) continue;
 
@@ -79,11 +83,11 @@ export function scheduleManufacturingKeepalives(
       continue;
     }
 
-    const task = createTaskForGuild(client, guildId, manufacturingKeepaliveCronSchedule);
-    tasks.set(guildId, task);
+    activeTasks.get(guildId)?.stop();
+    createTaskForGuild(client, guildId, manufacturingKeepaliveCronSchedule);
   }
 
-  return tasks;
+  return activeTasks;
 }
 
 export function rescheduleGuildKeepalive(

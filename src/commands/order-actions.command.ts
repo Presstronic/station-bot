@@ -259,12 +259,17 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
     findById(orderId),
   ]);
 
+  if (!guildConfig?.manufacturingEnabled) {
+    await interaction.followUp({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
   if (!order) {
     await interaction.followUp({ content: 'This order could not be found.', flags: MessageFlags.Ephemeral });
     return;
   }
 
-  const isStaff = hasMfgStaffRole(interaction, guildConfig?.manufacturingRoleId ?? null);
+  const isStaff = hasMfgStaffRole(interaction, guildConfig.manufacturingRoleId ?? null);
   const isOwner = order.discordUserId === interaction.user.id;
 
   if (!isOwner && !isStaff) {
@@ -319,7 +324,12 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
 
   const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
 
-  if (!hasMfgStaffRole(interaction, guildConfig?.manufacturingRoleId ?? null)) {
+  if (!guildConfig?.manufacturingEnabled) {
+    await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (!hasMfgStaffRole(interaction, guildConfig.manufacturingRoleId ?? null)) {
     await interaction.reply({
       content: 'You do not have permission to perform this action.',
       flags: MessageFlags.Ephemeral,
@@ -343,7 +353,7 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
-  await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup'], guildConfig?.manufacturingStaffChannelId ?? null);
+  await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup'], guildConfig.manufacturingStaffChannelId ?? null);
 }
 
 // ---------------------------------------------------------------------------
@@ -388,7 +398,12 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
 
   const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
 
-  if (!hasMfgStaffRole(interaction, guildConfig?.manufacturingRoleId ?? null)) {
+  if (!guildConfig?.manufacturingEnabled) {
+    await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
+    return;
+  }
+
+  if (!hasMfgStaffRole(interaction, guildConfig.manufacturingRoleId ?? null)) {
     await interaction.reply({
       content: 'You do not have permission to perform this action.',
       flags: MessageFlags.Ephemeral,
@@ -420,5 +435,5 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
-  await applyTransition(interaction, orderId, order.status, toStatus, guildConfig?.manufacturingStaffChannelId ?? null);
+  await applyTransition(interaction, orderId, order.status, toStatus, guildConfig.manufacturingStaffChannelId ?? null);
 }
