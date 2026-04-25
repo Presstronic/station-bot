@@ -141,6 +141,10 @@ async function loadIndexAndRunReady(
     MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
     MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
   }));
+  const seedGuildConfigsFromEnv = jest.fn(async () => undefined);
+  await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+    seedGuildConfigsFromEnv,
+  }));
   await jest.unstable_mockModule('discord.js', () => {
     class MockClient {
       guilds = {
@@ -196,6 +200,7 @@ async function loadIndexAndRunReady(
     startNominationCheckWorkerLoop,
     buildStartupBanner,
     logger,
+    seedGuildConfigsFromEnv,
   };
 }
 
@@ -207,6 +212,7 @@ describe('startup wiring with read-only mode', () => {
       scheduleTemporaryMemberCleanup,
       schedulePotentialApplicantCleanup,
       startNominationCheckWorkerLoop,
+      seedGuildConfigsFromEnv,
     } = await loadIndexAndRunReady('true');
 
     expect(registerAllCommands).toHaveBeenCalledTimes(1);
@@ -215,6 +221,7 @@ describe('startup wiring with read-only mode', () => {
     expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
     expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
+    expect(seedGuildConfigsFromEnv).not.toHaveBeenCalled();
   });
 
   it('runs startup side effects when BOT_READ_ONLY_MODE=false', async () => {
@@ -394,6 +401,9 @@ describe('startup wiring with read-only mode', () => {
       MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
       MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
     }));
+    await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+      seedGuildConfigsFromEnv: jest.fn(async () => undefined),
+    }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
         guilds = { cache: new Map() };
@@ -430,6 +440,105 @@ describe('startup wiring with read-only mode', () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
     expect(registerAllCommands).not.toHaveBeenCalled();
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
+    exitSpy.mockRestore();
+  });
+
+  it('fails fast when guild config seeding throws', async () => {
+    process.env.BOT_READ_ONLY_MODE = 'false';
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const registerAllCommands = jest.fn(async () => ({ passed: [], failed: [] }));
+    const ensureNominationsSchema = jest.fn(async () => undefined);
+    const isDatabaseConfigured = jest.fn(() => true);
+    const startNominationCheckWorkerLoop = jest.fn();
+    const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
+    const exitSpy = jest.spyOn(process, 'exit').mockImplementation((() => undefined) as never);
+    let readyHandler: (() => Promise<void>) | undefined;
+
+    await jest.unstable_mockModule('../bootstrap.js', () => ({}));
+    await jest.unstable_mockModule('../commands/register-commands.js', () => ({ registerAllCommands }));
+    await jest.unstable_mockModule('../services/nominations/db.js', () => ({
+      ensureNominationsSchema,
+      isDatabaseConfigured,
+      endDbPoolIfInitialized: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
+      handleInteraction: jest.fn(async () => undefined),
+      attemptFallbackReply: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
+      scheduleTemporaryMemberCleanup: jest.fn(),
+      schedulePotentialApplicantCleanup: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
+      scheduleNominationDigest: jest.fn(() => ({ stop: jest.fn() })),
+    }));
+    await jest.unstable_mockModule('../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
+      isNominationDigestEnabled: () => false,
+      validateNominationDigestConfig: () => [],
+      getNominationDigestConfig: () => ({ channelId: 'c', roleId: 'r', cronSchedule: '0 9 * * *' }),
+    }));
+    await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
+      startNominationCheckWorkerLoop,
+    }));
+    await jest.unstable_mockModule('../utils/startup-banner.js', () => ({
+      buildStartupBanner: jest.fn(() => '[startup banner]'),
+    }));
+    await jest.unstable_mockModule('../utils/permission-check.js', () => ({
+      checkBotPermissions: jest.fn(() => []),
+      notifyOwnerOfMissingPermissions: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../utils/logger.js', () => ({ getLogger: () => logger }));
+    await jest.unstable_mockModule('../utils/diagnostics.js', () => ({
+      startEventLoopMonitor: jest.fn(() => { const h = setInterval(() => undefined, 99999); h.unref(); return h; }),
+      subscribeRestEvents: jest.fn(),
+      subscribeUndiciDiagnostics: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../domain/manufacturing/manufacturing.forum.js', () => ({
+      ensureForumTags: jest.fn(async () => new Map()),
+      formatOrderPost: jest.fn(() => ''),
+      buildForumPostComponents: jest.fn(() => []),
+      ORDER_STATUS_TAG_NAMES: [],
+      MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
+      MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
+      MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+    }));
+    await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+      seedGuildConfigsFromEnv: jest.fn(async () => {
+        throw new AggregateError([new Error('DB down')], 'seeding failed');
+      }),
+    }));
+    await jest.unstable_mockModule('discord.js', () => {
+      class MockClient {
+        guilds = { cache: new Map() };
+        user = { tag: 'station-bot#0001' };
+        once(event: string, callback: () => Promise<void>) {
+          if (event === 'clientReady') readyHandler = callback;
+        }
+        on() { return undefined; }
+        destroy() { return undefined; }
+        login() { return Promise.resolve('ok'); }
+      }
+      class MockForumChannel {}
+      return {
+        Client: MockClient,
+        IntentsBitField: { Flags: { Guilds: 1, GuildMembers: 2 } },
+        MessageFlags: { Ephemeral: 64 },
+        ChannelType: { GuildForum: 15 },
+        ForumChannel: MockForumChannel,
+      };
+    });
+
+    await import('../index.js');
+    await readyHandler!();
+
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(logger.error).toHaveBeenCalledWith('Failed to seed guild configs from environment', expect.any(AggregateError));
+    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('guild config seeding failed. Aborting startup'));
+    expect(registerAllCommands).not.toHaveBeenCalled();
     exitSpy.mockRestore();
   });
 
@@ -510,6 +619,9 @@ describe('startup wiring with read-only mode', () => {
       MFG_CANCEL_ORDER_PREFIX: 'mfg-cancel-order',
       MFG_ACCEPT_ORDER_PREFIX: 'mfg-accept-order',
       MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
+    }));
+    await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+      seedGuildConfigsFromEnv: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('discord.js', () => {
       class MockClient {
