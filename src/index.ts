@@ -155,7 +155,7 @@ client.once('clientReady', async () => {
             try {
               guildConfig = await getGuildConfigOrNull(guild.id);
             } catch (error) {
-              logger.warn(`Failed to load guild config for role setup in guild ${guild.id} (${guild.name}); proceeding with defaults`, error);
+              logger.warn(`Failed to load guild config for role setup in guild ${guild.id} (${guild.name}); using hardcoded role-name defaults`, error);
             }
           }
           try {
@@ -247,7 +247,7 @@ client.on('guildCreate', async (guild) => {
         try {
           guildConfig = await getGuildConfigOrNull(guild.id);
         } catch (error) {
-          logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; proceeding with defaults`, error);
+          logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; using hardcoded role-name defaults`, error);
         }
       }
       try {
