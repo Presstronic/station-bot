@@ -284,6 +284,21 @@ describe('handleManufacturingSetupCommand', () => {
     expect(i.reply).not.toHaveBeenCalled();
   });
 
+  it('replies with a warning when upsertGuildConfig fails after thread creation', async () => {
+    const { handleManufacturingSetupCommand, mockUpsertGuildConfig } = await setupMocks();
+    mockUpsertGuildConfig.mockRejectedValueOnce(new Error('DB connection lost'));
+    const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
+    const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
+    const i = makeInteraction({ channelFetch });
+    await handleManufacturingSetupCommand(i as never);
+
+    expect(threadsCreate).toHaveBeenCalledTimes(1);
+    expect(mockUpsertGuildConfig).toHaveBeenCalledTimes(1);
+    expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/could not be saved/i),
+    });
+  });
+
   it('uses custom post title and message from guild config', async () => {
     const { handleManufacturingSetupCommand } = await setupMocks({
       guildConfigOverrides: {

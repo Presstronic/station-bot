@@ -152,13 +152,17 @@ export async function handleManufacturingSetupCommand(
     return;
   }
 
+  let threadIdSaved = true;
   try {
     await upsertGuildConfig(guildId, { manufacturingCreateOrderThreadId: thread.id });
   } catch (error) {
+    threadIdSaved = false;
     logger.warn('[manufacturing] Failed to save Create Order thread ID to guild config', { error });
   }
 
   await interaction.editReply({
-    content: '✅ Manufacturing channel set up.',
+    content: threadIdSaved
+      ? '✅ Manufacturing channel set up.'
+      : '⚠️ Create Order thread was created, but the configuration could not be saved. Manufacturing setup is incomplete; please retry or check database connectivity.',
   });
 }
