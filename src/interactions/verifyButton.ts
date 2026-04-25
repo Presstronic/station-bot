@@ -88,6 +88,12 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
 
+  if (!guildConfig.verificationEnabled) {
+    logger.warn('Verification disabled for guild during verify button interaction', { guildId });
+    await respond('Verification is not currently enabled for this server. Please contact an administrator.');
+    return;
+  }
+
   try {
     const { verified: rsiProfileVerified, canonicalHandle } = await verifyRSIProfile(interaction.user.id);
     logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
