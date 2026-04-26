@@ -232,7 +232,7 @@ describe('scheduleManufacturingKeepalives', () => {
 
     expect(mocks.warn).toHaveBeenCalledWith(
       expect.stringContaining('not found or is not accessible'),
-      expect.any(Object),
+      expect.objectContaining({ guildId: 'guild-1' }),
     );
   });
 
@@ -246,7 +246,7 @@ describe('scheduleManufacturingKeepalives', () => {
 
     expect(mocks.warn).toHaveBeenCalledWith(
       expect.stringContaining('not a thread'),
-      expect.any(Object),
+      expect.objectContaining({ guildId: 'guild-1' }),
     );
   });
 
@@ -263,7 +263,7 @@ describe('scheduleManufacturingKeepalives', () => {
 
     expect(mocks.warn).toHaveBeenCalledWith(
       expect.stringContaining('failed to fetch'),
-      expect.any(Object),
+      expect.objectContaining({ guildId: 'guild-1' }),
     );
   });
 

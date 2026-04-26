@@ -60,10 +60,16 @@ export async function handleManufacturingSetupCommand(
   }
 
   const guildId = interaction.guildId ?? '';
-  const guildConfig = await getGuildConfigOrNull(guildId).catch((err) => {
-    logger.error('[manufacturing] Failed to load guild config during setup', { err });
-    return null;
-  });
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(guildId);
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config during setup', { guildId, error });
+    await interaction.editReply({
+      content: 'Manufacturing setup is temporarily unavailable. Please try again later or contact a server administrator.',
+    });
+    return;
+  }
 
   if (!guildConfig) {
     await interaction.editReply({
