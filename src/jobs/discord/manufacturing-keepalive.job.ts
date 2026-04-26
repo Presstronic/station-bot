@@ -32,19 +32,20 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
         }
 
         const thread = await client.channels.fetch(createOrderThreadId).catch((error: unknown) => {
-          logger.warn('[manufacturing] Keep-alive: failed to fetch Create Order thread', { createOrderThreadId, error });
+          logger.warn('[manufacturing] Keep-alive: failed to fetch Create Order thread', { guildId, createOrderThreadId, error });
           return null;
         });
 
         if (!thread) {
           logger.warn('[manufacturing] Keep-alive: Create Order thread was not found or is not accessible', {
+            guildId,
             createOrderThreadId,
           });
           return;
         }
 
         if (!thread.isThread()) {
-          logger.warn('[manufacturing] Keep-alive: channel is not a thread', { createOrderThreadId });
+          logger.warn('[manufacturing] Keep-alive: channel is not a thread', { guildId, createOrderThreadId });
           return;
         }
 

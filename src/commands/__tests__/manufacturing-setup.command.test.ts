@@ -168,6 +168,18 @@ describe('handleManufacturingSetupCommand', () => {
     expect(threadsCreate).not.toHaveBeenCalled();
   });
 
+  it('defers and edits with a temporarily-unavailable message when getGuildConfigOrNull throws', async () => {
+    const { handleManufacturingSetupCommand, mockGetGuildConfigOrNull } = await setupMocks();
+    mockGetGuildConfigOrNull.mockRejectedValueOnce(new Error('DB connection lost'));
+    const i = makeInteraction();
+    await handleManufacturingSetupCommand(i as never);
+
+    expect(i.deferReply).toHaveBeenCalledTimes(1);
+    expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/temporarily unavailable/i),
+    });
+  });
+
   it('defers and edits with a config error when forumChannelId is not set', async () => {
     const { handleManufacturingSetupCommand } = await setupMocks({
       guildConfigOverrides: { manufacturingForumChannelId: null },
