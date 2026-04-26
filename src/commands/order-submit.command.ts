@@ -346,36 +346,36 @@ export async function handleOrderItemModal(
     return;
   }
 
+  // Acknowledge before any async work — modal submit has the same ~3s window as button interactions.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
   const items = session.items;
 
   let maxItemsPerOrder = 10;
   try {
     const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
     if (guildConfig === null) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'Manufacturing is not configured for this server. Please contact staff.',
-        flags: MessageFlags.Ephemeral,
       });
       return;
     }
     if (!guildConfig.manufacturingEnabled) {
-      await interaction.reply({
+      await interaction.editReply({
         content: 'Manufacturing orders are currently disabled in this server.',
-        flags: MessageFlags.Ephemeral,
       });
       return;
     }
     maxItemsPerOrder = guildConfig.manufacturingMaxItemsPerOrder;
   } catch (error) {
     logger.error('[manufacturing] Failed to load guild config in order item modal', { guildId: interaction.guildId, error });
-    await interaction.reply({ content: 'Unable to load server order settings right now. Please try again in a moment.', flags: MessageFlags.Ephemeral });
+    await interaction.editReply({ content: 'Unable to load server order settings right now. Please try again in a moment.' });
     return;
   }
 
   if (items.length >= maxItemsPerOrder) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `You can only add up to ${maxItemsPerOrder} items to an order.`,
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -387,18 +387,16 @@ export async function handleOrderItemModal(
   const note = noteRaw.length > 0 ? noteRaw : null;
 
   if (itemName.length === 0 || priorityStat.length === 0) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Item name and priority stat are required and cannot be empty.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   const quantity = parseInt(quantityStr, 10);
   if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 99999) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Quantity must be a positive whole number between 1 and 99,999.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -409,16 +407,13 @@ export async function handleOrderItemModal(
   const itemCollectionComponents = buildItemCollectionComponents(sessionId, items.length, maxItemsPerOrder);
 
   if (!session.replyInteraction) {
-    // First item — create the ephemeral message and store the interaction for future edits.
-    await interaction.reply({
+    // First item — populate the deferred reply to create the item-collection UI and store the interaction for future edits.
+    await interaction.editReply({
       content: itemCollectionContent,
       components: itemCollectionComponents,
-      flags: MessageFlags.Ephemeral,
     });
     session.replyInteraction = interaction;
   } else {
-    // Acknowledge the new modal interaction first to stay within Discord's 3s response window.
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     // Edit the existing ephemeral message in place so only one UI is visible.
     await session.replyInteraction.editReply({
       content: itemCollectionContent,
