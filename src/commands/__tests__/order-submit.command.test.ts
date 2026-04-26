@@ -145,12 +145,14 @@ async function setupMocks(overrides: {
   updateForumThreadId?: jest.Mock;
   updateStaffThreadId?: jest.Mock;
   guildConfigOverrides?: Partial<GuildConfig>;
+  getGuildConfigOrNull?: jest.Mock;
 } = {}) {
   const hasRole = overrides.hasRole ?? true;
   const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
   const databaseConfigured = overrides.databaseConfigured ?? true;
   const activeCount = overrides.activeCount ?? 0;
   const guildConfig = makeGuildConfig(overrides.guildConfigOverrides);
+  const getGuildConfigOrNullMock = overrides.getGuildConfigOrNull ?? jest.fn(async () => guildConfig);
 
   const warnMock = jest.fn();
   jest.unstable_mockModule('../../utils/logger.js', () => ({
@@ -179,7 +181,7 @@ async function setupMocks(overrides: {
   }));
 
   jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
-    getGuildConfigOrNull: jest.fn(async () => guildConfig),
+    getGuildConfigOrNull: getGuildConfigOrNullMock,
     getAllGuildConfigs: jest.fn(async () => []),
     isFeatureEnabledForGuild: jest.fn(() => false),
     upsertGuildConfig: jest.fn(async () => guildConfig),
@@ -232,7 +234,7 @@ async function setupMocks(overrides: {
 
   const mod = await import('../order-submit.command.js');
   latestCleanup = mod.teardownOrderSubmitCommandForTests;
-  return { ...mod, submitOrderMock, updateForumThreadIdMock, updateStaffThreadIdMock, warnMock };
+  return { ...mod, submitOrderMock, updateForumThreadIdMock, updateStaffThreadIdMock, warnMock, getGuildConfigOrNullMock };
 }
 
 // Helper: run the slash command to create a session, then return the session ID
@@ -698,17 +700,15 @@ describe('handleOrderButtonInteraction', () => {
     expect(modal.data.custom_id).toBe(`${h.ITEM_MODAL_PREFIX}:add-btn`);
   });
 
-  it('updates with a limit message when Add Item is clicked at max items', async () => {
+  it('shows a modal when Add Item is clicked even at max items (authoritative check is in handleOrderItemModal)', async () => {
     const h = await setupMocks(); // maxItemsPerOrder = 3
     await createSession(h, 'max-btn');
     for (let n = 0; n < 3; n++) await addItemToSession(h, 'max-btn', `Item${n}`);
 
     const btn = makeButtonInteraction(`${h.ADD_ITEM_BUTTON_PREFIX}:max-btn`);
     await h.handleOrderButtonInteraction(btn as any);
-    expect(btn.update).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.stringMatching(/maximum/i) }),
-    );
-    expect(btn.showModal).not.toHaveBeenCalled();
+    expect(btn.showModal).toHaveBeenCalledTimes(1);
+    expect(btn.update).not.toHaveBeenCalled();
   });
 
   it('creates the order and forum post on Submit Order', async () => {
@@ -733,6 +733,48 @@ describe('handleOrderButtonInteraction', () => {
     expect(updateForumThreadIdMock).toHaveBeenCalledWith(99, 'thread-id');
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Order #99/i) }),
+    );
+  });
+
+  it('edits reply with a temporarily-unavailable message when getGuildConfigOrNull throws on submit', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'cfg-throw');
+    await addItemToSession(h, 'cfg-throw');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => { throw new Error('DB error'); });
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:cfg-throw`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/temporarily unavailable/i) }),
+    );
+  });
+
+  it('edits reply with a temporarily-unavailable message when guild config is null on submit', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'cfg-null');
+    await addItemToSession(h, 'cfg-null');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => null);
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:cfg-null`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/temporarily unavailable/i) }),
+    );
+  });
+
+  it('edits reply with a disabled message when manufacturingEnabled is false on submit', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'cfg-disabled');
+    await addItemToSession(h, 'cfg-disabled');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => makeGuildConfig({ manufacturingEnabled: false }));
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:cfg-disabled`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/disabled/i) }),
     );
   });
 

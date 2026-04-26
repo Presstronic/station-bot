@@ -120,6 +120,7 @@ async function setupMocks(overrides: {
   transitionStatus?: jest.Mock;
   cancelOrder?: jest.Mock;
   manufacturingEnabled?: boolean;
+  getGuildConfigOrNull?: jest.Mock;
 } = {}) {
   const findByIdMock = overrides.findById ?? jest.fn(async () => makeOrder());
   const updateStatusMock = overrides.updateStatus ?? jest.fn(async (_id: number, status: string) =>
@@ -132,13 +133,14 @@ async function setupMocks(overrides: {
     makeOrder({ status: 'cancelled' }),
   );
   const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
+  const getGuildConfigOrNullMock = overrides.getGuildConfigOrNull ?? jest.fn(async () => makeGuildConfig());
 
   jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
     isManufacturingEnabled: () => manufacturingEnabled,
   }));
 
   jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
-    getGuildConfigOrNull: jest.fn(async () => makeGuildConfig()),
+    getGuildConfigOrNull: getGuildConfigOrNullMock,
     getAllGuildConfigs: jest.fn(async () => []),
     isFeatureEnabledForGuild: jest.fn(() => false),
     upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
@@ -225,7 +227,7 @@ async function setupMocks(overrides: {
   }));
 
   const mod = await import('../order-actions.command.js');
-  return { ...mod, findByIdMock, updateStatusMock, transitionStatusMock, cancelOrderMock };
+  return { ...mod, findByIdMock, updateStatusMock, transitionStatusMock, cancelOrderMock, getGuildConfigOrNullMock };
 }
 
 // ---------------------------------------------------------------------------
@@ -354,12 +356,33 @@ describe('handleMfgCancelOrder', () => {
 // ---------------------------------------------------------------------------
 
 describe('handleMfgStaffCancel', () => {
-  it('replies ephemerally when actor is not staff', async () => {
+  it('defers then replies ephemerally when actor is not staff', async () => {
     const h = await setupMocks();
     const btn = makeButtonInteraction('mfg-staff-cancel:42', { userId: 'outsider', roles: [] });
     await h.handleMfgStaffCancel(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/permission/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/permission/i) }));
+    expect(btn.reply).not.toHaveBeenCalled();
+  });
+
+  it('defers then replies ephemerally when guild config fetch fails', async () => {
+    const h = await setupMocks({
+      getGuildConfigOrNull: jest.fn(async () => { throw new Error('DB error'); }),
+    });
+    const btn = makeButtonInteraction('mfg-staff-cancel:42');
+    await h.handleMfgStaffCancel(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/temporarily unavailable/i) }));
+  });
+
+  it('defers then replies ephemerally when guild config is null', async () => {
+    const h = await setupMocks({
+      getGuildConfigOrNull: jest.fn(async () => null),
+    });
+    const btn = makeButtonInteraction('mfg-staff-cancel:42');
+    await h.handleMfgStaffCancel(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/temporarily unavailable/i) }));
   });
 
   it('replies ephemerally when order is not found', async () => {
@@ -425,12 +448,33 @@ describe('handleMfgAdvance', () => {
     expect(btn.deferUpdate).not.toHaveBeenCalled();
   });
 
-  it('replies ephemerally when actor is not staff', async () => {
+  it('defers then replies ephemerally when actor is not staff', async () => {
     const h = await setupMocks();
     const btn = makeButtonInteraction('mfg-accept-order:42', { userId: 'outsider', roles: [] });
     await h.handleMfgAdvance(btn as any);
-    expect(btn.reply).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/permission/i) }));
-    expect(btn.deferUpdate).not.toHaveBeenCalled();
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/permission/i) }));
+    expect(btn.reply).not.toHaveBeenCalled();
+  });
+
+  it('defers then replies ephemerally when guild config fetch fails', async () => {
+    const h = await setupMocks({
+      getGuildConfigOrNull: jest.fn(async () => { throw new Error('DB error'); }),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/configuration.*right now|temporarily unavailable/i) }));
+  });
+
+  it('defers then replies ephemerally when guild config is null', async () => {
+    const h = await setupMocks({
+      getGuildConfigOrNull: jest.fn(async () => null),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    await h.handleMfgAdvance(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(btn.followUp).toHaveBeenCalledWith(expect.objectContaining({ content: expect.stringMatching(/temporarily unavailable/i) }));
   });
 
   it('replies ephemerally when order is not found', async () => {
