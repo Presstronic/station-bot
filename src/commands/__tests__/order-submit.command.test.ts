@@ -505,7 +505,7 @@ describe('handleOrderItemModal', () => {
     });
   });
 
-  it('replies with max-items error when the session is already full', async () => {
+  it('defers and edits reply with max-items error when the session is already full', async () => {
     const h = await setupMocks(); // maxItemsPerOrder = 3
     await createSession(h, 'full-session');
     for (let n = 0; n < 3; n++) await addItemToSession(h, 'full-session', `Item${n}`);
@@ -517,12 +517,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/3 items/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/3 items/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error for a non-numeric quantity', async () => {
+  it('defers and edits reply with a validation error for a non-numeric quantity', async () => {
     const h = await setupMocks();
     await createSession(h, 'q-err');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:q-err`, {
@@ -532,12 +534,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/positive whole number/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/positive whole number/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error for a non-positive quantity', async () => {
+  it('defers and edits reply with a validation error for a non-positive quantity', async () => {
     const h = await setupMocks();
     await createSession(h, 'q-neg');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:q-neg`, {
@@ -547,12 +551,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/positive whole number/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/positive whole number/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error when quantity exceeds 99999', async () => {
+  it('defers and edits reply with a validation error when quantity exceeds 99999', async () => {
     const h = await setupMocks();
     await createSession(h, 'q-huge');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:q-huge`, {
@@ -562,12 +568,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/99,999/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/99,999/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error when item name is blank', async () => {
+  it('defers and edits reply with a validation error when item name is blank', async () => {
     const h = await setupMocks();
     await createSession(h, 'empty-name');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:empty-name`, {
@@ -577,12 +585,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/item name and priority stat/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/item name and priority stat/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error when priority stat is blank', async () => {
+  it('defers and edits reply with a validation error when priority stat is blank', async () => {
     const h = await setupMocks();
     await createSession(h, 'empty-stat');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:empty-stat`, {
@@ -592,12 +602,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/item name and priority stat/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/item name and priority stat/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('stores the item and echoes item count in the reply', async () => {
+  it('defers and edits reply with item count after the first item is added', async () => {
     const h = await setupMocks();
     await createSession(h, 'store-test');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:store-test`, {
@@ -607,9 +619,59 @@ describe('handleOrderItemModal', () => {
       'notes': 'rush',
     });
     await h.handleOrderItemModal(modal as any);
-    const replyArg = (modal.reply as jest.Mock).mock.calls[0][0] as { content: string; components: unknown[] };
-    expect(replyArg.content).toMatch(/Item added \(1 \/ 3\)/);
-    expect(replyArg.components).toHaveLength(1);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    const editReplyArg = (modal.editReply as jest.Mock).mock.calls[0][0] as { content: string; components: unknown[] };
+    expect(editReplyArg.content).toMatch(/Item added \(1 \/ 3\)/);
+    expect(editReplyArg.components).toHaveLength(1);
+    expect(modal.reply).not.toHaveBeenCalled();
+  });
+
+  it('edits reply with a temporarily-unavailable message when getGuildConfigOrNull throws', async () => {
+    const h = await setupMocks({
+      getGuildConfigOrNull: jest.fn(async () => { throw new Error('DB error'); }),
+    });
+    await createSession(h, 'modal-db-throw');
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-db-throw`, {
+      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/right now/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
+  });
+
+  it('edits reply with a not-configured message when guild config is null', async () => {
+    const h = await setupMocks({
+      getGuildConfigOrNull: jest.fn(async () => null),
+    });
+    await createSession(h, 'modal-cfg-null');
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-null`, {
+      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/not configured/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
+  });
+
+  it('edits reply with a disabled message when manufacturingEnabled is false', async () => {
+    const h = await setupMocks({
+      getGuildConfigOrNull: jest.fn(async () => makeGuildConfig({ manufacturingEnabled: false })),
+    });
+    await createSession(h, 'modal-cfg-disabled');
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-disabled`, {
+      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/disabled/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
   it('disables the Add Item button when maxItemsPerOrder is reached', async () => {
@@ -626,7 +688,7 @@ describe('handleOrderItemModal', () => {
       modals.push(m);
       await h.handleOrderItemModal(m as any);
     }
-    // Third item goes via editReply on the first modal's interaction (second editReply call)
+    // Third item goes via editReply on the first modal's interaction (third editReply call overall)
     const editReplyCalls = (modals[0].editReply as jest.Mock).mock.calls;
     const lastEditReply = editReplyCalls[editReplyCalls.length - 1][0] as {
       components: { components: { data: { disabled: boolean; label: string } }[] }[];
@@ -643,17 +705,21 @@ describe('handleOrderItemModal', () => {
       'item-name': 'Iron Ore', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
     });
     await h.handleOrderItemModal(first as any);
-    // First item: reply() called, editReply not called
-    expect(first.reply).toHaveBeenCalledTimes(1);
-    expect(first.editReply).not.toHaveBeenCalled();
+    // First item: deferReply then editReply to create the UI; reply never called
+    expect(first.deferReply).toHaveBeenCalledTimes(1);
+    expect(first.editReply).toHaveBeenCalledTimes(1);
+    expect(first.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Item added \(1 \/ 3\)/) }),
+    );
+    expect(first.reply).not.toHaveBeenCalled();
 
     const second = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:edit-test`, {
       'item-name': 'Carbon', 'quantity': '2', 'priority-stat': 'Y', 'notes': '',
     });
     await h.handleOrderItemModal(second as any);
-    // Second item: editReply called on the FIRST interaction, not reply on the second
-    expect(first.editReply).toHaveBeenCalledTimes(1);
-    expect(first.editReply).toHaveBeenCalledWith(
+    // Second item: editReply called again on the FIRST interaction to update the UI
+    expect(first.editReply).toHaveBeenCalledTimes(2);
+    expect(first.editReply).toHaveBeenLastCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Item added \(2 \/ 3\)/) }),
     );
     expect(second.reply).not.toHaveBeenCalled();
