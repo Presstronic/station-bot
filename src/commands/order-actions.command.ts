@@ -316,7 +316,7 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
   const allowedFromStatuses: readonly OrderStatus[] = isStaff
     ? ['new', 'accepted', 'processing', 'ready_for_pickup']
     : ['new', 'accepted'];
-  await applyCancellation(interaction, orderId, allowedFromStatuses, guildConfig?.manufacturingStaffChannelId ?? null);
+  await applyCancellation(interaction, orderId, allowedFromStatuses, guildConfig.manufacturingStaffChannelId);
 }
 
 // ---------------------------------------------------------------------------
@@ -335,34 +335,34 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
+  await interaction.deferUpdate();
+
   let guildConfig;
   try {
     guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
   } catch (error) {
     logger.error('[manufacturing] Failed to load guild config for staff cancellation', { orderId, guildId: interaction.guildId, error });
-    await interaction.reply({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (!guildConfig) {
-    await interaction.reply({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (!guildConfig.manufacturingEnabled) {
-    await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (!hasMfgStaffRole(interaction, guildConfig.manufacturingRoleId ?? null)) {
-    await interaction.reply({
+    await interaction.followUp({
       content: 'You do not have permission to perform this action.',
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
-
-  await interaction.deferUpdate();
 
   const order = await findById(orderId);
   if (!order) {
@@ -378,7 +378,7 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
     return;
   }
 
-  await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup'], guildConfig.manufacturingStaffChannelId ?? null);
+  await applyCancellation(interaction, orderId, ['new', 'accepted', 'processing', 'ready_for_pickup'], guildConfig.manufacturingStaffChannelId);
 }
 
 // ---------------------------------------------------------------------------
@@ -421,34 +421,34 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
+  await interaction.deferUpdate();
+
   let guildConfig;
   try {
     guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
   } catch (error) {
     logger.error('[manufacturing] Failed to load guild config for advance action', { guildId: interaction.guildId, customId: interaction.customId, error });
-    await interaction.reply({ content: 'Unable to verify manufacturing configuration right now. Please try again later.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Unable to verify manufacturing configuration right now. Please try again later.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (!guildConfig) {
-    await interaction.reply({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Manufacturing is temporarily unavailable. Please try again later.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (!guildConfig.manufacturingEnabled) {
-    await interaction.reply({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
+    await interaction.followUp({ content: 'Manufacturing is not currently available.', flags: MessageFlags.Ephemeral });
     return;
   }
 
   if (!hasMfgStaffRole(interaction, guildConfig.manufacturingRoleId ?? null)) {
-    await interaction.reply({
+    await interaction.followUp({
       content: 'You do not have permission to perform this action.',
       flags: MessageFlags.Ephemeral,
     });
     return;
   }
-
-  await interaction.deferUpdate();
 
   const order = await findById(orderId);
   if (!order) {
@@ -472,5 +472,5 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
     return;
   }
 
-  await applyTransition(interaction, orderId, order.status, toStatus, guildConfig.manufacturingStaffChannelId ?? null);
+  await applyTransition(interaction, orderId, order.status, toStatus, guildConfig.manufacturingStaffChannelId);
 }

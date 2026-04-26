@@ -445,38 +445,9 @@ export async function handleOrderButtonInteraction(
     return;
   }
 
-  let guildConfig;
-  try {
-    guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
-  } catch (error) {
-    logger.error('[manufacturing] Failed to load guild config for order button interaction', { guildId: interaction.guildId, error });
-    await interaction.update({ content: 'Order submission is temporarily unavailable. Please try again later.', components: [] });
-    return;
-  }
-
-  if (!guildConfig) {
-    await interaction.update({
-      content: 'Order submission is temporarily unavailable for this server. Please try again later.',
-      components: [],
-    });
-    return;
-  }
-
-  if (!guildConfig.manufacturingEnabled) {
-    await interaction.update({ content: 'Manufacturing orders are currently disabled in this server.', components: [] });
-    return;
-  }
-
-  const maxItemsPerOrder = guildConfig.manufacturingMaxItemsPerOrder;
-
   if (prefix === ADD_ITEM_BUTTON_PREFIX) {
-    if (items.length >= maxItemsPerOrder) {
-      await interaction.update({
-        content: `You have reached the maximum of ${maxItemsPerOrder} items per order.`,
-        components: [],
-      });
-      return;
-    }
+    // Skip the DB round-trip for add-item — the button is already disabled in the UI
+    // at max, and the authoritative per-item limit check lives in handleOrderItemModal.
     await interaction.showModal(
       buildItemModal(`${ITEM_MODAL_PREFIX}:${sessionId}`, items.length + 1),
     );
@@ -488,7 +459,7 @@ export async function handleOrderButtonInteraction(
   if (items.length === 0) {
     await interaction.update({
       content: 'Please add at least one item before submitting.',
-      components: buildItemCollectionComponents(sessionId, 0, maxItemsPerOrder),
+      components: buildItemCollectionComponents(sessionId, 0, items.length + 1),
     });
     return;
   }
@@ -501,9 +472,31 @@ export async function handleOrderButtonInteraction(
   await interaction.deferUpdate();
 
   try {
+    let guildConfig;
+    try {
+      guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+    } catch (error) {
+      logger.error('[manufacturing] Failed to load guild config for order button interaction', { guildId: interaction.guildId, error });
+      await interaction.editReply({ content: 'Order submission is temporarily unavailable. Please try again later.', components: [] });
+      return;
+    }
+
+    if (!guildConfig) {
+      await interaction.editReply({
+        content: 'Order submission is temporarily unavailable for this server. Please try again later.',
+        components: [],
+      });
+      return;
+    }
+
+    if (!guildConfig.manufacturingEnabled) {
+      await interaction.editReply({ content: 'Manufacturing orders are currently disabled in this server.', components: [] });
+      return;
+    }
+
     // Validate the forum channel before persisting the order so a misconfigured
     // channel ID never produces an orphaned order that can't be managed.
-    const forumChannelId = guildConfig?.manufacturingForumChannelId;
+    const forumChannelId = guildConfig.manufacturingForumChannelId;
     if (!forumChannelId) {
       logger.error('[manufacturing] Forum channel is not configured');
       await interaction.editReply({
@@ -532,7 +525,7 @@ export async function handleOrderButtonInteraction(
       interaction.user.id,
       interaction.user.username,
       submittedItems,
-      guildConfig?.manufacturingOrderLimit ?? 5,
+      guildConfig.manufacturingOrderLimit,
     );
 
     let tagIds: Map<string, string> | undefined;
@@ -594,8 +587,8 @@ export async function handleOrderButtonInteraction(
       });
     }
 
-    const manufacturingRoleId = guildConfig?.manufacturingRoleId ?? null;
-    const staffChannelId = guildConfig?.manufacturingStaffChannelId ?? null;
+    const manufacturingRoleId = guildConfig.manufacturingRoleId;
+    const staffChannelId = guildConfig.manufacturingStaffChannelId;
     if (manufacturingRoleId) {
       try {
         await thread.send({
