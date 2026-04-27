@@ -14,7 +14,8 @@ import {
   type ForumChannel,
   type ThreadChannel,
 } from 'discord.js';
-import { getManufacturingConfig, isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
 import { submitOrder } from '../domain/manufacturing/manufacturing.service.js';
 import {
   countActiveByUserId,
@@ -180,11 +181,59 @@ export async function triggerOrderModal(
     return;
   }
 
+  if (!interaction.inGuild()) {
+    await interaction.reply({
+      content: 'This command can only be used in a server.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (!isDatabaseConfigured()) {
+    await interaction.reply({
+      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config for order modal', { guildId: interaction.guildId, error });
+    await interaction.reply({
+      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (!guildConfig) {
+    await interaction.reply({
+      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  if (!guildConfig.manufacturingEnabled) {
+    await interaction.reply({
+      content: 'Manufacturing orders are not currently available.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   const userId = interaction.user.id;
   const now = Date.now();
   const oneHourAgo = now - 60 * 60 * 1000;
   const fiveMinutesAgo = now - 5 * 60 * 1000;
-  const { orderRateLimitPer5Min, orderRateLimitPerHour, orderLimit } = getManufacturingConfig();
+  const {
+    manufacturingOrderRateLimitPer5Min: orderRateLimitPer5Min,
+    manufacturingOrderRateLimitPerHour: orderRateLimitPerHour,
+    manufacturingOrderLimit: orderLimit,
+  } = guildConfig;
 
   const submitEntries = (orderSubmitTimestamps.get(userId) ?? []).filter(e => e.ts > oneHourAgo);
   if (submitEntries.length > 0) {
@@ -209,26 +258,6 @@ export async function triggerOrderModal(
     const minutesRemaining = Math.ceil((limitingTs + 60 * 60 * 1000 - now) / (60 * 1000));
     await interaction.reply({
       content: `You've reached the hourly order submission limit. Please try again in ${minutesRemaining} minute(s).`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  // Run cheap sync guards before reserving the rate-limit slot. Because these
-  // checks never yield to the event loop they cannot create a window where a
-  // concurrent invocation sees a pending reservation that later rolls back and
-  // produces a false-positive rate-limit rejection for an ineligible attempt.
-  if (!interaction.inGuild()) {
-    await interaction.reply({
-      content: 'This command can only be used in a server.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (!isDatabaseConfigured()) {
-    await interaction.reply({
-      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -317,13 +346,36 @@ export async function handleOrderItemModal(
     return;
   }
 
+  // Acknowledge before any async work — modal submit has the same ~3s window as button interactions.
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
   const items = session.items;
 
-  const { maxItemsPerOrder } = getManufacturingConfig();
+  let maxItemsPerOrder = 10;
+  try {
+    const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+    if (guildConfig === null) {
+      await interaction.editReply({
+        content: 'Manufacturing is not configured for this server. Please contact staff.',
+      });
+      return;
+    }
+    if (!guildConfig.manufacturingEnabled) {
+      await interaction.editReply({
+        content: 'Manufacturing orders are currently disabled in this server.',
+      });
+      return;
+    }
+    maxItemsPerOrder = guildConfig.manufacturingMaxItemsPerOrder;
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config in order item modal', { guildId: interaction.guildId, error });
+    await interaction.editReply({ content: 'Unable to load server order settings right now. Please try again in a moment.' });
+    return;
+  }
+
   if (items.length >= maxItemsPerOrder) {
-    await interaction.reply({
+    await interaction.editReply({
       content: `You can only add up to ${maxItemsPerOrder} items to an order.`,
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -335,18 +387,16 @@ export async function handleOrderItemModal(
   const note = noteRaw.length > 0 ? noteRaw : null;
 
   if (itemName.length === 0 || priorityStat.length === 0) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Item name and priority stat are required and cannot be empty.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
   const quantity = parseInt(quantityStr, 10);
   if (!Number.isInteger(quantity) || quantity <= 0 || quantity > 99999) {
-    await interaction.reply({
+    await interaction.editReply({
       content: 'Quantity must be a positive whole number between 1 and 99,999.',
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
@@ -357,16 +407,13 @@ export async function handleOrderItemModal(
   const itemCollectionComponents = buildItemCollectionComponents(sessionId, items.length, maxItemsPerOrder);
 
   if (!session.replyInteraction) {
-    // First item — create the ephemeral message and store the interaction for future edits.
-    await interaction.reply({
+    // First item — populate the deferred reply to create the item-collection UI and store the interaction for future edits.
+    await interaction.editReply({
       content: itemCollectionContent,
       components: itemCollectionComponents,
-      flags: MessageFlags.Ephemeral,
     });
     session.replyInteraction = interaction;
   } else {
-    // Acknowledge the new modal interaction first to stay within Discord's 3s response window.
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
     // Edit the existing ephemeral message in place so only one UI is visible.
     await session.replyInteraction.editReply({
       content: itemCollectionContent,
@@ -393,16 +440,9 @@ export async function handleOrderButtonInteraction(
     return;
   }
 
-  const { maxItemsPerOrder } = getManufacturingConfig();
-
   if (prefix === ADD_ITEM_BUTTON_PREFIX) {
-    if (items.length >= maxItemsPerOrder) {
-      await interaction.update({
-        content: `You have reached the maximum of ${maxItemsPerOrder} items per order.`,
-        components: [],
-      });
-      return;
-    }
+    // Skip the DB round-trip for add-item — the button is already disabled in the UI
+    // at max, and the authoritative per-item limit check lives in handleOrderItemModal.
     await interaction.showModal(
       buildItemModal(`${ITEM_MODAL_PREFIX}:${sessionId}`, items.length + 1),
     );
@@ -414,7 +454,7 @@ export async function handleOrderButtonInteraction(
   if (items.length === 0) {
     await interaction.update({
       content: 'Please add at least one item before submitting.',
-      components: buildItemCollectionComponents(sessionId, 0, maxItemsPerOrder),
+      components: buildItemCollectionComponents(sessionId, 0, items.length + 1),
     });
     return;
   }
@@ -427,10 +467,40 @@ export async function handleOrderButtonInteraction(
   await interaction.deferUpdate();
 
   try {
+    let guildConfig;
+    try {
+      guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+    } catch (error) {
+      logger.error('[manufacturing] Failed to load guild config for order button interaction', { guildId: interaction.guildId, error });
+      await interaction.editReply({ content: 'Order submission is temporarily unavailable. Please try again later.', components: [] });
+      return;
+    }
+
+    if (!guildConfig) {
+      await interaction.editReply({
+        content: 'Order submission is temporarily unavailable for this server. Please try again later.',
+        components: [],
+      });
+      return;
+    }
+
+    if (!guildConfig.manufacturingEnabled) {
+      await interaction.editReply({ content: 'Manufacturing orders are currently disabled in this server.', components: [] });
+      return;
+    }
+
     // Validate the forum channel before persisting the order so a misconfigured
     // channel ID never produces an orphaned order that can't be managed.
-    const { forumChannelId } = getManufacturingConfig();
-    const channel = await interaction.client.channels.fetch(forumChannelId);
+    const forumChannelId = guildConfig.manufacturingForumChannelId;
+    if (!forumChannelId) {
+      logger.error('[manufacturing] Forum channel is not configured');
+      await interaction.editReply({
+        content: 'Manufacturing is not configured correctly (forum channel unavailable). Please contact staff.',
+        components: [],
+      });
+      return;
+    }
+    const channel = await interaction.client.channels.fetch(forumChannelId).catch(() => null);
 
     if (!channel || channel.type !== ChannelType.GuildForum) {
       logger.error(
@@ -450,6 +520,7 @@ export async function handleOrderButtonInteraction(
       interaction.user.id,
       interaction.user.username,
       submittedItems,
+      guildConfig.manufacturingOrderLimit,
     );
 
     let tagIds: Map<string, string> | undefined;
@@ -511,7 +582,8 @@ export async function handleOrderButtonInteraction(
       });
     }
 
-    const { manufacturingRoleId, staffChannelId } = getManufacturingConfig();
+    const manufacturingRoleId = guildConfig.manufacturingRoleId;
+    const staffChannelId = guildConfig.manufacturingStaffChannelId;
     if (manufacturingRoleId) {
       try {
         await thread.send({

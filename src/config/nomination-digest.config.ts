@@ -18,39 +18,6 @@ function envFlag(name: string, defaultValue = false): boolean {
   return defaultValue;
 }
 
-export interface NominationDigestConfig {
-  channelId: string;
-  roleId: string;
-  cronSchedule: string;
-}
-
 export function isNominationDigestEnabled(): boolean {
   return envFlag('NOMINATION_DIGEST_ENABLED', false);
-}
-
-export function getNominationDigestConfig(): NominationDigestConfig {
-  return {
-    channelId: (process.env.NOMINATION_DIGEST_CHANNEL_ID ?? '').trim(),
-    roleId: (process.env.NOMINATION_DIGEST_ROLE_ID ?? '').trim(),
-    cronSchedule: process.env.NOMINATION_DIGEST_CRON_SCHEDULE?.trim() || '0 9 * * *',
-  };
-}
-
-export function validateNominationDigestConfig(): string[] {
-  if (!isNominationDigestEnabled()) {
-    return [];
-  }
-
-  const config = getNominationDigestConfig();
-  const errors: string[] = [];
-
-  if (!config.channelId) {
-    errors.push('NOMINATION_DIGEST_CHANNEL_ID is required when NOMINATION_DIGEST_ENABLED=true');
-  }
-
-  if (!config.roleId) {
-    errors.push('NOMINATION_DIGEST_ROLE_ID is required when NOMINATION_DIGEST_ENABLED=true');
-  }
-
-  return errors;
 }

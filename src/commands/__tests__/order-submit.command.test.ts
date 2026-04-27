@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import type { ManufacturingOrder } from '../../domain/manufacturing/types.js';
+import type { GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 
 let latestCleanup: (() => void) | undefined;
 
@@ -16,16 +17,42 @@ afterEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const BASE_CONFIG = {
-  forumChannelId: 'forum-ch',
-  staffChannelId: 'staff-ch',
-  manufacturingRoleId: 'mfg-role',
-  organizationMemberRoleId: 'org-role',
-  orderLimit: 5,
-  maxItemsPerOrder: 3,
-  orderRateLimitPer5Min: 10,  // high default so existing tests never hit the rate limit
-  orderRateLimitPerHour: 100,
-};
+function makeGuildConfig(overrides: Partial<GuildConfig> = {}): GuildConfig {
+  return {
+    guildId: 'guild-1',
+    verificationEnabled: true,
+    verifiedRoleName: 'Verified',
+    tempMemberRoleName: 'Temporary Member',
+    potentialApplicantRoleName: 'Potential Applicant',
+    orgMemberRoleId: null,
+    orgMemberRoleName: null,
+    nominationDigestEnabled: false,
+    nominationDigestChannelId: null,
+    nominationDigestRoleId: null,
+    nominationDigestCronSchedule: '0 9 * * *',
+    manufacturingEnabled: true,
+    manufacturingForumChannelId: 'forum-ch',
+    manufacturingStaffChannelId: 'staff-ch',
+    manufacturingRoleId: 'mfg-role',
+    manufacturingCreateOrderThreadId: null,
+    manufacturingOrderLimit: 5,
+    manufacturingMaxItemsPerOrder: 3, // low default so max-items tests work
+    manufacturingOrderRateLimitPer5Min: 10, // high default so tests never hit rate limit
+    manufacturingOrderRateLimitPerHour: 100,
+    manufacturingCreateOrderPostTitle: '📋 Create Order',
+    manufacturingCreateOrderPostMessage: 'Click the button below to submit a new manufacturing order.',
+    manufacturingKeepaliveCronSchedule: '0 6 * * *',
+    purgeJobsEnabled: false,
+    tempMemberHoursToExpire: 48,
+    tempMemberPurgeCronSchedule: '0 3 * * *',
+    birthdayEnabled: false,
+    birthdayChannelId: null,
+    birthdayCronSchedule: '0 12 * * *',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
 function makeOrder(overrides: Partial<ManufacturingOrder> = {}): ManufacturingOrder {
   return {
@@ -117,13 +144,15 @@ async function setupMocks(overrides: {
   submitOrder?: jest.Mock;
   updateForumThreadId?: jest.Mock;
   updateStaffThreadId?: jest.Mock;
-  configOverrides?: Partial<typeof BASE_CONFIG>;
+  guildConfigOverrides?: Partial<GuildConfig>;
+  getGuildConfigOrNull?: jest.Mock;
 } = {}) {
   const hasRole = overrides.hasRole ?? true;
   const manufacturingEnabled = overrides.manufacturingEnabled ?? true;
   const databaseConfigured = overrides.databaseConfigured ?? true;
   const activeCount = overrides.activeCount ?? 0;
-  const config = { ...BASE_CONFIG, ...overrides.configOverrides };
+  const guildConfig = makeGuildConfig(overrides.guildConfigOverrides);
+  const getGuildConfigOrNullMock = overrides.getGuildConfigOrNull ?? jest.fn(async () => guildConfig);
 
   const warnMock = jest.fn();
   jest.unstable_mockModule('../../utils/logger.js', () => ({
@@ -148,9 +177,14 @@ async function setupMocks(overrides: {
   }));
 
   jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
-    getManufacturingConfig: () => config,
     isManufacturingEnabled: () => manufacturingEnabled,
-    validateManufacturingConfig: () => [],
+  }));
+
+  jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
+    getGuildConfigOrNull: getGuildConfigOrNullMock,
+    getAllGuildConfigs: jest.fn(async () => []),
+    isFeatureEnabledForGuild: jest.fn(() => false),
+    upsertGuildConfig: jest.fn(async () => guildConfig),
   }));
 
   const submitOrderMock = overrides.submitOrder ?? jest.fn(async () => makeOrder());
@@ -200,7 +234,7 @@ async function setupMocks(overrides: {
 
   const mod = await import('../order-submit.command.js');
   latestCleanup = mod.teardownOrderSubmitCommandForTests;
-  return { ...mod, submitOrderMock, updateForumThreadIdMock, updateStaffThreadIdMock, warnMock };
+  return { ...mod, submitOrderMock, updateForumThreadIdMock, updateStaffThreadIdMock, warnMock, getGuildConfigOrNullMock };
 }
 
 // Helper: run the slash command to create a session, then return the session ID
@@ -275,7 +309,7 @@ describe('handleOrderCommand', () => {
   });
 
   it('replies with an active-order limit error including the count when limit is reached', async () => {
-    const h = await setupMocks({ activeCount: 5, configOverrides: { orderLimit: 5 } });
+    const h = await setupMocks({ activeCount: 5, guildConfigOverrides: { manufacturingOrderLimit: 5 } });
     const i = makeSlashInteraction();
     await h.handleOrderCommand(i as any);
     const reply = (i.reply as jest.Mock).mock.calls[0][0] as { content: string };
@@ -341,7 +375,7 @@ describe('triggerOrderModal (button interaction)', () => {
     jest.useFakeTimers();
     jest.setSystemTime(1_700_000_000_000);
     try {
-      const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+      const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 5 } });
 
       const makeBtn = (id: string) => ({
         inGuild: () => true,
@@ -385,7 +419,7 @@ describe('handleOrderCommand — rate limiting', () => {
   });
 
   it('first submission in a fresh window passes through', async () => {
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 5 } });
     const i = makeSlashInteraction({ id: 'sess-1' });
     await h.handleOrderCommand(i as any);
     expect(i.showModal).toHaveBeenCalledTimes(1);
@@ -393,7 +427,7 @@ describe('handleOrderCommand — rate limiting', () => {
   });
 
   it('second submission within 5 minutes is rejected with the per-5-min message and seconds remaining', async () => {
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 5 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 5 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any);
 
     jest.setSystemTime(base + 60_000); // 60 s later — still inside the 5-min window
@@ -410,7 +444,7 @@ describe('handleOrderCommand — rate limiting', () => {
 
   it('submission after the hourly cap is hit is rejected with the hourly message and minutes remaining', async () => {
     // Two calls spaced 6 min apart so each clears the 5-min window; third blocked by hourly cap
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 2 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 2 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any);
 
     jest.setSystemTime(base + 6 * 60_000);
@@ -429,7 +463,7 @@ describe('handleOrderCommand — rate limiting', () => {
   });
 
   it('entries older than 60 minutes are pruned and the submission proceeds', async () => {
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 1 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 1 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-1' }) as any); // fills hourly slot
 
     jest.setSystemTime(base + 61 * 60_000); // 61 min later — stale entry pruned
@@ -443,7 +477,7 @@ describe('handleOrderCommand — rate limiting', () => {
 
   it('background sweep removes entries whose newest timestamp is older than 60 minutes', async () => {
     // Set limits to 1/1 so a submission fills the slot
-    const h = await setupMocks({ configOverrides: { orderRateLimitPer5Min: 1, orderRateLimitPerHour: 1 } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 1, manufacturingOrderRateLimitPerHour: 1 } });
     await h.handleOrderCommand(makeSlashInteraction({ id: 'sess-sweep-1' }) as any);
 
     // Advance past the hourly sweep interval — the background interval fires and removes the stale entry
@@ -471,7 +505,7 @@ describe('handleOrderItemModal', () => {
     });
   });
 
-  it('replies with max-items error when the session is already full', async () => {
+  it('defers and edits reply with max-items error when the session is already full', async () => {
     const h = await setupMocks(); // maxItemsPerOrder = 3
     await createSession(h, 'full-session');
     for (let n = 0; n < 3; n++) await addItemToSession(h, 'full-session', `Item${n}`);
@@ -483,12 +517,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/3 items/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/3 items/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error for a non-numeric quantity', async () => {
+  it('defers and edits reply with a validation error for a non-numeric quantity', async () => {
     const h = await setupMocks();
     await createSession(h, 'q-err');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:q-err`, {
@@ -498,12 +534,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/positive whole number/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/positive whole number/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error for a non-positive quantity', async () => {
+  it('defers and edits reply with a validation error for a non-positive quantity', async () => {
     const h = await setupMocks();
     await createSession(h, 'q-neg');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:q-neg`, {
@@ -513,12 +551,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/positive whole number/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/positive whole number/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error when quantity exceeds 99999', async () => {
+  it('defers and edits reply with a validation error when quantity exceeds 99999', async () => {
     const h = await setupMocks();
     await createSession(h, 'q-huge');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:q-huge`, {
@@ -528,12 +568,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/99,999/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/99,999/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error when item name is blank', async () => {
+  it('defers and edits reply with a validation error when item name is blank', async () => {
     const h = await setupMocks();
     await createSession(h, 'empty-name');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:empty-name`, {
@@ -543,12 +585,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/item name and priority stat/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/item name and priority stat/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('replies with a validation error when priority stat is blank', async () => {
+  it('defers and edits reply with a validation error when priority stat is blank', async () => {
     const h = await setupMocks();
     await createSession(h, 'empty-stat');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:empty-stat`, {
@@ -558,12 +602,14 @@ describe('handleOrderItemModal', () => {
       'notes': '',
     });
     await h.handleOrderItemModal(modal as any);
-    expect((modal.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
-      content: expect.stringMatching(/item name and priority stat/i),
-    });
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/item name and priority stat/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('stores the item and echoes item count in the reply', async () => {
+  it('defers and edits reply with item count after the first item is added', async () => {
     const h = await setupMocks();
     await createSession(h, 'store-test');
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:store-test`, {
@@ -573,9 +619,56 @@ describe('handleOrderItemModal', () => {
       'notes': 'rush',
     });
     await h.handleOrderItemModal(modal as any);
-    const replyArg = (modal.reply as jest.Mock).mock.calls[0][0] as { content: string; components: unknown[] };
-    expect(replyArg.content).toMatch(/Item added \(1 \/ 3\)/);
-    expect(replyArg.components).toHaveLength(1);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    const editReplyArg = (modal.editReply as jest.Mock).mock.calls[0][0] as { content: string; components: unknown[] };
+    expect(editReplyArg.content).toMatch(/Item added \(1 \/ 3\)/);
+    expect(editReplyArg.components).toHaveLength(1);
+    expect(modal.reply).not.toHaveBeenCalled();
+  });
+
+  it('edits reply with a temporarily-unavailable message when getGuildConfigOrNull throws', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'modal-db-throw');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => { throw new Error('DB error'); });
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-db-throw`, {
+      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/right now/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
+  });
+
+  it('edits reply with a not-configured message when guild config is null', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'modal-cfg-null');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => null);
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-null`, {
+      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/not configured/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
+  });
+
+  it('edits reply with a disabled message when manufacturingEnabled is false', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'modal-cfg-disabled');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => makeGuildConfig({ manufacturingEnabled: false }));
+    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-disabled`, {
+      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
+    });
+    await h.handleOrderItemModal(modal as any);
+    expect(modal.deferReply).toHaveBeenCalledTimes(1);
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/disabled/i) }),
+    );
+    expect(modal.reply).not.toHaveBeenCalled();
   });
 
   it('disables the Add Item button when maxItemsPerOrder is reached', async () => {
@@ -592,7 +685,7 @@ describe('handleOrderItemModal', () => {
       modals.push(m);
       await h.handleOrderItemModal(m as any);
     }
-    // Third item goes via editReply on the first modal's interaction (second editReply call)
+    // Third item goes via editReply on the first modal's interaction (third editReply call overall)
     const editReplyCalls = (modals[0].editReply as jest.Mock).mock.calls;
     const lastEditReply = editReplyCalls[editReplyCalls.length - 1][0] as {
       components: { components: { data: { disabled: boolean; label: string } }[] }[];
@@ -609,17 +702,21 @@ describe('handleOrderItemModal', () => {
       'item-name': 'Iron Ore', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
     });
     await h.handleOrderItemModal(first as any);
-    // First item: reply() called, editReply not called
-    expect(first.reply).toHaveBeenCalledTimes(1);
-    expect(first.editReply).not.toHaveBeenCalled();
+    // First item: deferReply then editReply to create the UI; reply never called
+    expect(first.deferReply).toHaveBeenCalledTimes(1);
+    expect(first.editReply).toHaveBeenCalledTimes(1);
+    expect(first.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/Item added \(1 \/ 3\)/) }),
+    );
+    expect(first.reply).not.toHaveBeenCalled();
 
     const second = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:edit-test`, {
       'item-name': 'Carbon', 'quantity': '2', 'priority-stat': 'Y', 'notes': '',
     });
     await h.handleOrderItemModal(second as any);
-    // Second item: editReply called on the FIRST interaction, not reply on the second
-    expect(first.editReply).toHaveBeenCalledTimes(1);
-    expect(first.editReply).toHaveBeenCalledWith(
+    // Second item: editReply called again on the FIRST interaction to update the UI
+    expect(first.editReply).toHaveBeenCalledTimes(2);
+    expect(first.editReply).toHaveBeenLastCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Item added \(2 \/ 3\)/) }),
     );
     expect(second.reply).not.toHaveBeenCalled();
@@ -666,17 +763,15 @@ describe('handleOrderButtonInteraction', () => {
     expect(modal.data.custom_id).toBe(`${h.ITEM_MODAL_PREFIX}:add-btn`);
   });
 
-  it('updates with a limit message when Add Item is clicked at max items', async () => {
+  it('shows a modal when Add Item is clicked even at max items (authoritative check is in handleOrderItemModal)', async () => {
     const h = await setupMocks(); // maxItemsPerOrder = 3
     await createSession(h, 'max-btn');
     for (let n = 0; n < 3; n++) await addItemToSession(h, 'max-btn', `Item${n}`);
 
     const btn = makeButtonInteraction(`${h.ADD_ITEM_BUTTON_PREFIX}:max-btn`);
     await h.handleOrderButtonInteraction(btn as any);
-    expect(btn.update).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.stringMatching(/maximum/i) }),
-    );
-    expect(btn.showModal).not.toHaveBeenCalled();
+    expect(btn.showModal).toHaveBeenCalledTimes(1);
+    expect(btn.update).not.toHaveBeenCalled();
   });
 
   it('creates the order and forum post on Submit Order', async () => {
@@ -696,10 +791,53 @@ describe('handleOrderButtonInteraction', () => {
       'user-1',
       'TestUser',
       expect.arrayContaining([expect.objectContaining({ itemName: 'Steel Plate' })]),
+      5,
     );
     expect(updateForumThreadIdMock).toHaveBeenCalledWith(99, 'thread-id');
     expect(btn.editReply).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringMatching(/Order #99/i) }),
+    );
+  });
+
+  it('edits reply with a temporarily-unavailable message when getGuildConfigOrNull throws on submit', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'cfg-throw');
+    await addItemToSession(h, 'cfg-throw');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => { throw new Error('DB error'); });
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:cfg-throw`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/temporarily unavailable/i) }),
+    );
+  });
+
+  it('edits reply with a temporarily-unavailable message when guild config is null on submit', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'cfg-null');
+    await addItemToSession(h, 'cfg-null');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => null);
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:cfg-null`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/temporarily unavailable/i) }),
+    );
+  });
+
+  it('edits reply with a disabled message when manufacturingEnabled is false on submit', async () => {
+    const h = await setupMocks();
+    await createSession(h, 'cfg-disabled');
+    await addItemToSession(h, 'cfg-disabled');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => makeGuildConfig({ manufacturingEnabled: false }));
+    const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:cfg-disabled`);
+    await h.handleOrderButtonInteraction(btn as any);
+    expect(btn.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(h.submitOrderMock).not.toHaveBeenCalled();
+    expect(btn.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringMatching(/disabled/i) }),
     );
   });
 
@@ -899,7 +1037,7 @@ describe('handleOrderButtonInteraction', () => {
 
   it('skips the role ping when manufacturingRoleId is not configured', async () => {
     const sendMock = jest.fn(async () => {});
-    const h = await setupMocks({ configOverrides: { manufacturingRoleId: '' } });
+    const h = await setupMocks({ guildConfigOverrides: { manufacturingRoleId: null } });
 
     await createSession(h, 'no-role');
     await addItemToSession(h, 'no-role');

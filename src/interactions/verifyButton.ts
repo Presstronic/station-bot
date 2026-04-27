@@ -3,6 +3,7 @@ import { getUserVerificationData, clearUserVerificationData } from '../commands/
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
 import { verifyRSIProfile } from '../services/rsi.services.js';
+import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
 import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
@@ -68,12 +69,37 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     return;
   }
 
+  const guildId = interaction.guild?.id;
+  if (!guildId) {
+    await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
+    return;
+  }
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(guildId);
+  } catch (error) {
+    logger.error('Failed to load guild config during verify button interaction', { guildId, error });
+    await respond('Verification is temporarily unavailable. Please try again later or contact a server administrator.');
+    return;
+  }
+  if (!guildConfig) {
+    logger.warn('Guild config not found during verify button interaction', { guildId });
+    await respond('Verification is not configured for this server. Please contact an administrator.');
+    return;
+  }
+
+  if (!guildConfig.verificationEnabled) {
+    logger.warn('Verification disabled for guild during verify button interaction', { guildId });
+    await respond('Verification is not currently enabled for this server. Please contact an administrator.');
+    return;
+  }
+
   try {
     const { verified: rsiProfileVerified, canonicalHandle } = await verifyRSIProfile(interaction.user.id);
     logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
 
     if (rsiProfileVerified) {
-      const success = await assignVerifiedRole(interaction, interaction.user.id);
+      const success = await assignVerifiedRole(interaction, interaction.user.id, guildConfig.verifiedRoleName);
       logger.debug(`Role assignment success: ${success}`);
 
       if (success) {
@@ -115,7 +141,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
       return;
     }
 
-    await removeVerifiedRole(interaction, interaction.user.id);
+    await removeVerifiedRole(interaction, interaction.user.id, guildConfig.verifiedRoleName);
     await respond(
       i18n.__mf(
         { phrase: 'commands.verify.responses.verificationFailed', locale },

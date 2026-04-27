@@ -1,4 +1,3 @@
-import { getManufacturingConfig } from '../../config/manufacturing.config.js';
 import * as repository from './manufacturing.repository.js';
 import {
   TERMINAL_STATUSES,
@@ -15,8 +14,8 @@ export async function submitOrder(
   userId: string,
   username: string,
   items: NewOrderItem[],
+  orderLimit: number,
 ): Promise<ManufacturingOrder> {
-  const { orderLimit } = getManufacturingConfig();
   return repository.create(userId, username, items, orderLimit);
 }
 

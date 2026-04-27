@@ -9,7 +9,8 @@ import {
   SlashCommandBuilder,
   type ForumChannel,
 } from 'discord.js';
-import { getManufacturingConfig, isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { getGuildConfigOrNull, upsertGuildConfig } from '../domain/guild-config/guild-config.service.js';
 import { MFG_CREATE_ORDER_PREFIX } from '../domain/manufacturing/manufacturing.forum.js';
 import { getLogger } from '../utils/logger.js';
 
@@ -35,19 +36,10 @@ export async function handleManufacturingSetupCommand(
   // is present, which can happen with out-of-sync or partial command payloads.
   if (interaction.options.getSubcommand(false) !== 'setup') return;
 
-  // Fast sync guards — no defer needed, reply directly.
+  // Fast sync guard — no defer needed, reply directly.
   if (!isManufacturingEnabled()) {
     await interaction.reply({
       content: 'Manufacturing is not currently enabled.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  const { forumChannelId, createOrderPostTitle, createOrderPostMessage } = getManufacturingConfig();
-  if (!forumChannelId) {
-    await interaction.reply({
-      content: 'Manufacturing forum channel is not configured. Please set `MANUFACTURING_FORUM_CHANNEL_ID`.',
       flags: MessageFlags.Ephemeral,
     });
     return;
@@ -66,6 +58,36 @@ export async function handleManufacturingSetupCommand(
     });
     return;
   }
+
+  const guildId = interaction.guildId ?? '';
+  let guildConfig;
+  try {
+    guildConfig = await getGuildConfigOrNull(guildId);
+  } catch (error) {
+    logger.error('[manufacturing] Failed to load guild config during setup', { guildId, error });
+    await interaction.editReply({
+      content: 'Manufacturing setup is temporarily unavailable. Please try again later or contact a server administrator.',
+    });
+    return;
+  }
+
+  if (!guildConfig) {
+    await interaction.editReply({
+      content: 'Manufacturing is not configured for this server.',
+    });
+    return;
+  }
+
+  const forumChannelId = guildConfig.manufacturingForumChannelId;
+  if (!forumChannelId) {
+    await interaction.editReply({
+      content: 'Manufacturing forum channel is not configured for this server.',
+    });
+    return;
+  }
+
+  const createOrderPostTitle = guildConfig.manufacturingCreateOrderPostTitle;
+  const createOrderPostMessage = guildConfig.manufacturingCreateOrderPostMessage;
 
   let channel;
   try {
@@ -119,8 +141,9 @@ export async function handleManufacturingSetupCommand(
       .setStyle(ButtonStyle.Primary),
   );
 
+  let thread: { id: string };
   try {
-    await forumChannel.threads.create({
+    thread = await forumChannel.threads.create({
       name: createOrderPostTitle,
       message: {
         content: createOrderPostMessage,
@@ -135,7 +158,17 @@ export async function handleManufacturingSetupCommand(
     return;
   }
 
+  let threadIdSaved = true;
+  try {
+    await upsertGuildConfig(guildId, { manufacturingCreateOrderThreadId: thread.id });
+  } catch (error) {
+    threadIdSaved = false;
+    logger.warn('[manufacturing] Failed to save Create Order thread ID to guild config', { error });
+  }
+
   await interaction.editReply({
-    content: '✅ Manufacturing channel set up.',
+    content: threadIdSaved
+      ? '✅ Manufacturing channel set up.'
+      : '⚠️ Create Order thread was created, but the configuration could not be saved. Manufacturing setup is incomplete; please retry or check database connectivity.',
   });
 }
