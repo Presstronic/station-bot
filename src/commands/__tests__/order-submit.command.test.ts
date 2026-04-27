@@ -627,10 +627,9 @@ describe('handleOrderItemModal', () => {
   });
 
   it('edits reply with a temporarily-unavailable message when getGuildConfigOrNull throws', async () => {
-    const h = await setupMocks({
-      getGuildConfigOrNull: jest.fn(async () => { throw new Error('DB error'); }),
-    });
+    const h = await setupMocks();
     await createSession(h, 'modal-db-throw');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => { throw new Error('DB error'); });
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-db-throw`, {
       'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
     });
@@ -643,10 +642,9 @@ describe('handleOrderItemModal', () => {
   });
 
   it('edits reply with a not-configured message when guild config is null', async () => {
-    const h = await setupMocks({
-      getGuildConfigOrNull: jest.fn(async () => null),
-    });
+    const h = await setupMocks();
     await createSession(h, 'modal-cfg-null');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => null);
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-null`, {
       'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
     });
@@ -659,10 +657,9 @@ describe('handleOrderItemModal', () => {
   });
 
   it('edits reply with a disabled message when manufacturingEnabled is false', async () => {
-    const h = await setupMocks({
-      getGuildConfigOrNull: jest.fn(async () => makeGuildConfig({ manufacturingEnabled: false })),
-    });
+    const h = await setupMocks();
     await createSession(h, 'modal-cfg-disabled');
+    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => makeGuildConfig({ manufacturingEnabled: false }));
     const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-disabled`, {
       'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
     });
