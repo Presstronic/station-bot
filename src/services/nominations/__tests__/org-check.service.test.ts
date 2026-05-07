@@ -16,12 +16,12 @@ afterEach(() => {
   process.env = originalEnv;
 });
 
-function mockPool(orgOutcome: string = 'in_org', canonicalHandle: string = '') {
+function mockPool(orgOutcome: string = 'in_org', canonicalHandle: string | null = null) {
   const parseOrgOutcomeInWorker = jest
     .fn<(html: string) => Promise<string>>()
     .mockResolvedValue(orgOutcome);
   const parseCanonicalHandleInWorker = jest
-    .fn<(html: string, fallback: string) => Promise<string>>()
+    .fn<(html: string) => Promise<string | null>>()
     .mockResolvedValue(canonicalHandle);
   jest.unstable_mockModule('../../../workers/html-parse.pool.js', () => ({
     parseOrgOutcomeInWorker,
@@ -245,10 +245,10 @@ describe('checkCitizenExists', () => {
     if (result.status === 'found') {
       expect(result.canonicalHandle).toBe('PilotNominee');
     }
-    expect(parseCanonicalHandleInWorker).toHaveBeenCalledWith('<html/>', 'pilotnominee');
+    expect(parseCanonicalHandleInWorker).toHaveBeenCalledWith('<html/>');
   });
 
-  it('returns found with submitted handle when parse worker returns fallback', async () => {
+  it('returns found with submitted handle when span.nick is not found (parse worker returns null)', async () => {
     const get = jest.fn<() => Promise<any>>().mockResolvedValueOnce({
       status: 200,
       data: '<html/>',
@@ -259,7 +259,7 @@ describe('checkCitizenExists', () => {
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
-    const { parseCanonicalHandleInWorker } = mockPool('in_org', 'PilotNominee');
+    const { parseCanonicalHandleInWorker } = mockPool('in_org', null);
 
     const { checkCitizenExists } = await import('../org-check.service.js');
     const result = await checkCitizenExists('PilotNominee');
@@ -268,7 +268,7 @@ describe('checkCitizenExists', () => {
     if (result.status === 'found') {
       expect(result.canonicalHandle).toBe('PilotNominee');
     }
-    expect(parseCanonicalHandleInWorker).toHaveBeenCalledWith('<html/>', 'PilotNominee');
+    expect(parseCanonicalHandleInWorker).toHaveBeenCalledWith('<html/>');
   });
 
   it('returns found with submitted handle when parse worker rejects', async () => {

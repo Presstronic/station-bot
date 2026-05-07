@@ -269,8 +269,12 @@ export type CitizenExistsResult =
 async function parseCanonicalHandle(html: string, fallback: string): Promise<string> {
   const parseStart = Date.now();
   try {
-    const handle = await parseCanonicalHandleInWorker(html, fallback);
+    const handle = await parseCanonicalHandleInWorker(html);
     logger.debug(`org-check: citizen page parsed in worker (${Date.now() - parseStart}ms)`);
+    if (handle === null) {
+      logger.warn('org-check: span.nick not found in citizen page — falling back to submitted handle', { rsiHandle: fallback });
+      return fallback;
+    }
     return handle;
   } catch (err) {
     logger.warn(

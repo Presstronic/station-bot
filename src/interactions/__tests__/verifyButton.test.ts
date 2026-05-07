@@ -9,18 +9,20 @@ async function loadHandlerWithMocks({
   userData,
   rsiProfileVerified = false,
   rsiCanonicalHandle = 'PilotOne',
+  rsiCanonicalHandleScraped = true,
   rsiProfileError,
 }: {
   userData: { rsiProfileName: string; dreadnoughtValidationCode: string } | undefined;
   rsiProfileVerified?: boolean;
   rsiCanonicalHandle?: string;
+  rsiCanonicalHandleScraped?: boolean;
   rsiProfileError?: Error;
 }) {
   const getUserVerificationData = jest.fn(() => userData);
   const clearUserVerificationData = jest.fn();
   const verifyRSIProfile = jest.fn(async () => {
     if (rsiProfileError) throw rsiProfileError;
-    return { verified: rsiProfileVerified, canonicalHandle: rsiCanonicalHandle };
+    return { verified: rsiProfileVerified, canonicalHandle: rsiCanonicalHandle, canonicalHandleScraped: rsiCanonicalHandleScraped };
   });
   const assignVerifiedRole = jest.fn(async () => true);
   const removeVerifiedRole = jest.fn(async () => undefined);
@@ -240,6 +242,26 @@ describe('handleVerifyButtonInteraction', () => {
     expect(content).toContain('verified');
     expect(content).toContain('Manage Nicknames');
     expect(content).toContain('administrator');
+  });
+
+  it('skips setNickname and replies with nicknameFailed note when canonical handle was not scraped', async () => {
+    const { handleVerifyButtonInteraction, loggerWarn } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'hezeqiah', dreadnoughtValidationCode: 'abc123' },
+      rsiProfileVerified: true,
+      rsiCanonicalHandle: 'hezeqiah',
+      rsiCanonicalHandleScraped: false,
+    });
+    const { interaction, setNickname } = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(setNickname).not.toHaveBeenCalled();
+    const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
+    expect(content).toContain('verified');
+    expect(content).toContain('nickname');
+    expect(loggerWarn).toHaveBeenCalledWith(
+      expect.stringContaining('canonical'),
+      expect.objectContaining({ userId: 'user-123' }),
+    );
   });
 
   it('replies with success and nicknameFailed note and logs warn when setNickname throws', async () => {
