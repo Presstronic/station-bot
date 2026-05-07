@@ -7,7 +7,7 @@ export type OrgOutcome = 'in_org' | 'not_in_org' | 'undetermined';
 // adding a new parse task here, be sure to update the pool implementation too.
 export type ParseRequestBody =
   | { type: 'orgOutcome'; html: string }
-  | { type: 'canonicalHandle'; html: string; fallback: string }
+  | { type: 'canonicalHandle'; html: string }
   | { type: 'selectorCheck'; html: string; parentSelector: string; childSelector: string; searchValue: string };
 
 // Distributed add of the routing id across each member of the union.
@@ -49,10 +49,10 @@ export function parseOrgOutcome(html: string): OrgOutcome {
   return 'undetermined';
 }
 
-export function parseCanonicalHandle(html: string, fallback: string): string {
+export function parseCanonicalHandle(html: string): string | null {
   const $ = cheerio.load(html);
   const nick = $('span.nick').first().text().trim();
-  return nick.length > 0 ? nick : fallback;
+  return nick.length > 0 ? nick : null;
 }
 
 export function parseSelectorCheck(
@@ -72,7 +72,7 @@ parentPort.on('message', (request: ParseRequest) => {
     if (request.type === 'orgOutcome') {
       response = { id: request.id, ok: true, value: parseOrgOutcome(request.html) };
     } else if (request.type === 'canonicalHandle') {
-      response = { id: request.id, ok: true, value: parseCanonicalHandle(request.html, request.fallback) };
+      response = { id: request.id, ok: true, value: parseCanonicalHandle(request.html) ?? '' };
     } else if (request.type === 'selectorCheck') {
       response = { id: request.id, ok: true, value: parseSelectorCheck(request.html, request.parentSelector, request.childSelector, request.searchValue) ? 'true' : 'false' };
     } else {

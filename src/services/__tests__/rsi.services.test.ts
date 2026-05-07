@@ -34,13 +34,13 @@ describe('verifyRSIProfile', () => {
     }));
 
     const { verifyRSIProfile } = await import('../rsi.services.js');
-    expect(await verifyRSIProfile('unknown-user')).toEqual({ verified: false, canonicalHandle: '' });
+    expect(await verifyRSIProfile('unknown-user')).toEqual({ verified: false, canonicalHandle: '', canonicalHandleScraped: false });
   });
 
   it('returns verified:true and canonicalHandle from scrape when the validation code is found', async () => {
     const fetchHtml = jest.fn<() => Promise<string>>().mockResolvedValueOnce('<html>page</html>');
     const parseSelectorCheckInWorker = jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true);
-    const parseCanonicalHandleInWorker = jest.fn<() => Promise<string>>().mockResolvedValueOnce('PilotOne');
+    const parseCanonicalHandleInWorker = jest.fn<() => Promise<string | null>>().mockResolvedValueOnce('PilotOne');
 
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
     jest.unstable_mockModule('../../commands/verify.command.js', () => ({
@@ -58,7 +58,7 @@ describe('verifyRSIProfile', () => {
     const { verifyRSIProfile } = await import('../rsi.services.js');
     const result = await verifyRSIProfile('user-1');
 
-    expect(result).toEqual({ verified: true, canonicalHandle: 'PilotOne' });
+    expect(result).toEqual({ verified: true, canonicalHandle: 'PilotOne', canonicalHandleScraped: true });
     expect(fetchHtml).toHaveBeenCalledTimes(1);
     expect(fetchHtml).toHaveBeenCalledWith(
       'https://robertsspaceindustries.com/en/citizens/pilotone'
@@ -66,13 +66,13 @@ describe('verifyRSIProfile', () => {
     expect(parseSelectorCheckInWorker).toHaveBeenCalledWith(
       '<html>page</html>', 'div.entry.bio', 'div.value', 'ABC-123'
     );
-    expect(parseCanonicalHandleInWorker).toHaveBeenCalledWith('<html>page</html>', 'pilotone');
+    expect(parseCanonicalHandleInWorker).toHaveBeenCalledWith('<html>page</html>');
   });
 
   it('returns verified:false and canonicalHandle from scrape when the validation code is not found', async () => {
     const fetchHtml = jest.fn<() => Promise<string>>().mockResolvedValueOnce('<html>page</html>');
     const parseSelectorCheckInWorker = jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(false);
-    const parseCanonicalHandleInWorker = jest.fn<() => Promise<string>>().mockResolvedValueOnce('PilotOne');
+    const parseCanonicalHandleInWorker = jest.fn<() => Promise<string | null>>().mockResolvedValueOnce('PilotOne');
 
     jest.unstable_mockModule('../../utils/logger.js', () => LOGGER_MOCK);
     jest.unstable_mockModule('../../commands/verify.command.js', () => ({
@@ -88,7 +88,7 @@ describe('verifyRSIProfile', () => {
     }));
 
     const { verifyRSIProfile } = await import('../rsi.services.js');
-    expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'PilotOne' });
+    expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'PilotOne', canonicalHandleScraped: true });
   });
 
   it('returns verified:false and typed-input canonicalHandle when fetching fails', async () => {
@@ -108,7 +108,7 @@ describe('verifyRSIProfile', () => {
     }));
 
     const { verifyRSIProfile } = await import('../rsi.services.js');
-    expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'TestHandle' });
+    expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'TestHandle', canonicalHandleScraped: false });
   });
 
   it('returns verified:false and typed-input canonicalHandle when buildCitizenUrl throws (misconfigured pattern)', async () => {
@@ -130,7 +130,7 @@ describe('verifyRSIProfile', () => {
     }));
 
     const { verifyRSIProfile } = await import('../rsi.services.js');
-    expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'TestHandle' });
+    expect(await verifyRSIProfile('user-1')).toEqual({ verified: false, canonicalHandle: 'TestHandle', canonicalHandleScraped: false });
   });
 
   it('logs info with outcome:passed when the validation code is found', async () => {
@@ -150,7 +150,7 @@ describe('verifyRSIProfile', () => {
     jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
       parseSelectorCheckInWorker: jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true),
-      parseCanonicalHandleInWorker: jest.fn<() => Promise<string>>().mockResolvedValueOnce('PilotOne'),
+      parseCanonicalHandleInWorker: jest.fn<() => Promise<string | null>>().mockResolvedValueOnce('PilotOne'),
     }));
 
     const { verifyRSIProfile } = await import('../rsi.services.js');
@@ -180,7 +180,7 @@ describe('verifyRSIProfile', () => {
     jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
       parseSelectorCheckInWorker: jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(false),
-      parseCanonicalHandleInWorker: jest.fn<() => Promise<string>>().mockResolvedValueOnce('PilotOne'),
+      parseCanonicalHandleInWorker: jest.fn<() => Promise<string | null>>().mockResolvedValueOnce('PilotOne'),
     }));
 
     const { verifyRSIProfile } = await import('../rsi.services.js');
@@ -243,7 +243,7 @@ describe('verifyRSIProfile', () => {
     jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
     jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
       parseSelectorCheckInWorker: jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true),
-      parseCanonicalHandleInWorker: jest.fn<() => Promise<string>>().mockResolvedValueOnce('TestHandle'),
+      parseCanonicalHandleInWorker: jest.fn<() => Promise<string | null>>().mockResolvedValueOnce('TestHandle'),
     }));
 
     const { verifyRSIProfile } = await import('../rsi.services.js');
@@ -252,5 +252,37 @@ describe('verifyRSIProfile', () => {
     expect(axiosHead).not.toHaveBeenCalled();
     expect(axiosGet).not.toHaveBeenCalled();
     expect(fetchHtml).toHaveBeenCalledTimes(1);
+  });
+
+  it('logs warn and falls back to typed handle when span.nick is not found', async () => {
+    const warn = jest.fn();
+    const fetchHtml = jest.fn<() => Promise<string>>().mockResolvedValueOnce('<html>page</html>');
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn, error: jest.fn() }),
+    }));
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
+      getUserVerificationData: jest.fn(() => ({
+        rsiProfileName: 'hezeqiah',
+        dreadnoughtValidationCode: 'ABC-123',
+      })),
+    }));
+    jest.unstable_mockModule('../../config/rsi.config.js', () => ({
+      getRsiConfig: jest.fn(() => ({ bioParentSelector: 'div.entry.bio', bioChildSelector: 'div.value' })),
+      buildCitizenUrl: jest.fn((h: string) => `https://robertsspaceindustries.com/en/citizens/${h}`),
+    }));
+    jest.unstable_mockModule('../web-scraping.services.js', () => ({ fetchHtml }));
+    jest.unstable_mockModule('../../workers/html-parse.pool.js', () => ({
+      parseSelectorCheckInWorker: jest.fn<() => Promise<boolean>>().mockResolvedValueOnce(true),
+      parseCanonicalHandleInWorker: jest.fn<() => Promise<string | null>>().mockResolvedValueOnce(null),
+    }));
+
+    const { verifyRSIProfile } = await import('../rsi.services.js');
+    const result = await verifyRSIProfile('user-1');
+
+    expect(result).toEqual({ verified: true, canonicalHandle: 'hezeqiah', canonicalHandleScraped: false });
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining('span.nick'),
+      expect.objectContaining({ userId: 'user-1', rsiHandle: 'hezeqiah' }),
+    );
   });
 });

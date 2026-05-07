@@ -231,16 +231,35 @@ describe('parseCanonicalHandleInWorker', () => {
 
     const { parseCanonicalHandleInWorker } = await import('../html-parse.pool.js');
 
-    const promise = parseCanonicalHandleInWorker('<html/>', 'FallbackHandle');
+    const promise = parseCanonicalHandleInWorker('<html/>');
 
     expect(mockWorker.posted).toHaveLength(1);
     expect(mockWorker.posted[0].type).toBe('canonicalHandle');
-    expect(mockWorker.posted[0].fallback).toBe('FallbackHandle');
 
     const { id } = mockWorker.posted[0];
     mockWorker.emit.message({ id, ok: true, value: 'CanonicalHandle' });
 
     await expect(promise).resolves.toBe('CanonicalHandle');
+  });
+
+  it('resolves with null when the worker returns an empty string (span.nick not found)', async () => {
+    const mockWorker = makeMockWorker();
+
+    jest.unstable_mockModule('worker_threads', () => ({
+      Worker: jest.fn(() => mockWorker),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+
+    const { parseCanonicalHandleInWorker } = await import('../html-parse.pool.js');
+
+    const promise = parseCanonicalHandleInWorker('<html/>');
+
+    const { id } = mockWorker.posted[0];
+    mockWorker.emit.message({ id, ok: true, value: '' });
+
+    await expect(promise).resolves.toBeNull();
   });
 });
 

@@ -127,8 +127,9 @@ export async function parseOrgOutcomeInWorker(html: string): Promise<OrgOutcome>
   return assertOrgOutcome(value);
 }
 
-export async function parseCanonicalHandleInWorker(html: string, fallback: string): Promise<string> {
-  return sendToWorker({ type: 'canonicalHandle', html, fallback });
+export async function parseCanonicalHandleInWorker(html: string): Promise<string | null> {
+  const value = await sendToWorker({ type: 'canonicalHandle', html });
+  return value === '' ? null : value;
 }
 
 function assertSelectorCheckValue(value: string): boolean {

@@ -69,7 +69,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
   }
 
   try {
-    const { verified: rsiProfileVerified, canonicalHandle } = await verifyRSIProfile(interaction.user.id);
+    const { verified: rsiProfileVerified, canonicalHandle, canonicalHandleScraped } = await verifyRSIProfile(interaction.user.id);
     logger.debug(`RSI Profile Verified: ${rsiProfileVerified}`);
 
     if (rsiProfileVerified) {
@@ -87,6 +87,14 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
         if (!interaction.appPermissions?.has(PermissionFlagsBits.ManageNicknames)) {
           await respond(
             `${successMsg}\n\n${i18n.__({ phrase: 'commands.verify.responses.missingPermissionNickname', locale })}`
+          );
+          return;
+        }
+
+        if (!canonicalHandleScraped) {
+          logger.warn('Skipping nickname update — canonical RSI handle could not be scraped', { userId: interaction.user.id });
+          await respond(
+            `${successMsg}\n\n${i18n.__({ phrase: 'commands.verify.responses.nicknameFailed', locale })}`
           );
           return;
         }

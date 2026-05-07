@@ -103,24 +103,24 @@ describe('parseCanonicalHandle', () => {
   it('returns the nick element text when present', async () => {
     const { parseCanonicalHandle } = await import('../html-parse.worker.js');
     const html = '<html><body><span class="nick">PilotNominee</span></body></html>';
-    expect(parseCanonicalHandle(html, 'fallback')).toBe('PilotNominee');
+    expect(parseCanonicalHandle(html)).toBe('PilotNominee');
   });
 
-  it('returns the fallback when nick element is absent', async () => {
+  it('returns null when nick element is absent', async () => {
     const { parseCanonicalHandle } = await import('../html-parse.worker.js');
     const html = '<html><body>Citizen page</body></html>';
-    expect(parseCanonicalHandle(html, 'FallbackHandle')).toBe('FallbackHandle');
+    expect(parseCanonicalHandle(html)).toBeNull();
   });
 
-  it('returns the fallback when nick element is empty', async () => {
+  it('returns null when nick element is empty', async () => {
     const { parseCanonicalHandle } = await import('../html-parse.worker.js');
     const html = '<html><body><span class="nick">   </span></body></html>';
-    expect(parseCanonicalHandle(html, 'FallbackHandle')).toBe('FallbackHandle');
+    expect(parseCanonicalHandle(html)).toBeNull();
   });
 
   it('uses the first nick element when multiple are present', async () => {
     const { parseCanonicalHandle } = await import('../html-parse.worker.js');
     const html = '<html><body><span class="nick">FirstNick</span><span class="nick">SecondNick</span></body></html>';
-    expect(parseCanonicalHandle(html, 'fallback')).toBe('FirstNick');
+    expect(parseCanonicalHandle(html)).toBe('FirstNick');
   });
 });
