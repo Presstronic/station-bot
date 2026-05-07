@@ -56,6 +56,7 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
             logger.warn('RSI profile canonical handle not found in page — span.nick absent or empty; falling back to typed input', {
                 userId,
                 rsiHandle: rsiProfileName,
+                url,
             });
         }
         logger.info('RSI profile verification completed', {
