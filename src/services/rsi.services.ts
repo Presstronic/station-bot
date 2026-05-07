@@ -14,8 +14,11 @@ const logger = getLogger();
  *   via getUserVerificationData
  * @returns `{ verified, canonicalHandle, canonicalHandleScraped }`:
  *   - `verified` is true when the validation code is found in the bio.
- *   - `canonicalHandle` is the `span.nick` value from the profile page; falls back to
- *     the typed input when scraping fails or the element is absent.
+ *   - `canonicalHandle` is the `span.nick` value from the profile page when that element
+ *     is present and non-empty (`canonicalHandleScraped: true`). When the element is absent
+ *     or empty the typed input is used instead (`canonicalHandleScraped: false`); verification
+ *     still proceeds normally in this case. When the HTTP fetch or parse process throws, the
+ *     typed input is also used but `verified` is forced to `false` (the whole check failed).
  *   - `canonicalHandleScraped` is true only when `canonicalHandle` came from `span.nick`.
  *     Callers that require authoritative casing (e.g. setting a Discord nickname) must
  *     check this flag before acting; presenting `canonicalHandle` in informational messages
@@ -34,7 +37,7 @@ export async function verifyRSIProfile(userId: string): Promise<{ verified: bool
     }
 
     const rsiProfileName = userData.rsiProfileName.trim();
-    let url: string | undefined = undefined;
+    let url: string | undefined;
 
     logger.debug(`Verifying RSI Profile: ${rsiProfileName}`);
 
