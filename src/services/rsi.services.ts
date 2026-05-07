@@ -17,8 +17,9 @@ const logger = getLogger();
  *   - `canonicalHandle` is the `span.nick` value from the profile page; falls back to
  *     the typed input when scraping fails or the element is absent.
  *   - `canonicalHandleScraped` is true only when `canonicalHandle` came from `span.nick`.
- *     Callers must check this before using `canonicalHandle` for display (e.g. setting a
- *     Discord nickname) to avoid propagating wrong-cased typed input.
+ *     Callers that require authoritative casing (e.g. setting a Discord nickname) must
+ *     check this flag before acting; presenting `canonicalHandle` in informational messages
+ *     when false is acceptable.
  *   - If no verification session exists for the user, returns
  *     `{ verified: false, canonicalHandle: '', canonicalHandleScraped: false }`. Callers
  *     are expected to guard against the no-session case before invoking this function.
