@@ -14,6 +14,8 @@ if [ -S "${ROOTLESS_SOCK}" ]; then
   export DOCKER_HOST="unix://${ROOTLESS_SOCK}"
 fi
 
+cd "${STATION_BOT_ROOT}"
+
 if [ ! -f "${ENV_FILE}" ]; then
   echo "${LOG_PREFIX} Missing ${ENV_FILE}" >&2
   exit 1
