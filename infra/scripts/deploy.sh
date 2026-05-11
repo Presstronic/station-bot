@@ -28,8 +28,8 @@ export BOT_IMAGE_TAG
 echo "${LOG_PREFIX} Pulling image ghcr.io/presstronic/station-bot:${BOT_IMAGE_TAG}"
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull discord-bot
 
-echo "${LOG_PREFIX} Stopping bot before migrations"
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" stop discord-bot
+echo "${LOG_PREFIX} Stopping and removing bot before migrations"
+docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" rm -sf discord-bot
 
 echo "${LOG_PREFIX} Running migrations"
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm discord-bot \
