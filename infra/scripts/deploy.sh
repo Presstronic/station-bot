@@ -42,4 +42,4 @@ echo "${LOG_PREFIX} Service status"
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" ps
 
 echo "${LOG_PREFIX} Recent logs"
-docker logs station-bot --tail 20
+docker logs station-bot --tail 20 || true

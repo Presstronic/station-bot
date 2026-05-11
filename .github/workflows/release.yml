@@ -175,6 +175,15 @@ jobs:
           hard_delete = false
           EOF
 
+      - name: Update repo to release tag
+        env:
+          VERSION: ${{ needs.build-and-push.outputs.version }}
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
+            "cd /opt/station-bot && git fetch --tags origin && git checkout ${VERSION}"
+
       - name: Pre-deploy database backup
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
@@ -191,7 +200,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
-            "cd /opt/station-bot && git fetch --tags origin && git checkout ${VERSION} && BOT_IMAGE_TAG=${VERSION} bash infra/scripts/deploy.sh"
+            "cd /opt/station-bot && BOT_IMAGE_TAG=${VERSION} bash infra/scripts/deploy.sh"
 
   create-release:
     name: Create Release
