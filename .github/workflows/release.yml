@@ -69,14 +69,17 @@ jobs:
     needs: validate-release
     outputs:
       version: ${{ steps.version.outputs.version }}
+      sha_short: ${{ steps.version.outputs.sha_short }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Extract version from tag
+      - name: Extract version and short SHA
         id: version
-        run: echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          echo "sha_short=$(printf '%s' "${GITHUB_SHA}" | cut -c1-7)" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -139,8 +142,8 @@ jobs:
           B2_BUCKET: ${{ secrets.B2_BUCKET }}
           BACKUP_HEALTHCHECK_URL: ${{ secrets.BACKUP_HEALTHCHECK_URL }}
         run: |
-          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "mkdir -p /opt/station-bot"
-          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "cat > /opt/station-bot/.env.production <<'ENVEOF'
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'mkdir -p /opt/station-bot'
+          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > /opt/station-bot/.env.production && chmod 600 /opt/station-bot/.env.production'
           DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
           CLIENT_ID=${CLIENT_ID}
           DATABASE_URL=${DATABASE_URL}
@@ -154,8 +157,7 @@ jobs:
           B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
           B2_BUCKET=${B2_BUCKET}
           BACKUP_HEALTHCHECK_URL=${BACKUP_HEALTHCHECK_URL}
-          ENVEOF
-          chmod 600 /opt/station-bot/.env.production"
+          EOF
 
       - name: Write production rclone config
         env:
@@ -164,30 +166,31 @@ jobs:
           B2_ACCOUNT_ID: ${{ secrets.B2_ACCOUNT_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
-          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "cat > /opt/station-bot/rclone.conf <<'RCLONEEOF'
+          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > /opt/station-bot/rclone.conf && chmod 600 /opt/station-bot/rclone.conf'
           [b2]
           type = b2
           account = ${B2_ACCOUNT_ID}
           key = ${B2_APPLICATION_KEY}
           hard_delete = false
-          RCLONEEOF
-          chmod 600 /opt/station-bot/rclone.conf"
+          EOF
 
       - name: Pre-deploy database backup
         env:
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
+          SHA_SHORT: ${{ needs.build-and-push.outputs.sha_short }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
-            "cd /opt/station-bot && BACKUP_LABEL=pre-deploy-${GITHUB_SHA::7} bash infra/scripts/backup-db.sh"
+            "cd /opt/station-bot && BACKUP_LABEL=pre-deploy-${SHA_SHORT} bash infra/scripts/backup-db.sh"
 
       - name: Deploy production
         env:
+          VERSION: ${{ needs.build-and-push.outputs.version }}
           VPS_HOST: ${{ secrets.VPS_HOST }}
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
-            "cd /opt/station-bot && git pull --ff-only origin main && bash infra/scripts/deploy.sh"
+            "cd /opt/station-bot && git fetch origin && git checkout ${VERSION} && bash infra/scripts/deploy.sh"
 
   create-release:
     name: Create Release

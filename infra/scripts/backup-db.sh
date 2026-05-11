@@ -7,8 +7,12 @@ ENV_FILE="${STATION_BOT_ROOT}/.env.production"
 COMPOSE_FILE="${STATION_BOT_ROOT}/docker-compose.prod.yml"
 RCLONE_CONFIG_FILE="${STATION_BOT_ROOT}/rclone.conf"
 LOG_PREFIX="[backup]"
-DOCKER_HOST="${DOCKER_HOST:-unix:///run/user/$(id -u)/docker.sock}"
-export DOCKER_HOST
+
+# Use rootless socket when available; fall back to whatever Docker uses by default.
+ROOTLESS_SOCK="/run/user/$(id -u)/docker.sock"
+if [ -S "${ROOTLESS_SOCK}" ]; then
+  export DOCKER_HOST="unix://${ROOTLESS_SOCK}"
+fi
 
 if [ ! -f "${ENV_FILE}" ]; then
   echo "${LOG_PREFIX} Missing ${ENV_FILE}" >&2
