@@ -34,6 +34,8 @@ BACKUP_HEALTHCHECK_URL="$(grep '^BACKUP_HEALTHCHECK_URL=' "${ENV_FILE}" | cut -d
 : "${B2_BUCKET:?B2_BUCKET is required}"
 
 LABEL="${BACKUP_LABEL:-${1:-nightly}}"
+LABEL="$(printf '%s' "${LABEL}" | tr -cd 'A-Za-z0-9._-')"
+: "${LABEL:?LABEL is empty after sanitization — only [A-Za-z0-9._-] characters are allowed}"
 TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 BACKUP_FILE="/tmp/station_bot_backup_${TIMESTAMP}_${LABEL}.sql.gz"
 REMOTE_PATH="postgres/${TIMESTAMP:0:6}/${TIMESTAMP}_${LABEL}.sql.gz"
