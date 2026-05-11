@@ -17,7 +17,13 @@ if [ ! -f "${ENV_FILE}" ]; then
   exit 1
 fi
 
-echo "${LOG_PREFIX} Pulling latest image"
+# BOT_IMAGE_TAG must be set by the caller (CI passes the release tag, e.g. v0.3.3).
+# Compose uses it via ${BOT_IMAGE_TAG:-latest} so the exact versioned image is pulled
+# and run, not whatever :latest resolves to at deploy time.
+: "${BOT_IMAGE_TAG:?BOT_IMAGE_TAG is required (e.g. v0.3.3)}"
+export BOT_IMAGE_TAG
+
+echo "${LOG_PREFIX} Pulling image ghcr.io/presstronic/station-bot:${BOT_IMAGE_TAG}"
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull discord-bot
 
 echo "${LOG_PREFIX} Stopping bot before migrations"

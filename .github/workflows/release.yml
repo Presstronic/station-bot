@@ -166,7 +166,8 @@ jobs:
           B2_ACCOUNT_ID: ${{ secrets.B2_ACCOUNT_ID }}
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
-          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > /opt/station-bot/rclone.conf && chmod 600 /opt/station-bot/rclone.conf'
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'mkdir -p ~/.config/rclone'
+          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > ~/.config/rclone/rclone.conf && chmod 600 ~/.config/rclone/rclone.conf'
           [b2]
           type = b2
           account = ${B2_ACCOUNT_ID}
@@ -190,7 +191,7 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
-            "cd /opt/station-bot && git fetch origin && git checkout ${VERSION} && bash infra/scripts/deploy.sh"
+            "cd /opt/station-bot && git fetch origin && git checkout ${VERSION} && BOT_IMAGE_TAG=${VERSION} bash infra/scripts/deploy.sh"
 
   create-release:
     name: Create Release

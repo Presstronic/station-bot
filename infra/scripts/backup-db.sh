@@ -5,7 +5,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 STATION_BOT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 ENV_FILE="${STATION_BOT_ROOT}/.env.production"
 COMPOSE_FILE="${STATION_BOT_ROOT}/docker-compose.prod.yml"
-RCLONE_CONFIG_FILE="${STATION_BOT_ROOT}/rclone.conf"
+RCLONE_CONFIG_FILE="${HOME}/.config/rclone/rclone.conf"
 LOG_PREFIX="[backup]"
 
 # Use rootless socket when available; fall back to whatever Docker uses by default.
@@ -38,7 +38,6 @@ TIMESTAMP="$(date +%Y%m%d_%H%M%S)"
 BACKUP_FILE="/tmp/station_bot_backup_${TIMESTAMP}_${LABEL}.sql.gz"
 REMOTE_PATH="postgres/${TIMESTAMP:0:6}/${TIMESTAMP}_${LABEL}.sql.gz"
 
-export RCLONE_CONFIG="${RCLONE_CONFIG_FILE}"
 trap 'rm -f "${BACKUP_FILE}"' EXIT
 
 echo "${LOG_PREFIX} Starting backup at ${TIMESTAMP} (${LABEL})"
