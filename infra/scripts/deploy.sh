@@ -33,7 +33,7 @@ docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" rm -sf discord-bot
 
 echo "${LOG_PREFIX} Running migrations"
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" run --rm discord-bot \
-  npm run migrate:up
+  sh -c 'node_modules/.bin/node-pg-migrate up -m ./migrations --database-url "$DATABASE_URL"'
 
 echo "${LOG_PREFIX} Starting bot with new image"
 docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d --no-deps discord-bot
