@@ -158,7 +158,9 @@ client.once('clientReady', async () => {
       process.exit(1);
       return;
     }
-    await seedGuildConfigsFromEnv(client);
+    if (!readOnlyMode) {
+      await seedGuildConfigsFromEnv(client);
+    }
   }
 
   const commandRegistration = await registerAllCommands();

@@ -20,37 +20,43 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
   return cron.schedule(
     cronSchedule,
     async () => {
-      const guildConfig = await getGuildConfigOrNull(guildId);
-      const channelId = guildConfig?.nominationDigestChannelId;
-      const roleId = guildConfig?.nominationDigestRoleId;
-
-      if (!channelId || !roleId) {
-        logger.warn('[nomination-digest] Guild config missing channel or role; skipping tick', { guildId });
-        return;
-      }
-
-      const channel = await client.channels.fetch(channelId).catch((error: unknown) => {
-        logger.warn('[nomination-digest] Failed to fetch digest channel', { guildId, channelId, error });
-        return null;
-      });
-
-      if (!channel) {
-        return;
-      }
-
-      if (!channel.isTextBased() || !('send' in channel)) {
-        logger.warn('[nomination-digest] Configured digest channel is not text-based', { guildId, channelId });
-        return;
-      }
-
       try {
+        const guildConfig = await getGuildConfigOrNull(guildId);
+
+        if (!guildConfig?.nominationDigestEnabled) {
+          logger.warn('[nomination-digest] Digest disabled in guild config at tick time; skipping', { guildId });
+          return;
+        }
+
+        const channelId = guildConfig.nominationDigestChannelId;
+        const roleId = guildConfig.nominationDigestRoleId;
+
+        if (!channelId || !roleId) {
+          logger.warn('[nomination-digest] Guild config missing channel or role; skipping tick', { guildId });
+          return;
+        }
+
+        const channel = await client.channels.fetch(channelId).catch((error: unknown) => {
+          logger.warn('[nomination-digest] Failed to fetch digest channel', { guildId, channelId, error });
+          return null;
+        });
+
+        if (!channel) {
+          return;
+        }
+
+        if (!channel.isTextBased() || !('send' in channel)) {
+          logger.warn('[nomination-digest] Configured digest channel is not text-based', { guildId, channelId });
+          return;
+        }
+
         const count = await countUnprocessedNominations();
         await channel.send({
           content: buildDigestMessage(roleId, count),
           allowedMentions: { roles: [roleId] },
         });
       } catch (error) {
-        logger.warn('[nomination-digest] Failed to send daily nomination digest', { guildId, channelId, error });
+        logger.warn('[nomination-digest] Unexpected error in digest tick', { guildId, error });
       }
     },
     { timezone: 'UTC' },
@@ -61,6 +67,9 @@ export function scheduleNominationDigests(
   client: Client,
   guildConfigs: GuildConfig[],
 ): Map<string, cron.ScheduledTask> {
+  for (const task of activeTasks.values()) task.stop();
+  activeTasks.clear();
+
   for (const cfg of guildConfigs) {
     if (!cfg.nominationDigestEnabled || !cfg.nominationDigestChannelId || !cfg.nominationDigestRoleId) {
       continue;

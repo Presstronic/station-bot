@@ -176,6 +176,36 @@ describe('seedGuildConfigsFromEnv', () => {
     expect(patch.potentialApplicantRoleName).toBe('Prospect');
   });
 
+  it('rejects non-positive integers and omits them from the patch', async () => {
+    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
+    const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});
+    const mockWarn = jest.fn();
+
+    jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig,
+      upsertGuildConfig,
+    }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: mockWarn }),
+    }));
+
+    process.env.MANUFACTURING_ORDER_LIMIT = '0';
+    process.env.MANUFACTURING_MAX_ITEMS_PER_ORDER = '-5';
+    process.env.ORDER_RATE_LIMIT_PER_5MIN = '1'; // valid — should remain
+
+    const { seedGuildConfigsFromEnv } = await import('../guild-config.seeder.js');
+    const client = makeClient([makeGuild('guild-1', 'Test Guild')]);
+
+    await seedGuildConfigsFromEnv(client as never);
+
+    const [, patch] = upsertGuildConfig.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    expect(patch).not.toHaveProperty('manufacturingOrderLimit');
+    expect(patch).not.toHaveProperty('manufacturingMaxItemsPerOrder');
+    expect(patch.manufacturingOrderRateLimitPer5Min).toBe(1);
+    expect(mockWarn).toHaveBeenCalledWith(expect.stringContaining('MANUFACTURING_ORDER_LIMIT'));
+    expect(mockWarn).toHaveBeenCalledWith(expect.stringContaining('MANUFACTURING_MAX_ITEMS_PER_ORDER'));
+  });
+
   it('omits DEFAULT_ROLES fields from the patch when the env var is not set', async () => {
     const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
     const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});

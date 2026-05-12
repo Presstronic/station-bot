@@ -272,6 +272,88 @@ describe('scheduleNominationDigests', () => {
     );
   });
 
+  it('warns and does not throw when getGuildConfigOrNull throws (DB error)', async () => {
+    const { runTaskByIndex, mocks } = await setupMocks();
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => { throw new Error('DB connection lost'); }),
+      getAllGuildConfigs: jest.fn(),
+    }));
+
+    const { scheduleNominationDigests } = await import('../nomination-digest.job.js');
+
+    scheduleNominationDigests({} as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await expect(runTaskByIndex(0)).resolves.not.toThrow();
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Unexpected error in digest tick'),
+      expect.any(Object),
+    );
+  });
+
+  it('skips tick when nominationDigestEnabled is false in the runtime config', async () => {
+    const { runTaskByIndex, mocks, countUnprocessedNominations } = await setupMocks();
+    const channel = makeTextChannel();
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () =>
+        makeGuildConfig({ nominationDigestEnabled: false }),
+      ),
+      getAllGuildConfigs: jest.fn(),
+    }));
+
+    const { scheduleNominationDigests } = await import('../nomination-digest.job.js');
+    const client = { channels: { fetch: jest.fn(async () => channel) } };
+
+    scheduleNominationDigests(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await runTaskByIndex(0);
+
+    expect(countUnprocessedNominations).not.toHaveBeenCalled();
+    expect(channel.send).not.toHaveBeenCalled();
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Digest disabled in guild config at tick time'),
+      expect.any(Object),
+    );
+  });
+
+  it('skips tick when getGuildConfigOrNull returns null', async () => {
+    const { runTaskByIndex, countUnprocessedNominations } = await setupMocks();
+    const channel = makeTextChannel();
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => null),
+      getAllGuildConfigs: jest.fn(),
+    }));
+
+    const { scheduleNominationDigests } = await import('../nomination-digest.job.js');
+    const client = { channels: { fetch: jest.fn(async () => channel) } };
+
+    scheduleNominationDigests(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await runTaskByIndex(0);
+
+    expect(countUnprocessedNominations).not.toHaveBeenCalled();
+    expect(channel.send).not.toHaveBeenCalled();
+  });
+
+  it('stops existing tasks and clears the map on repeated scheduleNominationDigests calls', async () => {
+    await setupMocks();
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(),
+      getAllGuildConfigs: jest.fn(),
+    }));
+
+    const { scheduleNominationDigests } = await import('../nomination-digest.job.js');
+    const cronMod = await import('node-cron');
+
+    const configs = [makeGuildConfig({ guildId: 'guild-1' })];
+
+    const firstRun = scheduleNominationDigests({} as never, configs);
+    const firstTask = firstRun.get('guild-1') as unknown as { stop: jest.Mock };
+
+    const secondRun = scheduleNominationDigests({} as never, configs);
+
+    expect(firstTask.stop).toHaveBeenCalledTimes(1);
+    expect(secondRun.size).toBe(1);
+    expect((cronMod.default.schedule as jest.Mock)).toHaveBeenCalledTimes(2);
+  });
+
   it("one guild's tick failure does not abort the other guild", async () => {
     const { runTaskByIndex, countUnprocessedNominations } = await setupMocks();
     const channel1 = makeTextChannel();
