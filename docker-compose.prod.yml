@@ -19,7 +19,7 @@ services:
 
   discord-bot:
     container_name: station-bot
-    image: ghcr.io/presstronic/station-bot:latest
+    image: ghcr.io/presstronic/station-bot:${BOT_IMAGE_TAG:-latest}
     env_file:
       - .env.production
     cap_drop:
