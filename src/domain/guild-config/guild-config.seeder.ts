@@ -116,23 +116,22 @@ function buildPatchFromEnv(): GuildConfigPatch {
   return patch;
 }
 
-export async function seedGuildConfigsFromEnv(client: Client): Promise<void> {
+export async function seedGuildConfigFromEnv(guildId: string, guildName: string): Promise<void> {
   const patch = buildPatchFromEnv();
-  const guilds = [...client.guilds.cache.values()];
+  try {
+    const existing = await getGuildConfig(guildId);
+    if (existing) {
+      logger.debug(`[guild-config seeder] Guild ${guildId} (${guildName}) already has a config row — skipping.`);
+      return;
+    }
+    await upsertGuildConfig(guildId, patch);
+    logger.info(`[guild-config seeder] Seeded config for guild ${guildId} (${guildName}) from env.`);
+  } catch (error) {
+    logger.warn(`[guild-config seeder] Failed to seed config for guild ${guildId} (${guildName}) — skipping.`, { error });
+  }
+}
 
-  await Promise.allSettled(
-    guilds.map(async (guild) => {
-      try {
-        const existing = await getGuildConfig(guild.id);
-        if (existing) {
-          logger.debug(`[guild-config seeder] Guild ${guild.id} (${guild.name}) already has a config row — skipping.`);
-          return;
-        }
-        await upsertGuildConfig(guild.id, patch);
-        logger.info(`[guild-config seeder] Seeded config for guild ${guild.id} (${guild.name}) from env.`);
-      } catch (error) {
-        logger.warn(`[guild-config seeder] Failed to seed config for guild ${guild.id} (${guild.name}) — skipping.`, { error });
-      }
-    }),
-  );
+export async function seedGuildConfigsFromEnv(client: Client): Promise<void> {
+  const guilds = [...client.guilds.cache.values()];
+  await Promise.allSettled(guilds.map((guild) => seedGuildConfigFromEnv(guild.id, guild.name)));
 }

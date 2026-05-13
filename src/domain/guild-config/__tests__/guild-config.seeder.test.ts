@@ -44,6 +44,71 @@ function makeClient(guilds: { id: string; name: string }[]) {
 }
 
 // ---------------------------------------------------------------------------
+// seedGuildConfigFromEnv
+// ---------------------------------------------------------------------------
+
+describe('seedGuildConfigFromEnv', () => {
+  it('upserts config for a new guild', async () => {
+    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
+    const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});
+
+    jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig,
+      upsertGuildConfig,
+    }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
+    }));
+
+    process.env.DEFAULT_ROLES = 'Member,Guest,Applicant';
+
+    const { seedGuildConfigFromEnv } = await import('../guild-config.seeder.js');
+    await seedGuildConfigFromEnv('guild-99', 'New Guild');
+
+    expect(getGuildConfig).toHaveBeenCalledWith('guild-99');
+    expect(upsertGuildConfig).toHaveBeenCalledTimes(1);
+    const [guildId] = upsertGuildConfig.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    expect(guildId).toBe('guild-99');
+  });
+
+  it('skips upsert if guild already has a config row', async () => {
+    const getGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-99' });
+    const upsertGuildConfig = jest.fn();
+
+    jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig,
+      upsertGuildConfig,
+    }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
+    }));
+
+    const { seedGuildConfigFromEnv } = await import('../guild-config.seeder.js');
+    await seedGuildConfigFromEnv('guild-99', 'Existing Guild');
+
+    expect(upsertGuildConfig).not.toHaveBeenCalled();
+  });
+
+  it('logs a warning and resolves on DB error', async () => {
+    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
+    const upsertGuildConfig = jest.fn<() => Promise<never>>().mockRejectedValue(new Error('DB error'));
+    const mockWarn = jest.fn();
+
+    jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig,
+      upsertGuildConfig,
+    }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: mockWarn }),
+    }));
+
+    const { seedGuildConfigFromEnv } = await import('../guild-config.seeder.js');
+    await expect(seedGuildConfigFromEnv('guild-99', 'Error Guild')).resolves.toBeUndefined();
+    expect(mockWarn).toHaveBeenCalledWith(expect.stringContaining('guild-99'), expect.any(Object));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // seedGuildConfigsFromEnv
 // ---------------------------------------------------------------------------
 

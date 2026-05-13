@@ -24,7 +24,7 @@ import {
   ensureNominationsSchema,
   isDatabaseConfigured,
 } from './services/nominations/db.js';
-import { seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
+import { seedGuildConfigFromEnv, seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
 import { getGuildConfigOrNull, getAllGuildConfigs } from './domain/guild-config/guild-config.service.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
@@ -275,6 +275,10 @@ client.once('clientReady', async () => {
 
 client.on('guildCreate', async (guild) => {
   logger.info(`[guildCreate] Bot joined guild: ${guild.name} (${guild.id})`);
+
+  if (!readOnlyMode && isDatabaseConfigured()) {
+    await seedGuildConfigFromEnv(guild.id, guild.name);
+  }
 
   if (readOnlyMode) {
     logger.warn(`[${guild.name}] Read-only mode enabled; skipping role setup on guild join.`);
