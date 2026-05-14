@@ -147,9 +147,6 @@ async function loadIndexAndRunReady(
     getGuildConfigOrNull: jest.fn(async () => null),
     getAllGuildConfigs: jest.fn(async () => []),
   }));
-  await jest.unstable_mockModule('../domain/guild-config/guild-config.service.js', () => ({
-    getGuildConfigOrNull: jest.fn(async () => null),
-  }));
   await jest.unstable_mockModule('discord.js', () => {
     class MockClient {
       guilds = {

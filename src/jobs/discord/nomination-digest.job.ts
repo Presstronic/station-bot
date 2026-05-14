@@ -29,7 +29,7 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
         }
 
         if (!guildConfig.nominationDigestEnabled) {
-          logger.warn('[nomination-digest] Digest disabled for guild at tick time; skipping', { guildId });
+          logger.warn('[nomination-digest] Digest disabled in guild config at tick time; skipping', { guildId });
           return;
         }
 
