@@ -503,7 +503,9 @@ export async function handleOrderButtonInteraction(
       });
       return;
     }
-    const channel = await interaction.client.channels.fetch(forumChannelId).catch(() => null);
+    const channel = interaction.guild
+      ? await interaction.guild.channels.fetch(forumChannelId).catch(() => null)
+      : null;
 
     if (!channel || channel.type !== ChannelType.GuildForum) {
       logger.error(
