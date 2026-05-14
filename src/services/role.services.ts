@@ -1,15 +1,13 @@
 import { ButtonInteraction, Client, Guild, PermissionFlagsBits } from 'discord.js';
 import { getLogger } from '../utils/logger.js';
-import { REQUIRED_ROLES, VERIFIED_ROLE_NAME } from '../config/roles.config.js';
+import type { GuildConfig } from '../domain/guild-config/guild-config.service.js';
 
 const logger = getLogger();
 
-/**
- * Assigns the "Verified" role to a user.
- */
 export async function assignVerifiedRole(
   interaction: ButtonInteraction,
-  userId: string
+  userId: string,
+  verifiedRoleName: string,
 ): Promise<boolean> {
   const guild = interaction.guild;
   if (!guild) {
@@ -24,9 +22,9 @@ export async function assignVerifiedRole(
     return false;
   }
 
-  const verifiedRole = guild.roles.cache.find((role) => role.name === VERIFIED_ROLE_NAME);
+  const verifiedRole = guild.roles.cache.find((role) => role.name === verifiedRoleName);
   if (!verifiedRole) {
-    logger.error(`"${VERIFIED_ROLE_NAME}" role not found.`);
+    logger.error(`"${verifiedRoleName}" role not found.`);
     return false;
   }
 
@@ -37,7 +35,7 @@ export async function assignVerifiedRole(
 
   try {
     await member.roles.add(verifiedRole);
-    logger.debug(`Assigned "${VERIFIED_ROLE_NAME}" role to user ${member.user.username}`);
+    logger.debug(`Assigned "${verifiedRoleName}" role to user ${member.user.username}`);
     return true;
   } catch (error) {
     logger.error('Error assigning role', { error });
@@ -45,12 +43,10 @@ export async function assignVerifiedRole(
   }
 }
 
-/**
- * Removes the "Verified" role from a user.
- */
 export async function removeVerifiedRole(
   interaction: ButtonInteraction,
-  userId: string
+  userId: string,
+  verifiedRoleName: string,
 ): Promise<boolean> {
   const guild = interaction.guild;
   if (!guild) {
@@ -65,9 +61,9 @@ export async function removeVerifiedRole(
     return false;
   }
 
-  const verifiedRole = guild.roles.cache.find((role) => role.name === VERIFIED_ROLE_NAME);
+  const verifiedRole = guild.roles.cache.find((role) => role.name === verifiedRoleName);
   if (!verifiedRole) {
-    logger.error(`"${VERIFIED_ROLE_NAME}" role not found.`);
+    logger.error(`"${verifiedRoleName}" role not found.`);
     return false;
   }
 
@@ -78,7 +74,7 @@ export async function removeVerifiedRole(
 
   try {
     await member.roles.remove(verifiedRole);
-    logger.debug(`Removed "${VERIFIED_ROLE_NAME}" role from user ${member.user.username}`);
+    logger.debug(`Removed "${verifiedRoleName}" role from user ${member.user.username}`);
     return true;
   } catch (error) {
     logger.error('Error removing role', { error });
@@ -86,16 +82,27 @@ export async function removeVerifiedRole(
   }
 }
 
-/**
- * Adds missing default roles on guild join or bot startup.
- */
-export async function addMissingDefaultRoles(guild: Guild, client: Client): Promise<void> {
-  logger.info(`[${guild.name}] Checking required roles: ${REQUIRED_ROLES.join(', ')}`);
+export async function addMissingDefaultRoles(
+  guild: Guild,
+  client: Client,
+  guildConfig: GuildConfig | null,
+): Promise<void> {
+  if (guildConfig === null) {
+    logger.warn(`[${guild.name}] No guild config found; skipping role setup.`);
+    return;
+  }
+
+  const roleNames = [
+    guildConfig.verifiedRoleName,
+    guildConfig.tempMemberRoleName,
+    guildConfig.potentialApplicantRoleName,
+  ];
+  logger.info(`[${guild.name}] Checking required roles: ${roleNames.join(', ')}`);
 
   try {
     await guild.roles.fetch();
 
-    for (const roleName of REQUIRED_ROLES) {
+    for (const roleName of roleNames) {
       const exists = guild.roles.cache.some((role) => role.name === roleName);
 
       if (!exists) {
