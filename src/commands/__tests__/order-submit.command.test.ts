@@ -117,7 +117,7 @@ function makeButtonInteraction(
     showModal: jest.fn(async () => {}),
     deferUpdate: jest.fn(async () => { i.deferred = true; }),
     editReply: jest.fn(async () => {}),
-    client: {
+    guild: {
       channels: {
         fetch: jest.fn(async () => ({
           type: 15, // ChannelType.GuildForum
@@ -131,6 +131,7 @@ function makeButtonInteraction(
         })),
       },
     },
+    client: { channels: { fetch: jest.fn(async () => null) } },
     ...overrides,
   };
   return i;
@@ -847,7 +848,7 @@ describe('handleOrderButtonInteraction', () => {
     await addItemToSession(h, 'bad-channel');
 
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:bad-channel`, {
-      client: {
+      guild: {
         channels: {
           fetch: jest.fn(async () => null), // channel not found
         },
@@ -884,7 +885,7 @@ describe('handleOrderButtonInteraction', () => {
     await addItemToSession(h, 'thread-fail');
 
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:thread-fail`, {
-      client: {
+      guild: {
         channels: {
           fetch: jest.fn(async () => ({
             type: 15,
@@ -929,7 +930,7 @@ describe('handleOrderButtonInteraction', () => {
     await addItemToSession(h, 'mention-btn');
 
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:mention-btn`, {
-      client: {
+      guild: {
         channels: {
           fetch: jest.fn(async () => ({
             type: 15,
@@ -973,7 +974,7 @@ describe('handleOrderButtonInteraction', () => {
     await addItemToSession(h, 'ping-btn');
 
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:ping-btn`, {
-      client: {
+      guild: {
         channels: {
           fetch: jest.fn(async () => ({
             type: 15,
@@ -1008,7 +1009,7 @@ describe('handleOrderButtonInteraction', () => {
     await addItemToSession(h, 'ping-fail');
 
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:ping-fail`, {
-      client: {
+      guild: {
         channels: {
           fetch: jest.fn(async () => ({
             type: 15,
@@ -1043,7 +1044,7 @@ describe('handleOrderButtonInteraction', () => {
     await addItemToSession(h, 'no-role');
 
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:no-role`, {
-      client: {
+      guild: {
         channels: {
           fetch: jest.fn(async () => ({
             type: 15,
@@ -1105,14 +1106,14 @@ describe('handleOrderButtonInteraction', () => {
     });
 
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:staff-create`, {
+      guild: {
+        channels: {
+          fetch: jest.fn(async () => makeForumChannel(publicCreateMock)),
+        },
+      },
       client: {
         channels: {
-          // Return public channel for 'forum-ch', staff channel for 'staff-ch'
-          fetch: jest.fn(async (channelId: unknown) =>
-            channelId === 'staff-ch'
-              ? makeForumChannel(staffCreateMock)
-              : makeForumChannel(publicCreateMock),
-          ),
+          fetch: jest.fn(async () => makeForumChannel(staffCreateMock)),
         },
       },
     });
@@ -1146,28 +1147,25 @@ describe('handleOrderButtonInteraction', () => {
     await createSession(h, 'staff-fail');
     await addItemToSession(h, 'staff-fail');
 
-    let callCount = 0;
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:staff-fail`, {
+      guild: {
+        channels: {
+          fetch: jest.fn(async () => ({
+            type: 15,
+            availableTags: [],
+            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+            })),
+            threads: {
+              create: jest.fn(async () => ({ id: 'pub-thread', send: jest.fn(async () => {}) })),
+            },
+          })),
+        },
+      },
       client: {
         channels: {
-          fetch: jest.fn(async () => {
-            callCount++;
-            if (callCount === 1) {
-              // Public forum channel — succeeds
-              return {
-                type: 15,
-                availableTags: [],
-                setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
-                  availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
-                })),
-                threads: {
-                  create: jest.fn(async () => ({ id: 'pub-thread', send: jest.fn(async () => {}) })),
-                },
-              };
-            }
-            // Staff channel fetch — throws
-            throw new Error('staff channel unavailable');
-          }),
+          // Staff channel fetch — throws
+          fetch: jest.fn(async () => { throw new Error('staff channel unavailable'); }),
         },
       },
     });
