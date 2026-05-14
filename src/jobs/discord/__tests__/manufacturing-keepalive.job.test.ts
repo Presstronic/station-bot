@@ -101,10 +101,14 @@ function makeThread(archived: boolean | null = false) {
 }
 
 function makeClient(fetchResult: unknown = null) {
+  const channelsFetch = jest.fn(async () => fetchResult);
   return {
-    channels: {
-      fetch: jest.fn(async () => fetchResult),
+    guilds: {
+      cache: {
+        get: jest.fn(() => ({ channels: { fetch: channelsFetch } })),
+      },
     },
+    _channelsFetch: channelsFetch,
   };
 }
 
@@ -191,7 +195,7 @@ describe('scheduleManufacturingKeepalives', () => {
       expect.stringContaining('unavailable or missing'),
       expect.any(Object),
     );
-    expect(client.channels.fetch).not.toHaveBeenCalled();
+    expect(client.guilds.cache.get).not.toHaveBeenCalled();
   });
 
   it('warns "manufacturing disabled" and skips fetch when guild config shows it disabled at tick time', async () => {
@@ -207,7 +211,7 @@ describe('scheduleManufacturingKeepalives', () => {
       expect.stringContaining('manufacturing disabled'),
       expect.any(Object),
     );
-    expect(client.channels.fetch).not.toHaveBeenCalled();
+    expect(client.guilds.cache.get).not.toHaveBeenCalled();
   });
 
   it('warns and skips fetch when createOrderThreadId is null in re-fetched config', async () => {
@@ -219,7 +223,7 @@ describe('scheduleManufacturingKeepalives', () => {
     scheduleManufacturingKeepalives(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
     await runTaskByIndex(0);
 
-    expect(client.channels.fetch).not.toHaveBeenCalled();
+    expect(client.guilds.cache.get).not.toHaveBeenCalled();
     expect(mocks.warn).toHaveBeenCalledWith(expect.stringContaining('no createOrderThreadId'), expect.any(Object));
   });
 
@@ -250,11 +254,34 @@ describe('scheduleManufacturingKeepalives', () => {
     );
   });
 
+  it('warns "guild not in client cache" and skips when guild is not in the cache', async () => {
+    const { scheduleManufacturingKeepalives, runTaskByIndex, mocks } = await setupMocks();
+    const client = {
+      guilds: {
+        cache: {
+          get: jest.fn(() => undefined),
+        },
+      },
+    };
+
+    scheduleManufacturingKeepalives(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
+    await expect(runTaskByIndex(0)).resolves.not.toThrow();
+
+    expect(mocks.warn).toHaveBeenCalledWith(
+      expect.stringContaining('guild not in client cache'),
+      expect.objectContaining({ guildId: 'guild-1' }),
+    );
+  });
+
   it('warns and exits without throwing when channel fetch fails', async () => {
     const { scheduleManufacturingKeepalives, runTaskByIndex, mocks } = await setupMocks();
     const client = {
-      channels: {
-        fetch: jest.fn(async () => { throw new Error('network error'); }),
+      guilds: {
+        cache: {
+          get: jest.fn(() => ({
+            channels: { fetch: jest.fn(async () => { throw new Error('network error'); }) },
+          })),
+        },
       },
     };
 
