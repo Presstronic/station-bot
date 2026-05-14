@@ -20,6 +20,8 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
   return cron.schedule(
     cronSchedule,
     async () => {
+      let channelId: string | null | undefined;
+      let roleId: string | null | undefined;
       try {
         const guildConfig = await getGuildConfigOrNull(guildId);
 
@@ -33,8 +35,8 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
           return;
         }
 
-        const channelId = guildConfig.nominationDigestChannelId;
-        const roleId = guildConfig.nominationDigestRoleId;
+        channelId = guildConfig.nominationDigestChannelId;
+        roleId = guildConfig.nominationDigestRoleId;
 
         if (!channelId || !roleId) {
           logger.warn('[nomination-digest] Guild config missing channel or role; skipping tick', { guildId });
@@ -61,7 +63,7 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
           allowedMentions: { roles: [roleId] },
         });
       } catch (error) {
-        logger.warn('[nomination-digest] Unexpected error in digest tick', { guildId, error });
+        logger.warn('[nomination-digest] Unexpected error in digest tick', { guildId, channelId, roleId, error });
       }
     },
     { timezone: 'UTC' },

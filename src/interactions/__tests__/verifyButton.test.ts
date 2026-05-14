@@ -218,7 +218,7 @@ describe('handleVerifyButtonInteraction', () => {
 
     expect(verifyRSIProfile).not.toHaveBeenCalled();
     const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
-    expect(content).toContain('not currently enabled');
+    expect(content).toContain('not available on this server');
   });
 
   it('assigns role, sets nickname, and replies with success when verification passes', async () => {

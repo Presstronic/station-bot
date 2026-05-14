@@ -52,10 +52,12 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
         if (thread.archived) {
           try {
             await thread.setArchived(false);
-            logger.info('[manufacturing] Keep-alive: unarchived Create Order thread', { threadId: thread.id });
+            logger.info('[manufacturing] Keep-alive: unarchived Create Order thread', { guildId, threadId: thread.id, createOrderThreadId });
           } catch (error) {
             logger.warn('[manufacturing] Keep-alive: failed to unarchive Create Order thread', {
+              guildId,
               threadId: thread.id,
+              createOrderThreadId,
               error,
             });
           }

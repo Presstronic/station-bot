@@ -79,18 +79,18 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     guildConfig = await getGuildConfigOrNull(guildId);
   } catch (error) {
     logger.error('Failed to load guild config during verify button interaction', { guildId, error });
-    await respond('Verification is temporarily unavailable. Please try again later or contact a server administrator.');
+    await respond(i18n.__({ phrase: 'commands.verify.responses.temporarilyUnavailable', locale }));
     return;
   }
   if (!guildConfig) {
     logger.warn('Guild config not found during verify button interaction', { guildId });
-    await respond('Verification is not configured for this server. Please contact an administrator.');
+    await respond(i18n.__({ phrase: 'commands.verify.responses.notConfigured', locale }));
     return;
   }
 
   if (!guildConfig.verificationEnabled) {
     logger.warn('Verification disabled for guild during verify button interaction', { guildId });
-    await respond('Verification is not currently enabled for this server. Please contact an administrator.');
+    await respond(i18n.__({ phrase: 'commands.verify.responses.disabled', locale }));
     return;
   }
 

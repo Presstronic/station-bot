@@ -34,6 +34,8 @@
         "nicknameFailed": "❌ Verification succeeded but your server nickname could not be updated. Please contact a server administrator.",
         "missingPermissionNickname": "⚠️ The bot is missing the **Manage Nicknames** permission. Please ask a server administrator to grant it.",
         "disabled": "❌ Verification is not available on this server.",
+        "temporarilyUnavailable": "❌ Verification is temporarily unavailable. Please try again later or contact a server administrator.",
+        "notConfigured": "❌ Verification is not configured for this server. Please contact an administrator.",
         "rateLimitMinute": "⏳ Please wait {seconds} second(s) before running /verify again.",
         "rateLimitHour": "⏳ You have reached the hourly /verify limit. Try again in {minutes} minute(s)."
       }

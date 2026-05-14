@@ -45,6 +45,7 @@ const SESSION_TTL_MS = 15 * 60 * 1000;
 
 interface Session {
   items: NewOrderItem[];
+  maxItemsPerOrder: number;
   expiresAt: number;
   replyInteraction?: ModalSubmitInteraction;
 }
@@ -91,9 +92,6 @@ function getSession(sessionId: string): Session | undefined {
   return session;
 }
 
-function getSessionItems(sessionId: string): NewOrderItem[] | undefined {
-  return getSession(sessionId)?.items;
-}
 
 export const orderCommandBuilder = new SlashCommandBuilder()
   .setName(ORDER_COMMAND_NAME)
@@ -197,43 +195,16 @@ export async function triggerOrderModal(
     return;
   }
 
-  let guildConfig;
-  try {
-    guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
-  } catch (error) {
-    logger.error('[manufacturing] Failed to load guild config for order modal', { guildId: interaction.guildId, error });
-    await interaction.reply({
-      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (!guildConfig) {
-    await interaction.reply({
-      content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (!guildConfig.manufacturingEnabled) {
-    await interaction.reply({
-      content: 'Manufacturing orders are not currently available.',
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
+  // Reserve the slot before the first await. Node.js is single-threaded so
+  // this push is atomic with respect to other synchronous code; no other
+  // invocation can interleave until the next await. Reserving here prevents
+  // two concurrent invocations from both passing the rate-limit checks before
+  // either records. The entry carries interaction.id (unique per interaction)
+  // so releaseSlot() removes exactly this reservation.
   const userId = interaction.user.id;
   const now = Date.now();
   const oneHourAgo = now - 60 * 60 * 1000;
   const fiveMinutesAgo = now - 5 * 60 * 1000;
-  const {
-    manufacturingOrderRateLimitPer5Min: orderRateLimitPer5Min,
-    manufacturingOrderRateLimitPerHour: orderRateLimitPerHour,
-    manufacturingOrderLimit: orderLimit,
-  } = guildConfig;
 
   const submitEntries = (orderSubmitTimestamps.get(userId) ?? []).filter(e => e.ts > oneHourAgo);
   if (submitEntries.length > 0) {
@@ -242,34 +213,6 @@ export async function triggerOrderModal(
     orderSubmitTimestamps.delete(userId);
   }
 
-  const recentSubmits = submitEntries.filter(e => e.ts > fiveMinutesAgo);
-  if (recentSubmits.length >= orderRateLimitPer5Min) {
-    const limitingTs = recentSubmits[recentSubmits.length - orderRateLimitPer5Min].ts;
-    const secondsRemaining = Math.ceil((limitingTs + 5 * 60 * 1000 - now) / 1000);
-    await interaction.reply({
-      content: `You're submitting orders too quickly. Please wait ${secondsRemaining} second(s) before trying again.`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  if (submitEntries.length >= orderRateLimitPerHour) {
-    const limitingTs = submitEntries[submitEntries.length - orderRateLimitPerHour].ts;
-    const minutesRemaining = Math.ceil((limitingTs + 60 * 60 * 1000 - now) / (60 * 1000));
-    await interaction.reply({
-      content: `You've reached the hourly order submission limit. Please try again in ${minutesRemaining} minute(s).`,
-      flags: MessageFlags.Ephemeral,
-    });
-    return;
-  }
-
-  // Reserve the slot before any awaits. Node.js is single-threaded so this
-  // push is atomic with respect to other synchronous code; no other invocation
-  // can interleave until the next await. Reserving here prevents two concurrent
-  // invocations from both passing the rate-limit check before either records.
-  // The entry carries interaction.id (unique per Discord interaction) so that
-  // releaseSlot() can remove exactly this reservation even if two invocations
-  // for the same user arrive within the same millisecond.
   const interactionId = interaction.id;
   submitEntries.push({ ts: now, id: interactionId });
   orderSubmitTimestamps.set(userId, submitEntries);
@@ -287,13 +230,70 @@ export async function triggerOrderModal(
   };
 
   // Use try/finally so the slot is released on any exit that does not
-  // successfully show the modal — explicit eligibility rejections, unexpected
-  // throws from async calls, and showModal failures all release the reservation.
+  // successfully show the modal — config errors, eligibility rejections,
+  // rate-limit rejections, and unexpected throws all release the reservation.
   // Note: the async guards (hasRole, countActiveByUserId) still have a narrow
   // concurrent false-positive window; a per-user mutex would close it fully
   // but is deferred until a shared store is in place (see #317).
   let slotCommitted = false;
   try {
+    let guildConfig;
+    try {
+      guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
+    } catch (error) {
+      logger.error('[manufacturing] Failed to load guild config for order modal', { guildId: interaction.guildId, error });
+      await interaction.reply({
+        content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (!guildConfig) {
+      await interaction.reply({
+        content: 'Manufacturing orders are currently unavailable due to a configuration issue. Please contact staff.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (!guildConfig.manufacturingEnabled) {
+      await interaction.reply({
+        content: 'Manufacturing orders are not currently available.',
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const {
+      manufacturingOrderRateLimitPer5Min: orderRateLimitPer5Min,
+      manufacturingOrderRateLimitPerHour: orderRateLimitPerHour,
+      manufacturingOrderLimit: orderLimit,
+    } = guildConfig;
+
+    // The slot is already counted in submitEntries, so use > (not >=) to allow
+    // exactly orderRateLimitPer5Min requests per window.
+    const recentSubmits = submitEntries.filter(e => e.ts > fiveMinutesAgo);
+    if (recentSubmits.length > orderRateLimitPer5Min) {
+      const limitingTs = recentSubmits[recentSubmits.length - orderRateLimitPer5Min - 1].ts;
+      const secondsRemaining = Math.ceil((limitingTs + 5 * 60 * 1000 - now) / 1000);
+      await interaction.reply({
+        content: `You're submitting orders too quickly. Please wait ${secondsRemaining} second(s) before trying again.`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    if (submitEntries.length > orderRateLimitPerHour) {
+      const limitingTs = submitEntries[submitEntries.length - orderRateLimitPerHour - 1].ts;
+      const minutesRemaining = Math.ceil((limitingTs + 60 * 60 * 1000 - now) / (60 * 1000));
+      await interaction.reply({
+        content: `You've reached the hourly order submission limit. Please try again in ${minutesRemaining} minute(s).`,
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
     const hasRole = await hasOrganizationMemberOrHigher(interaction);
     if (!hasRole) {
       await interaction.reply({
@@ -317,6 +317,7 @@ export async function triggerOrderModal(
 
     sessions.set(interaction.id, {
       items: [],
+      maxItemsPerOrder: guildConfig.manufacturingMaxItemsPerOrder,
       expiresAt: Date.now() + SESSION_TTL_MS,
     });
     await interaction.showModal(buildItemModal(`${ITEM_MODAL_PREFIX}:${interaction.id}`, 1));
@@ -430,15 +431,17 @@ export async function handleOrderButtonInteraction(
   const colonIdx = interaction.customId.indexOf(':');
   const prefix = interaction.customId.slice(0, colonIdx);
   const sessionId = interaction.customId.slice(colonIdx + 1);
-  const items = getSessionItems(sessionId);
+  const session = getSession(sessionId);
 
-  if (!items) {
+  if (!session) {
     await interaction.update({
       content: 'Your order session has expired. Please use `/order` to start a new order.',
       components: [],
     });
     return;
   }
+
+  const { items, maxItemsPerOrder } = session;
 
   if (prefix === ADD_ITEM_BUTTON_PREFIX) {
     // Skip the DB round-trip for add-item — the button is already disabled in the UI
@@ -454,7 +457,7 @@ export async function handleOrderButtonInteraction(
   if (items.length === 0) {
     await interaction.update({
       content: 'Please add at least one item before submitting.',
-      components: buildItemCollectionComponents(sessionId, 0, items.length + 1),
+      components: buildItemCollectionComponents(sessionId, 0, maxItemsPerOrder),
     });
     return;
   }
