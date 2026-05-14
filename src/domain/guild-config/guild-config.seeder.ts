@@ -1,5 +1,5 @@
 import type { Client } from 'discord.js';
-import { getGuildConfig, upsertGuildConfig, type GuildConfigPatch } from './guild-config.repository.js';
+import { insertGuildConfigIfAbsent, type GuildConfigPatch } from './guild-config.repository.js';
 import { getLogger } from '../../utils/logger.js';
 
 const logger = getLogger();
@@ -139,13 +139,12 @@ export async function seedGuildConfigsFromEnv(client: Client): Promise<void> {
 
   const results = await Promise.allSettled(
     guilds.map(async (guild) => {
-      const existing = await getGuildConfig(guild.id);
-      if (existing) {
+      const inserted = await insertGuildConfigIfAbsent(guild.id, patch);
+      if (inserted) {
+        logger.info(`[guild-config seeder] Seeded config for guild ${guild.id} (${guild.name}) from env.`);
+      } else {
         logger.debug(`[guild-config seeder] Guild ${guild.id} (${guild.name}) already has a config row — skipping.`);
-        return;
       }
-      await upsertGuildConfig(guild.id, patch);
-      logger.info(`[guild-config seeder] Seeded config for guild ${guild.id} (${guild.name}) from env.`);
     }),
   );
 

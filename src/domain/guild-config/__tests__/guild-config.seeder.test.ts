@@ -113,13 +113,11 @@ describe('seedGuildConfigFromEnv', () => {
 // ---------------------------------------------------------------------------
 
 describe('seedGuildConfigsFromEnv', () => {
-  it('seeds a guild with no existing row and calls upsertGuildConfig', async () => {
-    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
-    const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});
+  it('inserts a config row for a new guild and passes the env-derived patch', async () => {
+    const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -135,10 +133,9 @@ describe('seedGuildConfigsFromEnv', () => {
 
     await seedGuildConfigsFromEnv(client as never);
 
-    expect(getGuildConfig).toHaveBeenCalledWith('guild-1');
-    expect(upsertGuildConfig).toHaveBeenCalledTimes(1);
+    expect(insertGuildConfigIfAbsent).toHaveBeenCalledTimes(1);
 
-    const [guildId, patch] = upsertGuildConfig.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    const [guildId, patch] = insertGuildConfigIfAbsent.mock.calls[0] as unknown as [string, Record<string, unknown>];
     expect(guildId).toBe('guild-1');
     expect(patch.verificationEnabled).toBe(true);
     expect(patch.verifiedRoleName).toBe('Member');
@@ -148,17 +145,15 @@ describe('seedGuildConfigsFromEnv', () => {
     expect(patch.nominationDigestChannelId).toBe('chan-123');
   });
 
-  it('skips a guild that already has a config row', async () => {
-    const existingConfig = { guildId: 'guild-1' };
-    const getGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue(existingConfig);
-    const upsertGuildConfig = jest.fn();
+  it('logs debug when guild already has a config row (insert returns null)', async () => {
+    const insertGuildConfigIfAbsent = jest.fn<() => Promise<null>>().mockResolvedValue(null);
+    const mockDebug = jest.fn();
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
-      getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
+      getLogger: () => ({ info: jest.fn(), debug: mockDebug, warn: jest.fn() }),
     }));
 
     const { seedGuildConfigsFromEnv } = await import('../guild-config.seeder.js');
@@ -166,19 +161,18 @@ describe('seedGuildConfigsFromEnv', () => {
 
     await seedGuildConfigsFromEnv(client as never);
 
-    expect(upsertGuildConfig).not.toHaveBeenCalled();
+    expect(insertGuildConfigIfAbsent).toHaveBeenCalledTimes(1);
+    expect(mockDebug).toHaveBeenCalledWith(expect.stringContaining('already has a config row'), expect.anything());
   });
 
   it('continues seeding remaining guilds when one throws', async () => {
-    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
-    const upsertGuildConfig = jest
+    const insertGuildConfigIfAbsent = jest
       .fn<() => Promise<object>>()
       .mockRejectedValueOnce(new Error('DB error'))
-      .mockResolvedValueOnce({});
+      .mockResolvedValueOnce({ guildId: 'guild-2' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -188,28 +182,26 @@ describe('seedGuildConfigsFromEnv', () => {
     const client = makeClient([makeGuild('guild-1', 'Guild A'), makeGuild('guild-2', 'Guild B')]);
 
     await expect(seedGuildConfigsFromEnv(client as never)).resolves.toBeUndefined();
-    expect(upsertGuildConfig).toHaveBeenCalledTimes(2);
+    expect(insertGuildConfigIfAbsent).toHaveBeenCalledTimes(2);
   });
 
   it('omits unset env vars from the patch — does not pass null for missing nullable fields', async () => {
-    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
-    const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});
+    const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
     }));
 
-    // No env vars set — patch should be empty (or only contain explicitly set vars)
+    // No env vars set — patch should be empty
     const { seedGuildConfigsFromEnv } = await import('../guild-config.seeder.js');
     const client = makeClient([makeGuild('guild-1', 'Test Guild')]);
 
     await seedGuildConfigsFromEnv(client as never);
 
-    const [, patch] = upsertGuildConfig.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    const [, patch] = insertGuildConfigIfAbsent.mock.calls[0] as unknown as [string, Record<string, unknown>];
     expect(patch).not.toHaveProperty('nominationDigestChannelId');
     expect(patch).not.toHaveProperty('manufacturingForumChannelId');
     expect(patch).not.toHaveProperty('birthdayChannelId');
@@ -217,12 +209,10 @@ describe('seedGuildConfigsFromEnv', () => {
   });
 
   it('parses DEFAULT_ROLES correctly and maps to the three role name fields', async () => {
-    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
-    const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});
+    const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -235,19 +225,17 @@ describe('seedGuildConfigsFromEnv', () => {
 
     await seedGuildConfigsFromEnv(client as never);
 
-    const [, patch] = upsertGuildConfig.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    const [, patch] = insertGuildConfigIfAbsent.mock.calls[0] as unknown as [string, Record<string, unknown>];
     expect(patch.verifiedRoleName).toBe('Full Member');
     expect(patch.tempMemberRoleName).toBe('New Member');
     expect(patch.potentialApplicantRoleName).toBe('Prospect');
   });
 
   it('omits DEFAULT_ROLES fields from the patch when the env var is not set', async () => {
-    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
-    const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});
+    const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -259,20 +247,18 @@ describe('seedGuildConfigsFromEnv', () => {
 
     await seedGuildConfigsFromEnv(client as never);
 
-    const [, patch] = upsertGuildConfig.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    const [, patch] = insertGuildConfigIfAbsent.mock.calls[0] as unknown as [string, Record<string, unknown>];
     expect(patch).not.toHaveProperty('verifiedRoleName');
     expect(patch).not.toHaveProperty('tempMemberRoleName');
     expect(patch).not.toHaveProperty('potentialApplicantRoleName');
   });
 
   it('ignores invalid integer env vars (0, negative, float) and omits them from the patch', async () => {
-    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
-    const upsertGuildConfig = jest.fn<() => Promise<object>>().mockResolvedValue({});
+    const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
     const warn = jest.fn();
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn }),
@@ -287,7 +273,7 @@ describe('seedGuildConfigsFromEnv', () => {
 
     await seedGuildConfigsFromEnv(client as never);
 
-    const [, patch] = upsertGuildConfig.mock.calls[0] as unknown as [string, Record<string, unknown>];
+    const [, patch] = insertGuildConfigIfAbsent.mock.calls[0] as unknown as [string, Record<string, unknown>];
     expect(patch).not.toHaveProperty('manufacturingOrderLimit');
     expect(patch).not.toHaveProperty('manufacturingMaxItemsPerOrder');
     expect(patch).not.toHaveProperty('manufacturingOrderRateLimitPer5Min');
@@ -295,14 +281,12 @@ describe('seedGuildConfigsFromEnv', () => {
   });
 
   it('throws AggregateError when every guild fails to seed', async () => {
-    const getGuildConfig = jest.fn<() => Promise<null>>().mockResolvedValue(null);
-    const upsertGuildConfig = jest
+    const insertGuildConfigIfAbsent = jest
       .fn<() => Promise<object>>()
       .mockRejectedValue(new Error('DB down'));
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
-      getGuildConfig,
-      upsertGuildConfig,
+      insertGuildConfigIfAbsent,
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
