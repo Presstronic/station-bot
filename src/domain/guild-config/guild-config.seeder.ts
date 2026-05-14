@@ -1,5 +1,5 @@
 import type { Client } from 'discord.js';
-import { insertGuildConfigIfAbsent, type GuildConfigPatch } from './guild-config.repository.js';
+import { getGuildConfig, upsertGuildConfig, insertGuildConfigIfAbsent, type GuildConfigPatch } from './guild-config.repository.js';
 import { getLogger } from '../../utils/logger.js';
 
 const logger = getLogger();
