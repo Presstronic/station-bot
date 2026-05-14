@@ -15,7 +15,7 @@ import {
   type ThreadChannel,
 } from 'discord.js';
 import { isManufacturingEnabled } from '../config/manufacturing.config.js';
-import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, type GuildConfig } from '../domain/guild-config/guild-config.service.js';
 import { submitOrder } from '../domain/manufacturing/manufacturing.service.js';
 import {
   countActiveByUserId,
@@ -237,7 +237,7 @@ export async function triggerOrderModal(
   // but is deferred until a shared store is in place (see #317).
   let slotCommitted = false;
   try {
-    let guildConfig;
+    let guildConfig: GuildConfig | null;
     try {
       guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
     } catch (error) {
@@ -470,7 +470,7 @@ export async function handleOrderButtonInteraction(
   await interaction.deferUpdate();
 
   try {
-    let guildConfig;
+    let guildConfig: GuildConfig | null;
     try {
       guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
     } catch (error) {

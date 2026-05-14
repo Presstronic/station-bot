@@ -3,7 +3,7 @@ import { getUserVerificationData, clearUserVerificationData } from '../commands/
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
 import { verifyRSIProfile } from '../services/rsi.services.js';
-import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, type GuildConfig } from '../domain/guild-config/guild-config.service.js';
 import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
@@ -74,7 +74,7 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
     return;
   }
-  let guildConfig;
+  let guildConfig: GuildConfig | null;
   try {
     guildConfig = await getGuildConfigOrNull(guildId);
   } catch (error) {

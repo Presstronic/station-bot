@@ -10,7 +10,7 @@ import {
   type ForumChannel,
 } from 'discord.js';
 import { isManufacturingEnabled } from '../config/manufacturing.config.js';
-import { getGuildConfigOrNull, upsertGuildConfig } from '../domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, upsertGuildConfig, type GuildConfig } from '../domain/guild-config/guild-config.service.js';
 import { MFG_CREATE_ORDER_PREFIX } from '../domain/manufacturing/manufacturing.forum.js';
 import { getLogger } from '../utils/logger.js';
 
@@ -60,7 +60,7 @@ export async function handleManufacturingSetupCommand(
   }
 
   const guildId = interaction.guildId ?? '';
-  let guildConfig;
+  let guildConfig: GuildConfig | null;
   try {
     guildConfig = await getGuildConfigOrNull(guildId);
   } catch (error) {

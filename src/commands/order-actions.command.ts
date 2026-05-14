@@ -8,7 +8,7 @@ import {
   type ThreadChannel,
 } from 'discord.js';
 import { isManufacturingEnabled } from '../config/manufacturing.config.js';
-import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, type GuildConfig } from '../domain/guild-config/guild-config.service.js';
 import {
   cancelOrder,
   findById,
@@ -254,7 +254,7 @@ export async function handleMfgCancelOrder(interaction: ButtonInteraction): Prom
 
   await interaction.deferUpdate();
 
-  let guildConfig;
+  let guildConfig: GuildConfig | null;
   let order;
   try {
     [guildConfig, order] = await Promise.all([
@@ -337,7 +337,7 @@ export async function handleMfgStaffCancel(interaction: ButtonInteraction): Prom
 
   await interaction.deferUpdate();
 
-  let guildConfig;
+  let guildConfig: GuildConfig | null;
   try {
     guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
   } catch (error) {
@@ -423,7 +423,7 @@ export async function handleMfgAdvance(interaction: ButtonInteraction): Promise<
 
   await interaction.deferUpdate();
 
-  let guildConfig;
+  let guildConfig: GuildConfig | null;
   try {
     guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
   } catch (error) {
