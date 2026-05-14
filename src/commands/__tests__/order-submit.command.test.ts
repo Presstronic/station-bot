@@ -627,51 +627,6 @@ describe('handleOrderItemModal', () => {
     expect(modal.reply).not.toHaveBeenCalled();
   });
 
-  it('edits reply with a temporarily-unavailable message when getGuildConfigOrNull throws', async () => {
-    const h = await setupMocks();
-    await createSession(h, 'modal-db-throw');
-    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => { throw new Error('DB error'); });
-    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-db-throw`, {
-      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
-    });
-    await h.handleOrderItemModal(modal as any);
-    expect(modal.deferReply).toHaveBeenCalledTimes(1);
-    expect(modal.editReply).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.stringMatching(/right now/i) }),
-    );
-    expect(modal.reply).not.toHaveBeenCalled();
-  });
-
-  it('edits reply with a not-configured message when guild config is null', async () => {
-    const h = await setupMocks();
-    await createSession(h, 'modal-cfg-null');
-    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => null);
-    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-null`, {
-      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
-    });
-    await h.handleOrderItemModal(modal as any);
-    expect(modal.deferReply).toHaveBeenCalledTimes(1);
-    expect(modal.editReply).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.stringMatching(/not configured/i) }),
-    );
-    expect(modal.reply).not.toHaveBeenCalled();
-  });
-
-  it('edits reply with a disabled message when manufacturingEnabled is false', async () => {
-    const h = await setupMocks();
-    await createSession(h, 'modal-cfg-disabled');
-    (h.getGuildConfigOrNullMock as jest.Mock).mockImplementationOnce(async () => makeGuildConfig({ manufacturingEnabled: false }));
-    const modal = makeModalInteraction(`${h.ITEM_MODAL_PREFIX}:modal-cfg-disabled`, {
-      'item-name': 'Steel Plate', 'quantity': '1', 'priority-stat': 'X', 'notes': '',
-    });
-    await h.handleOrderItemModal(modal as any);
-    expect(modal.deferReply).toHaveBeenCalledTimes(1);
-    expect(modal.editReply).toHaveBeenCalledWith(
-      expect.objectContaining({ content: expect.stringMatching(/disabled/i) }),
-    );
-    expect(modal.reply).not.toHaveBeenCalled();
-  });
-
   it('disables the Add Item button when maxItemsPerOrder is reached', async () => {
     const h = await setupMocks(); // maxItemsPerOrder = 3
     await createSession(h, 'max-test');
@@ -1108,12 +1063,12 @@ describe('handleOrderButtonInteraction', () => {
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:staff-create`, {
       guild: {
         channels: {
-          fetch: jest.fn(async () => makeForumChannel(publicCreateMock)),
-        },
-      },
-      client: {
-        channels: {
-          fetch: jest.fn(async () => makeForumChannel(staffCreateMock)),
+          // Return public channel for 'forum-ch', staff channel for 'staff-ch'
+          fetch: jest.fn(async (channelId: unknown) =>
+            channelId === 'staff-ch'
+              ? makeForumChannel(staffCreateMock)
+              : makeForumChannel(publicCreateMock),
+          ),
         },
       },
     });
@@ -1150,22 +1105,19 @@ describe('handleOrderButtonInteraction', () => {
     const btn = makeButtonInteraction(`${h.SUBMIT_ORDER_BUTTON_PREFIX}:staff-fail`, {
       guild: {
         channels: {
-          fetch: jest.fn(async () => ({
-            type: 15,
-            availableTags: [],
-            setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
-              availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
-            })),
-            threads: {
-              create: jest.fn(async () => ({ id: 'pub-thread', send: jest.fn(async () => {}) })),
-            },
-          })),
-        },
-      },
-      client: {
-        channels: {
-          // Staff channel fetch — throws
-          fetch: jest.fn(async () => { throw new Error('staff channel unavailable'); }),
+          fetch: jest.fn(async (channelId: unknown) => {
+            if (channelId === 'staff-ch') throw new Error('staff channel unavailable');
+            return {
+              type: 15,
+              availableTags: [],
+              setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+                availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+              })),
+              threads: {
+                create: jest.fn(async () => ({ id: 'pub-thread', send: jest.fn(async () => {}) })),
+              },
+            };
+          }),
         },
       },
     });

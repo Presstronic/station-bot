@@ -350,29 +350,7 @@ export async function handleOrderItemModal(
   // Acknowledge before any async work — modal submit has the same ~3s window as button interactions.
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const items = session.items;
-
-  let maxItemsPerOrder = 10;
-  try {
-    const guildConfig = await getGuildConfigOrNull(interaction.guildId ?? '');
-    if (guildConfig === null) {
-      await interaction.editReply({
-        content: 'Manufacturing is not configured for this server. Please contact staff.',
-      });
-      return;
-    }
-    if (!guildConfig.manufacturingEnabled) {
-      await interaction.editReply({
-        content: 'Manufacturing orders are currently disabled in this server.',
-      });
-      return;
-    }
-    maxItemsPerOrder = guildConfig.manufacturingMaxItemsPerOrder;
-  } catch (error) {
-    logger.error('[manufacturing] Failed to load guild config in order item modal', { guildId: interaction.guildId, error });
-    await interaction.editReply({ content: 'Unable to load server order settings right now. Please try again in a moment.' });
-    return;
-  }
+  const { items, maxItemsPerOrder } = session;
 
   if (items.length >= maxItemsPerOrder) {
     await interaction.editReply({
@@ -608,7 +586,9 @@ export async function handleOrderButtonInteraction(
     // member's success reply is never delayed by staff channel issues.
     if (staffChannelId) {
       void (async () => { try {
-        const staffCh = await interaction.client.channels.fetch(staffChannelId);
+        const staffCh = interaction.guild
+          ? await interaction.guild.channels.fetch(staffChannelId).catch(() => null)
+          : null;
         if (!staffCh || staffCh.type !== ChannelType.GuildForum) {
           logger.error(
             '[manufacturing] Staff channel is missing or not a forum channel; skipping staff thread creation',
