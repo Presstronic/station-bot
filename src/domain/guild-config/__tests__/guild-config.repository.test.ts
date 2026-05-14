@@ -239,3 +239,67 @@ describe('getAllGuildConfigs', () => {
     expect(await getAllGuildConfigs()).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// insertGuildConfigIfAbsent
+// ---------------------------------------------------------------------------
+
+describe('insertGuildConfigIfAbsent', () => {
+  it('returns the inserted GuildConfig when the row did not exist', async () => {
+    const row = makeConfigRow({ guild_id: 'guild-new', verification_enabled: true });
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [row] });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
+      withClient: makeWithClient(query),
+    }));
+
+    const { insertGuildConfigIfAbsent } = await import('../guild-config.repository.js');
+    const result = await insertGuildConfigIfAbsent('guild-new', { verificationEnabled: true });
+
+    expect(result).not.toBeNull();
+    expect(result!.guildId).toBe('guild-new');
+    expect(result!.verificationEnabled).toBe(true);
+
+    const sql = queryCalls(query)[0];
+    expect(sql).toMatch(/INSERT INTO guild_configs/i);
+    expect(sql).toMatch(/ON CONFLICT .* DO NOTHING/i);
+  });
+
+  it('returns null when the row already exists (DO NOTHING fires)', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [] });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
+      withClient: makeWithClient(query),
+    }));
+
+    const { insertGuildConfigIfAbsent } = await import('../guild-config.repository.js');
+    const result = await insertGuildConfigIfAbsent('guild-existing', { verificationEnabled: false });
+
+    expect(result).toBeNull();
+  });
+
+  it('uses DO NOTHING even when no patch fields are provided', async () => {
+    const row = makeConfigRow({ guild_id: 'guild-defaults' });
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [row] });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
+      withClient: makeWithClient(query),
+    }));
+
+    const { insertGuildConfigIfAbsent } = await import('../guild-config.repository.js');
+    await insertGuildConfigIfAbsent('guild-defaults', {});
+
+    const sql = queryCalls(query)[0];
+    expect(sql).toMatch(/ON CONFLICT .* DO NOTHING/i);
+    expect(sql).not.toMatch(/DO UPDATE/i);
+  });
+});

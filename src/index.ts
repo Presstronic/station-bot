@@ -159,7 +159,16 @@ client.once('clientReady', async () => {
       return;
     }
     if (!readOnlyMode) {
-      await seedGuildConfigsFromEnv(client);
+      try {
+        await seedGuildConfigsFromEnv(client);
+      } catch (error) {
+        logger.error('Failed to seed guild configs from environment', error);
+        logger.error('DATABASE_URL is set but guild config seeding failed. Aborting startup.');
+        process.exit(1);
+        return;
+      }
+    } else {
+      logger.info('Read-only mode enabled; skipping guild config seeding from environment.');
     }
   }
 

@@ -175,6 +175,40 @@ export async function upsertGuildConfig(guildId: string, patch: GuildConfigPatch
   });
 }
 
+export async function insertGuildConfigIfAbsent(guildId: string, patch: GuildConfigPatch): Promise<GuildConfig | null> {
+  assertDatabaseConfigured();
+  return withClient(async (client) => {
+    const rawEntries = Object.entries(patch).filter(([, val]) => val !== undefined);
+
+    for (const [key] of rawEntries) {
+      if (!Object.hasOwn(PATCH_COLUMN_MAP, key)) {
+        throw new Error(`insertGuildConfigIfAbsent: unknown patch key "${key}"`);
+      }
+    }
+
+    const entries = rawEntries as [keyof GuildConfigPatch, unknown][];
+
+    let sql: string;
+    let params: unknown[];
+
+    if (entries.length === 0) {
+      sql = `INSERT INTO guild_configs (guild_id) VALUES ($1) ON CONFLICT (guild_id) DO NOTHING RETURNING *`;
+      params = [guildId];
+    } else {
+      const columns = entries.map(([key]) => PATCH_COLUMN_MAP[key]);
+      const values = entries.map(([, val]) => val);
+      const insertCols = ['guild_id', ...columns].join(', ');
+      const insertPlaceholders = ['$1', ...columns.map((_, i) => `$${i + 2}`)].join(', ');
+      sql = `INSERT INTO guild_configs (${insertCols}) VALUES (${insertPlaceholders}) ON CONFLICT (guild_id) DO NOTHING RETURNING *`;
+      params = [guildId, ...values];
+    }
+
+    const result = await client.query(sql, params);
+    if (result.rows.length === 0) return null;
+    return mapGuildConfigRow(result.rows[0] as Record<string, unknown>);
+  });
+}
+
 export async function getAllGuildConfigs(): Promise<GuildConfig[]> {
   assertDatabaseConfigured();
   return withClient(async (client) => {
