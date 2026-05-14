@@ -79,8 +79,6 @@ export function scheduleNominationDigests(
 
   for (const cfg of guildConfigs) {
     if (!cfg.nominationDigestEnabled || !cfg.nominationDigestChannelId || !cfg.nominationDigestRoleId) {
-      activeTasks.get(cfg.guildId)?.stop();
-      activeTasks.delete(cfg.guildId);
       continue;
     }
 
@@ -91,23 +89,12 @@ export function scheduleNominationDigests(
         guildId: cfg.guildId,
         schedule,
       });
-      activeTasks.get(cfg.guildId)?.stop();
-      activeTasks.delete(cfg.guildId);
       continue;
     }
 
-    activeTasks.get(cfg.guildId)?.stop();
     const task = createTaskForGuild(client, cfg.guildId, schedule);
     activeTasks.set(cfg.guildId, task);
     logger.info(`[nomination-digest] Scheduled digest for guild ${cfg.guildId}`, { schedule });
-  }
-
-  const incomingIds = new Set(guildConfigs.map((c) => c.guildId));
-  for (const [guildId, task] of activeTasks) {
-    if (!incomingIds.has(guildId)) {
-      task.stop();
-      activeTasks.delete(guildId);
-    }
   }
 
   return activeTasks;
