@@ -162,7 +162,7 @@ describe('seedGuildConfigsFromEnv', () => {
     await seedGuildConfigsFromEnv(client as never);
 
     expect(insertGuildConfigIfAbsent).toHaveBeenCalledTimes(1);
-    expect(mockDebug).toHaveBeenCalledWith(expect.stringContaining('already has a config row'), expect.anything());
+    expect(mockDebug).toHaveBeenCalledWith(expect.stringContaining('already has a config row'));
   });
 
   it('continues seeding remaining guilds when one throws', async () => {
