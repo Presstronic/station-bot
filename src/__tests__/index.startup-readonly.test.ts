@@ -480,6 +480,7 @@ describe('startup wiring with read-only mode', () => {
       MFG_STAFF_CANCEL_PREFIX: 'mfg-staff-cancel',
     }));
     await jest.unstable_mockModule('../domain/guild-config/guild-config.seeder.js', () => ({
+      seedGuildConfigFromEnv: jest.fn(async () => undefined),
       seedGuildConfigsFromEnv: jest.fn(async () => {
         throw new AggregateError([new Error('DB down')], 'seeding failed');
       }),
