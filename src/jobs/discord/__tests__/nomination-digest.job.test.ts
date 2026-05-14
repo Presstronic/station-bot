@@ -217,7 +217,7 @@ describe('scheduleNominationDigests', () => {
     await expect(runTaskByIndex(0)).resolves.not.toThrow();
 
     expect(mocks.warn).toHaveBeenCalledWith(
-      expect.stringContaining('Digest disabled for guild'),
+      expect.stringContaining('Digest disabled in guild config at tick time'),
       expect.any(Object),
     );
     expect(client.channels.fetch).not.toHaveBeenCalled();
