@@ -55,6 +55,8 @@ describe('seedGuildConfigFromEnv', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig,
       upsertGuildConfig,
+      insertGuildConfigIfAbsent: jest.fn(),
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -78,6 +80,8 @@ describe('seedGuildConfigFromEnv', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig,
       upsertGuildConfig,
+      insertGuildConfigIfAbsent: jest.fn(),
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -97,6 +101,8 @@ describe('seedGuildConfigFromEnv', () => {
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
       getGuildConfig,
       upsertGuildConfig,
+      insertGuildConfigIfAbsent: jest.fn(),
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: mockWarn }),
@@ -117,7 +123,10 @@ describe('seedGuildConfigsFromEnv', () => {
     const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -150,7 +159,10 @@ describe('seedGuildConfigsFromEnv', () => {
     const mockDebug = jest.fn();
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: mockDebug, warn: jest.fn() }),
@@ -172,7 +184,10 @@ describe('seedGuildConfigsFromEnv', () => {
       .mockResolvedValueOnce({ guildId: 'guild-2' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -189,7 +204,10 @@ describe('seedGuildConfigsFromEnv', () => {
     const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -212,7 +230,10 @@ describe('seedGuildConfigsFromEnv', () => {
     const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -235,7 +256,10 @@ describe('seedGuildConfigsFromEnv', () => {
     const insertGuildConfigIfAbsent = jest.fn<() => Promise<object>>().mockResolvedValue({ guildId: 'guild-1' });
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),
@@ -258,7 +282,10 @@ describe('seedGuildConfigsFromEnv', () => {
     const warn = jest.fn();
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn }),
@@ -286,7 +313,10 @@ describe('seedGuildConfigsFromEnv', () => {
       .mockRejectedValue(new Error('DB down'));
 
     jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      upsertGuildConfig: jest.fn(),
       insertGuildConfigIfAbsent,
+      getAllGuildConfigs: jest.fn(),
     }));
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ info: jest.fn(), debug: jest.fn(), warn: jest.fn() }),

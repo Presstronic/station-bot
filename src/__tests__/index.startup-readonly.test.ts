@@ -443,7 +443,8 @@ describe('startup wiring with read-only mode', () => {
       schedulePotentialApplicantCleanup: jest.fn(),
     }));
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
-      scheduleNominationDigest: jest.fn(() => ({ stop: jest.fn() })),
+      scheduleNominationDigests: jest.fn(() => new Map()),
+      rescheduleGuildDigest: jest.fn(),
     }));
     await jest.unstable_mockModule('../services/role.services.js', () => ({
       addMissingDefaultRoles: jest.fn(async () => undefined),
