@@ -40,6 +40,7 @@ async function loadIndexAndRunReady(
     nominationDigestEnabled?: 'true' | 'false';
     dbConfigured?: boolean;
     digestTaskCount?: number;
+    guildConfigThrows?: boolean;
   } = {}
 ) {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
@@ -144,7 +145,10 @@ async function loadIndexAndRunReady(
     seedGuildConfigsFromEnv,
   }));
   await jest.unstable_mockModule('../domain/guild-config/guild-config.service.js', () => ({
-    getGuildConfigOrNull: jest.fn(async () => null),
+    ensureGuildConfigsSchema: jest.fn(async () => undefined),
+    getGuildConfigOrNull: options.guildConfigThrows
+      ? jest.fn(async () => { throw new Error('DB down'); })
+      : jest.fn(async () => null),
     getAllGuildConfigs: jest.fn(async () => []),
   }));
   await jest.unstable_mockModule('discord.js', () => {
@@ -288,6 +292,15 @@ describe('startup wiring with read-only mode', () => {
     expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
   });
 
+  it('skips addMissingDefaultRoles when guild config load throws during startup', async () => {
+    const { addMissingDefaultRoles } = await loadIndexAndRunReady('false', {
+      dbConfigured: true,
+      guildConfigThrows: true,
+    });
+
+    expect(addMissingDefaultRoles).not.toHaveBeenCalled();
+  });
+
   it('fails fast when DATABASE_URL is configured but schema check fails', async () => {
     process.env.BOT_READ_ONLY_MODE = 'false';
     process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
@@ -381,6 +394,7 @@ describe('startup wiring with read-only mode', () => {
       seedGuildConfigsFromEnv: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../domain/guild-config/guild-config.service.js', () => ({
+      ensureGuildConfigsSchema: jest.fn(async () => undefined),
       getGuildConfigOrNull: jest.fn(async () => null),
       getAllGuildConfigs: jest.fn(async () => []),
     }));
@@ -606,6 +620,7 @@ describe('startup wiring with read-only mode', () => {
       seedGuildConfigsFromEnv: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../domain/guild-config/guild-config.service.js', () => ({
+      ensureGuildConfigsSchema: jest.fn(async () => undefined),
       getGuildConfigOrNull: jest.fn(async () => null),
       getAllGuildConfigs: jest.fn(async () => []),
     }));

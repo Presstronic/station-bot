@@ -216,3 +216,15 @@ export async function getAllGuildConfigs(): Promise<GuildConfig[]> {
     return (result.rows as Record<string, unknown>[]).map(mapGuildConfigRow);
   });
 }
+
+export async function ensureGuildConfigsSchema(): Promise<void> {
+  assertDatabaseConfigured();
+  await withClient(async (client) => {
+    const result = await client.query<{ table_exists: string | null }>(
+      `SELECT to_regclass('public.guild_configs') AS table_exists`,
+    );
+    if (result.rows[0].table_exists == null) {
+      throw new Error('guild_configs table not found — run database migrations before starting');
+    }
+  });
+}

@@ -303,3 +303,33 @@ describe('insertGuildConfigIfAbsent', () => {
     expect(sql).not.toMatch(/DO UPDATE/i);
   });
 });
+
+describe('ensureGuildConfigsSchema', () => {
+  it('resolves when guild_configs table exists', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [{ table_exists: 'guild_configs' }] });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
+      withClient: makeWithClient(query),
+    }));
+
+    const { ensureGuildConfigsSchema } = await import('../guild-config.repository.js');
+    await expect(ensureGuildConfigsSchema()).resolves.toBeUndefined();
+  });
+
+  it('throws when guild_configs table is missing', async () => {
+    const query = jest
+      .fn<() => Promise<{ rows: unknown[] }>>()
+      .mockResolvedValueOnce({ rows: [{ table_exists: null }] });
+
+    jest.unstable_mockModule('../../../services/nominations/db.js', () => ({
+      isDatabaseConfigured: () => true,
+      withClient: makeWithClient(query),
+    }));
+
+    const { ensureGuildConfigsSchema } = await import('../guild-config.repository.js');
+    await expect(ensureGuildConfigsSchema()).rejects.toThrow('guild_configs table not found');
+  });
+});

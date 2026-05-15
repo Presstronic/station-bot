@@ -21,7 +21,7 @@ import {
   isDatabaseConfigured,
 } from './services/nominations/db.js';
 import { seedGuildConfigFromEnv, seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
-import { getGuildConfigOrNull, getAllGuildConfigs, type GuildConfig } from './domain/guild-config/guild-config.service.js';
+import { ensureGuildConfigsSchema, getGuildConfigOrNull, getAllGuildConfigs, type GuildConfig } from './domain/guild-config/guild-config.service.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -129,8 +129,9 @@ client.once('clientReady', async () => {
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
+      await ensureGuildConfigsSchema();
     } catch (error) {
-      logger.error('Failed to initialize nominations database schema', error);
+      logger.error('Failed to initialize database schema', error);
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
       process.exit(1);
       return;
@@ -162,17 +163,21 @@ client.once('clientReady', async () => {
       await Promise.all(
         [...client.guilds.cache.values()].map(async (guild) => {
           let guildConfig = null;
+          let configLoadFailed = false;
           if (isDatabaseConfigured()) {
             try {
               guildConfig = await getGuildConfigOrNull(guild.id);
             } catch (error) {
-              logger.warn(`Failed to load guild config for role setup in guild ${guild.id} (${guild.name}); using hardcoded role-name defaults`, error);
+              configLoadFailed = true;
+              logger.warn(`Failed to load guild config for role setup in guild ${guild.id} (${guild.name}); skipping role setup to avoid creating unexpected roles`, error);
             }
           }
-          try {
-            await addMissingDefaultRoles(guild, client, guildConfig);
-          } catch (error) {
-            logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
+          if (!configLoadFailed) {
+            try {
+              await addMissingDefaultRoles(guild, client, guildConfig);
+            } catch (error) {
+              logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
+            }
           }
         }),
       );
