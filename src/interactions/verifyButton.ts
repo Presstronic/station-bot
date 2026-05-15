@@ -3,7 +3,7 @@ import { getUserVerificationData, clearUserVerificationData } from '../commands/
 import { getLogger } from '../utils/logger.js';
 import { assignVerifiedRole, removeVerifiedRole } from '../services/role.services.js';
 import { verifyRSIProfile } from '../services/rsi.services.js';
-import { getGuildConfigOrNull } from '../domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, type GuildConfig } from '../domain/guild-config/guild-config.service.js';
 import i18n from '../utils/i18n-config.js';
 
 const logger = getLogger();
@@ -74,10 +74,23 @@ export async function handleVerifyButtonInteraction(interaction: ButtonInteracti
     await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
     return;
   }
-  const guildConfig = await getGuildConfigOrNull(guildId);
+  let guildConfig: GuildConfig | null;
+  try {
+    guildConfig = await getGuildConfigOrNull(guildId);
+  } catch (error) {
+    logger.error('Failed to load guild config during verify button interaction', { guildId, error });
+    await respond(i18n.__({ phrase: 'commands.verify.responses.temporarilyUnavailable', locale }));
+    return;
+  }
   if (!guildConfig) {
-    logger.warn('No guild config found during verify button interaction', { guildId });
-    await respond(i18n.__({ phrase: 'commands.verify.responses.sessionExpired', locale }));
+    logger.warn('Guild config not found during verify button interaction', { guildId });
+    await respond(i18n.__({ phrase: 'commands.verify.responses.notConfigured', locale }));
+    return;
+  }
+
+  if (!guildConfig.verificationEnabled) {
+    logger.warn('Verification disabled for guild during verify button interaction', { guildId });
+    await respond(i18n.__({ phrase: 'commands.verify.responses.disabled', locale }));
     return;
   }
 

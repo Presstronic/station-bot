@@ -11,14 +11,14 @@ async function loadHandlerWithMocks({
   rsiCanonicalHandle = 'PilotOne',
   rsiCanonicalHandleScraped = true,
   rsiProfileError,
-  guildConfig = { verifiedRoleName: 'Verified' },
+  guildConfig = { verifiedRoleName: 'Verified', verificationEnabled: true },
 }: {
   userData: { rsiProfileName: string; dreadnoughtValidationCode: string } | undefined;
   rsiProfileVerified?: boolean;
   rsiCanonicalHandle?: string;
   rsiCanonicalHandleScraped?: boolean;
   rsiProfileError?: Error;
-  guildConfig?: { verifiedRoleName: string } | null;
+  guildConfig?: { verifiedRoleName: string; verificationEnabled?: boolean } | null;
 }) {
   const getUserVerificationData = jest.fn(() => userData);
   const clearUserVerificationData = jest.fn();
@@ -206,6 +206,19 @@ describe('handleVerifyButtonInteraction', () => {
     const { interaction } = makeButtonInteraction();
     await handleVerifyButtonInteraction(interaction);
     expect(verifyRSIProfile).not.toHaveBeenCalled();
+  });
+
+  it('replies with not-enabled message and does not call verifyRSIProfile when verificationEnabled is false', async () => {
+    const { handleVerifyButtonInteraction, verifyRSIProfile } = await loadHandlerWithMocks({
+      userData: { rsiProfileName: 'PilotOne', dreadnoughtValidationCode: 'abc123' },
+      guildConfig: { verifiedRoleName: 'Verified', verificationEnabled: false },
+    });
+    const { interaction } = makeButtonInteraction();
+    await handleVerifyButtonInteraction(interaction);
+
+    expect(verifyRSIProfile).not.toHaveBeenCalled();
+    const content = ((interaction.editReply as jest.Mock).mock.calls[0] as [{ content: string }])[0].content;
+    expect(content).toContain('not available on this server');
   });
 
   it('assigns role, sets nickname, and replies with success when verification passes', async () => {

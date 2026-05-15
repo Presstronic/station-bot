@@ -44,21 +44,16 @@ function makeRepoMock(overrides: Record<string, jest.Mock> = {}) {
 // ---------------------------------------------------------------------------
 
 describe('submitOrder', () => {
-  it('delegates to repository.create with orderLimit from config', async () => {
+  it('delegates to repository.create with the provided orderLimit', async () => {
     const created = makeOrder();
     const repo = makeRepoMock({
       create: jest.fn<() => Promise<ManufacturingOrder>>().mockResolvedValue(created),
     });
 
     jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
 
     const { submitOrder } = await import('../manufacturing.service.js');
-    const result = await submitOrder('user-1', 'User#1234', []);
+    const result = await submitOrder('user-1', 'User#1234', [], 5);
 
     expect(result).toBe(created);
     expect(repo.create).toHaveBeenCalledWith('user-1', 'User#1234', [], 5);
@@ -71,14 +66,9 @@ describe('submitOrder', () => {
     });
 
     jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
 
     const { submitOrder } = await import('../manufacturing.service.js');
-    await expect(submitOrder('user-1', 'User#1234', [])).rejects.toBeInstanceOf(OrderLimitExceededError);
+    await expect(submitOrder('user-1', 'User#1234', [], 5)).rejects.toBeInstanceOf(OrderLimitExceededError);
   });
 });
 
@@ -96,11 +86,6 @@ describe('transitionStatus', () => {
     });
 
     jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
 
     const { transitionStatus } = await import('../manufacturing.service.js');
     return { transitionStatus, repo };
@@ -149,11 +134,6 @@ describe('transitionStatus', () => {
     });
 
     jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
 
     const { transitionStatus } = await import('../manufacturing.service.js');
     const { OrderNotFoundError } = await import('../types.js');
@@ -176,11 +156,6 @@ describe('cancelOrder', () => {
     });
 
     jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
 
     const { cancelOrder } = await import('../manufacturing.service.js');
     return { cancelOrder, repo };
@@ -252,11 +227,6 @@ describe('cancelOrder', () => {
     });
 
     jest.unstable_mockModule('../manufacturing.repository.js', () => repo);
-    jest.unstable_mockModule('../../../config/manufacturing.config.js', () => ({
-      getManufacturingConfig: () => ({ orderLimit: 5, maxItemsPerOrder: 10, forumChannelId: '', manufacturingRoleId: '', organizationMemberRoleId: '' }),
-      isManufacturingEnabled: () => true,
-      validateManufacturingConfig: () => [],
-    }));
 
     const { cancelOrder } = await import('../manufacturing.service.js');
     const { OrderNotFoundError } = await import('../types.js');

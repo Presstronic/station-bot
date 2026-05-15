@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { ChannelType } from 'discord.js';
+import type { GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 
 beforeEach(() => {
   jest.resetModules();
@@ -9,16 +10,42 @@ beforeEach(() => {
 // Helpers
 // ---------------------------------------------------------------------------
 
-const BASE_CONFIG = {
-  forumChannelId: 'forum-ch',
-  staffChannelId: 'staff-ch',
-  manufacturingRoleId: 'mfg-role',
-  organizationMemberRoleId: 'org-role',
-  orderLimit: 5,
-  maxItemsPerOrder: 10,
-  createOrderPostTitle: '📋 Create Order',
-  createOrderPostMessage: 'Click the button below to submit a new manufacturing order.',
-};
+function makeGuildConfig(overrides: Partial<GuildConfig> = {}): GuildConfig {
+  return {
+    guildId: 'guild-1',
+    verificationEnabled: true,
+    verifiedRoleName: 'Verified',
+    tempMemberRoleName: 'Temporary Member',
+    potentialApplicantRoleName: 'Potential Applicant',
+    orgMemberRoleId: null,
+    orgMemberRoleName: null,
+    nominationDigestEnabled: false,
+    nominationDigestChannelId: null,
+    nominationDigestRoleId: null,
+    nominationDigestCronSchedule: '0 9 * * *',
+    manufacturingEnabled: true,
+    manufacturingForumChannelId: 'forum-ch',
+    manufacturingStaffChannelId: 'staff-ch',
+    manufacturingRoleId: 'mfg-role',
+    manufacturingCreateOrderThreadId: null,
+    manufacturingOrderLimit: 5,
+    manufacturingMaxItemsPerOrder: 10,
+    manufacturingOrderRateLimitPer5Min: 1,
+    manufacturingOrderRateLimitPerHour: 5,
+    manufacturingCreateOrderPostTitle: '📋 Create Order',
+    manufacturingCreateOrderPostMessage: 'Click the button below to submit a new manufacturing order.',
+    manufacturingKeepaliveCronSchedule: '0 6 * * *',
+    purgeJobsEnabled: false,
+    tempMemberHoursToExpire: 48,
+    tempMemberPurgeCronSchedule: '0 3 * * *',
+    birthdayEnabled: false,
+    birthdayChannelId: null,
+    birthdayCronSchedule: '0 12 * * *',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
 
 function makeChannel({
   type = ChannelType.GuildForum,
@@ -63,6 +90,7 @@ function makeInteraction({
   const i: Record<string, unknown> = {
     replied: false,
     deferred: false,
+    guildId: 'guild-1',
     inGuild: () => inGuild,
     memberPermissions: { has: jest.fn(() => isAdmin) },
     options: { getSubcommand: jest.fn(() => subcommand) },
@@ -76,10 +104,12 @@ function makeInteraction({
 
 async function setupMocks(opts: {
   manufacturingEnabled?: boolean;
-  config?: Partial<typeof BASE_CONFIG>;
+  guildConfigOverrides?: Partial<GuildConfig>;
 } = {}) {
   const manufacturingEnabled = opts.manufacturingEnabled ?? true;
-  const config = { ...BASE_CONFIG, ...opts.config };
+  const guildConfig = makeGuildConfig(opts.guildConfigOverrides);
+  const mockGetGuildConfigOrNull = jest.fn(async () => guildConfig);
+  const mockUpsertGuildConfig = jest.fn(async () => guildConfig);
 
   jest.unstable_mockModule('../../utils/logger.js', () => ({
     getLogger: () => ({
@@ -91,9 +121,14 @@ async function setupMocks(opts: {
   }));
 
   jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
-    getManufacturingConfig: () => config,
     isManufacturingEnabled: () => manufacturingEnabled,
-    validateManufacturingConfig: () => [],
+  }));
+
+  jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
+    getGuildConfigOrNull: mockGetGuildConfigOrNull,
+    getAllGuildConfigs: jest.fn(async () => []),
+    isFeatureEnabledForGuild: jest.fn(() => false),
+    upsertGuildConfig: mockUpsertGuildConfig,
   }));
 
   jest.unstable_mockModule('../../domain/manufacturing/manufacturing.forum.js', () => ({
@@ -111,7 +146,7 @@ async function setupMocks(opts: {
   }));
 
   const mod = await import('../manufacturing-setup.command.js');
-  return mod;
+  return { ...mod, mockGetGuildConfigOrNull, mockUpsertGuildConfig };
 }
 
 // ---------------------------------------------------------------------------
@@ -124,7 +159,7 @@ describe('handleManufacturingSetupCommand', () => {
     const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
     const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
     const i = makeInteraction({ channelFetch });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
     // Sync guard — uses reply directly (no deferReply)
     expect((i.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/not currently enabled/i),
@@ -133,17 +168,31 @@ describe('handleManufacturingSetupCommand', () => {
     expect(threadsCreate).not.toHaveBeenCalled();
   });
 
-  it('replies with a config error when forumChannelId is not set', async () => {
-    const { handleManufacturingSetupCommand } = await setupMocks({ config: { forumChannelId: '' } });
+  it('defers and edits with a temporarily-unavailable message when getGuildConfigOrNull throws', async () => {
+    const { handleManufacturingSetupCommand, mockGetGuildConfigOrNull } = await setupMocks();
+    mockGetGuildConfigOrNull.mockRejectedValueOnce(new Error('DB connection lost'));
+    const i = makeInteraction();
+    await handleManufacturingSetupCommand(i as never);
+
+    expect(i.deferReply).toHaveBeenCalledTimes(1);
+    expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/temporarily unavailable/i),
+    });
+  });
+
+  it('defers and edits with a config error when forumChannelId is not set', async () => {
+    const { handleManufacturingSetupCommand } = await setupMocks({
+      guildConfigOverrides: { manufacturingForumChannelId: null },
+    });
     const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
     const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
     const i = makeInteraction({ channelFetch });
-    await handleManufacturingSetupCommand(i as any);
-    // Sync guard — uses reply directly (no deferReply)
-    expect((i.reply as jest.Mock).mock.calls[0][0]).toMatchObject({
+    await handleManufacturingSetupCommand(i as never);
+    expect(i.deferReply).toHaveBeenCalledTimes(1);
+    expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/not configured/i),
     });
-    expect(i.deferReply).not.toHaveBeenCalled();
+    expect(i.reply).not.toHaveBeenCalled();
     expect(threadsCreate).not.toHaveBeenCalled();
   });
 
@@ -152,7 +201,7 @@ describe('handleManufacturingSetupCommand', () => {
     const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
     const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
     const i = makeInteraction({ channelFetch, inGuild: false });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
     expect(i.deferReply).toHaveBeenCalledTimes(1);
     expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/administrator/i),
@@ -165,7 +214,7 @@ describe('handleManufacturingSetupCommand', () => {
     const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
     const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
     const i = makeInteraction({ channelFetch, isAdmin: false });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
     expect(i.deferReply).toHaveBeenCalledTimes(1);
     expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/administrator/i),
@@ -178,7 +227,7 @@ describe('handleManufacturingSetupCommand', () => {
     const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
     const channelFetch = jest.fn(async () => makeChannel({ type: 0, threadsCreate })); // 0 = GuildText
     const i = makeInteraction({ channelFetch });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
     expect(i.deferReply).toHaveBeenCalledTimes(1);
     expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/not a valid forum channel/i),
@@ -194,7 +243,7 @@ describe('handleManufacturingSetupCommand', () => {
       makeChannel({ activeThreadNames: ['📋 Create Order'], threadsCreate }),
     );
     const i = makeInteraction({ channelFetch });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
     expect(i.deferReply).toHaveBeenCalledTimes(1);
     expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/already set up/i),
@@ -210,7 +259,7 @@ describe('handleManufacturingSetupCommand', () => {
       makeChannel({ archivedThreadNames: ['📋 Create Order'], threadsCreate }),
     );
     const i = makeInteraction({ channelFetch });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
     expect(i.deferReply).toHaveBeenCalledTimes(1);
     expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/already set up/i),
@@ -220,11 +269,11 @@ describe('handleManufacturingSetupCommand', () => {
   });
 
   it('creates a thread with the Create Order button and edits with success', async () => {
-    const { handleManufacturingSetupCommand } = await setupMocks();
+    const { handleManufacturingSetupCommand, mockUpsertGuildConfig } = await setupMocks();
     const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
     const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
     const i = makeInteraction({ channelFetch });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
 
     expect(i.deferReply).toHaveBeenCalledTimes(1);
     expect(threadsCreate).toHaveBeenCalledTimes(1);
@@ -236,23 +285,43 @@ describe('handleManufacturingSetupCommand', () => {
     const buttonCustomId = createArg.message.components[0].components[0].data.custom_id;
     expect(buttonCustomId).toBe('mfg-create-order');
 
+    expect(mockUpsertGuildConfig).toHaveBeenCalledWith(
+      'guild-1',
+      { manufacturingCreateOrderThreadId: 'thread-123' },
+    );
+
     expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
       content: expect.stringMatching(/✅ Manufacturing channel set up/i),
     });
     expect(i.reply).not.toHaveBeenCalled();
   });
 
-  it('uses custom post title and message from config', async () => {
+  it('replies with a warning when upsertGuildConfig fails after thread creation', async () => {
+    const { handleManufacturingSetupCommand, mockUpsertGuildConfig } = await setupMocks();
+    mockUpsertGuildConfig.mockRejectedValueOnce(new Error('DB connection lost'));
+    const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
+    const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
+    const i = makeInteraction({ channelFetch });
+    await handleManufacturingSetupCommand(i as never);
+
+    expect(threadsCreate).toHaveBeenCalledTimes(1);
+    expect(mockUpsertGuildConfig).toHaveBeenCalledTimes(1);
+    expect((i.editReply as jest.Mock).mock.calls[0][0]).toMatchObject({
+      content: expect.stringMatching(/could not be saved/i),
+    });
+  });
+
+  it('uses custom post title and message from guild config', async () => {
     const { handleManufacturingSetupCommand } = await setupMocks({
-      config: {
-        createOrderPostTitle: '🛠️ Place Your Order',
-        createOrderPostMessage: 'Hit the button to get started.',
+      guildConfigOverrides: {
+        manufacturingCreateOrderPostTitle: '🛠️ Place Your Order',
+        manufacturingCreateOrderPostMessage: 'Hit the button to get started.',
       },
     });
     const threadsCreate = jest.fn(async () => ({ id: 'thread-456' }));
     const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
     const i = makeInteraction({ channelFetch });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
 
     expect(threadsCreate).toHaveBeenCalledTimes(1);
     const createArg = (threadsCreate as jest.Mock).mock.calls[0][0] as {
@@ -268,7 +337,7 @@ describe('handleManufacturingSetupCommand', () => {
     const threadsCreate = jest.fn(async () => ({ id: 'thread-123' }));
     const channelFetch = jest.fn(async () => makeChannel({ threadsCreate }));
     const i = makeInteraction({ subcommand: 'other', channelFetch });
-    await handleManufacturingSetupCommand(i as any);
+    await handleManufacturingSetupCommand(i as never);
     expect(i.reply).not.toHaveBeenCalled();
     expect(i.deferReply).not.toHaveBeenCalled();
     expect(threadsCreate).not.toHaveBeenCalled();

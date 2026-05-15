@@ -8,24 +8,20 @@ import {
   scheduleTemporaryMemberCleanup,
   schedulePotentialApplicantCleanup,
 } from './jobs/discord/purge-member.job.js';
-import { scheduleCreateOrderKeepAlive } from './jobs/discord/manufacturing-keepalive.job.js';
+import { scheduleManufacturingKeepalives } from './jobs/discord/manufacturing-keepalive.job.js';
 import { scheduleNominationDigests } from './jobs/discord/nomination-digest.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
 import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
-import {
-  validateManufacturingConfig,
-  isManufacturingEnabled,
-  getManufacturingConfig,
-} from './config/manufacturing.config.js';
+import { isManufacturingEnabled } from './config/manufacturing.config.js';
 import {
   endDbPoolIfInitialized,
   ensureNominationsSchema,
   isDatabaseConfigured,
 } from './services/nominations/db.js';
 import { seedGuildConfigFromEnv, seedGuildConfigsFromEnv } from './domain/guild-config/guild-config.seeder.js';
-import { getGuildConfigOrNull, getAllGuildConfigs } from './domain/guild-config/guild-config.service.js';
+import { getGuildConfigOrNull, getAllGuildConfigs, type GuildConfig } from './domain/guild-config/guild-config.service.js';
 import { ensureForumTags } from './domain/manufacturing/manufacturing.forum.js';
 import { startNominationCheckWorkerLoop } from './services/nominations/job-worker.service.js';
 import { buildStartupBanner } from './utils/startup-banner.js';
@@ -46,27 +42,8 @@ const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const purgeJobsEnabled = isPurgeJobsEnabled();
-let manufacturingEnabled = isManufacturingEnabled();
+const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
-
-// Disables manufacturing for the rest of this process lifetime. Mutates both
-// the local flag and MANUFACTURING_ENABLED so that isManufacturingEnabled()
-// (used by command handlers) stays in sync with the local flag.
-function disableManufacturing(): void {
-  manufacturingEnabled = false;
-  process.env.MANUFACTURING_ENABLED = 'false';
-}
-
-const manufacturingConfigErrors = manufacturingEnabled ? validateManufacturingConfig() : [];
-if (manufacturingEnabled && manufacturingConfigErrors.length > 0) {
-  for (const error of manufacturingConfigErrors) {
-    logger.error(`[manufacturing] Configuration error: ${error}`);
-  }
-  logger.error(
-    '[manufacturing] Disabling manufacturing feature due to configuration errors. Fix the above or set MANUFACTURING_ENABLED=false to keep it disabled.',
-  );
-  disableManufacturing();
-}
 
 // Returns the feature flags that are actually active in the current mode.
 // Features are treated as disabled when readOnlyMode is true so permission
@@ -104,7 +81,7 @@ let workerHandle: NodeJS.Timeout | null = null;
 let loopMonitorHandle: NodeJS.Timeout | null = null;
 let tempMemberCronTask: { stop: () => void } | null = null;
 let potentialApplicantCronTask: { stop: () => void } | null = null;
-let keepAliveCronTask: { stop: () => void } | null = null;
+let keepAliveCronTasks: Map<string, { stop: () => void }> = new Map();
 let nominationDigestCronTasks: Map<string, { stop: () => void }> = new Map();
 let shuttingDown = false;
 
@@ -125,7 +102,7 @@ const shutdown = () => {
   }
   tempMemberCronTask?.stop();
   potentialApplicantCronTask?.stop();
-  keepAliveCronTask?.stop();
+  for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
@@ -180,40 +157,19 @@ client.once('clientReady', async () => {
     logger.warn('Read-only mode is enabled. Commands remain registered but non-maintenance behavior is disabled.');
   }
 
-  if (!readOnlyMode && manufacturingEnabled) {
-    const { forumChannelId, staffChannelId } = getManufacturingConfig();
-    try {
-      const [publicCh, staffCh] = await Promise.all([
-        client.channels.fetch(forumChannelId),
-        client.channels.fetch(staffChannelId),
-      ]);
-      if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
-        logger.error(`[manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Disabling manufacturing.`);
-        disableManufacturing();
-      } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
-        logger.error(`[manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Disabling manufacturing.`);
-        disableManufacturing();
-      } else {
-        await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
-        logger.info('[manufacturing] Forum tags verified on both channels.');
-      }
-    } catch (error) {
-      logger.error('[manufacturing] Failed to ensure forum tags on startup. Disabling manufacturing.', error);
-      disableManufacturing();
-    }
-
-    if (manufacturingEnabled) {
-      keepAliveCronTask = scheduleCreateOrderKeepAlive(client);
-      logger.info('[manufacturing] Scheduled Create Order keep-alive job.');
-    }
-  }
-
   if (!readOnlyMode) {
     if (verificationEnabled) {
       await Promise.all(
         [...client.guilds.cache.values()].map(async (guild) => {
+          let guildConfig = null;
+          if (isDatabaseConfigured()) {
+            try {
+              guildConfig = await getGuildConfigOrNull(guild.id);
+            } catch (error) {
+              logger.warn(`Failed to load guild config for role setup in guild ${guild.id} (${guild.name}); using hardcoded role-name defaults`, error);
+            }
+          }
           try {
-            const guildConfig = await getGuildConfigOrNull(guild.id);
             await addMissingDefaultRoles(guild, client, guildConfig);
           } catch (error) {
             logger.error(`Failed to add missing roles in guild ${guild.id} (${guild.name}):`, error);
@@ -232,14 +188,26 @@ client.once('clientReady', async () => {
     } else {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
     }
-    if (nominationDigestEnabled && isDatabaseConfigured()) {
-      const allGuildConfigs = await getAllGuildConfigs();
-      nominationDigestCronTasks = scheduleNominationDigests(client, allGuildConfigs);
-      if (nominationDigestCronTasks.size > 0) {
-        logger.info('[nomination-digest] Scheduled digest jobs.', { guilds: nominationDigestCronTasks.size });
-      }
-    }
     if (isDatabaseConfigured()) {
+      let allGuildConfigs: GuildConfig[];
+      try {
+        allGuildConfigs = await getAllGuildConfigs();
+      } catch (error) {
+        logger.error('Failed to load guild configs for job scheduling; skipping digest and keep-alive jobs.', { error });
+        allGuildConfigs = [];
+      }
+      if (nominationDigestEnabled) {
+        nominationDigestCronTasks = scheduleNominationDigests(client, allGuildConfigs);
+        if (nominationDigestCronTasks.size > 0) {
+          logger.info('[nomination-digest] Scheduled digest jobs.', { guilds: nominationDigestCronTasks.size });
+        }
+      }
+      if (manufacturingEnabled) {
+        keepAliveCronTasks = scheduleManufacturingKeepalives(client, allGuildConfigs);
+        if (keepAliveCronTasks.size > 0) {
+          logger.info('[manufacturing] Scheduled keep-alive jobs.', { guilds: keepAliveCronTasks.size });
+        }
+      }
       workerHandle = startNominationCheckWorkerLoop();
       if (workerHandle) {
         logger.info('Started nomination check worker loop.');
@@ -294,38 +262,51 @@ client.on('guildCreate', async (guild) => {
   } else if (!verificationEnabled) {
     logger.info(`[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`);
   } else {
-    try {
-      const guildConfig = await getGuildConfigOrNull(guild.id);
-      await addMissingDefaultRoles(guild, client, guildConfig);
-      logger.info(`[${guild.name}] Successfully ensured required roles.`);
-    } catch (error) {
-      logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+    {
+      let guildConfig = null;
+      if (isDatabaseConfigured()) {
+        try {
+          guildConfig = await getGuildConfigOrNull(guild.id);
+        } catch (error) {
+          logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; using hardcoded role-name defaults`, error);
+        }
+      }
+      try {
+        await addMissingDefaultRoles(guild, client, guildConfig);
+        logger.info(`[${guild.name}] Successfully ensured required roles.`);
+      } catch (error) {
+        logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+      }
     }
   }
 
   if (!readOnlyMode && manufacturingEnabled) {
-    const { forumChannelId, staffChannelId } = getManufacturingConfig();
-    try {
-      // Use guild-scoped fetch so we only act when the manufacturing channels
-      // actually belong to this guild. The bot may join guilds that are not the
-      // home guild; global client.channels.fetch() would resolve channels from
-      // any guild and produce misleading errors / log entries on every unrelated join.
-      const [publicCh, staffCh] = await Promise.all([
-        guild.channels.fetch(forumChannelId).catch(() => null),
-        guild.channels.fetch(staffChannelId).catch(() => null),
-      ]);
-      if (!publicCh && !staffCh) {
-        // Neither channel belongs to this guild — not the home guild, skip silently.
-      } else if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
-        logger.error(`[${guild.name}] [manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Skipping tag sync.`);
-      } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
-        logger.error(`[${guild.name}] [manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Skipping tag sync.`);
-      } else {
-        await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
-        logger.info(`[${guild.name}] [manufacturing] Forum tags verified on both channels.`);
+    const guildConfig = await getGuildConfigOrNull(guild.id).catch(() => null);
+    const forumChannelId = guildConfig?.manufacturingForumChannelId;
+    const staffChannelId = guildConfig?.manufacturingStaffChannelId;
+    if (guildConfig?.manufacturingEnabled && forumChannelId && staffChannelId) {
+      try {
+        // Use guild-scoped fetch so we only act when the manufacturing channels
+        // actually belong to this guild. The bot may join guilds that are not the
+        // home guild; global client.channels.fetch() would resolve channels from
+        // any guild and produce misleading errors / log entries on every unrelated join.
+        const [publicCh, staffCh] = await Promise.all([
+          guild.channels.fetch(forumChannelId).catch(() => null),
+          guild.channels.fetch(staffChannelId).catch(() => null),
+        ]);
+        if (!publicCh && !staffCh) {
+          // Neither channel belongs to this guild — not the home guild, skip silently.
+        } else if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
+          logger.error(`[${guild.name}] [manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Skipping tag sync.`);
+        } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
+          logger.error(`[${guild.name}] [manufacturing] staffChannelId=${staffChannelId} is missing or not a forum channel. Skipping tag sync.`);
+        } else {
+          await Promise.all([ensureForumTags(publicCh), ensureForumTags(staffCh)]);
+          logger.info(`[${guild.name}] [manufacturing] Forum tags verified on both channels.`);
+        }
+      } catch (error) {
+        logger.error(`[${guild.name}] [manufacturing] Failed to ensure forum tags on guild join.`, error);
       }
-    } catch (error) {
-      logger.error(`[${guild.name}] [manufacturing] Failed to ensure forum tags on guild join.`, error);
     }
   }
 
