@@ -29,6 +29,14 @@ async function loadRoleServicesWithLogger() {
   return { ...mod, loggerError };
 }
 
+async function loadRoleServicesWithWarnLogger() {
+  const loggerWarn = jest.fn();
+  jest.unstable_mockModule('../../utils/logger.js', () => ({
+    getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: loggerWarn, error: jest.fn() }),
+  }));
+  const mod = await import('../role.services.js');
+  return { ...mod, loggerWarn };
+}
 
 type Member = ReturnType<typeof makeMember>;
 
@@ -289,15 +297,12 @@ describe('addMissingDefaultRoles', () => {
     expect(stub.roles.create).toHaveBeenCalledWith(expect.objectContaining({ name: 'Prospect' }));
   });
 
-  it('uses hardcoded default role names and creates missing roles when guildConfig is null', async () => {
-    const { addMissingDefaultRoles } = await import('../role.services.js');
+  it('logs warning and returns without creating roles when guildConfig is null', async () => {
+    const { addMissingDefaultRoles, loggerWarn } = await loadRoleServicesWithWarnLogger();
     const stub = makeGuild({ roleNames: [] });
     await addMissingDefaultRoles(stub as unknown as Guild, makeClient(), null);
-    expect(stub.roles.create).toHaveBeenCalledTimes(3);
-    const createdNames = (stub.roles.create as jest.Mock).mock.calls.map((c) => (c[0] as { name: string }).name);
-    expect(createdNames).toContain('Verified');
-    expect(createdNames).toContain('Temporary Member');
-    expect(createdNames).toContain('Potential Applicant');
+    expect(loggerWarn).toHaveBeenCalledWith(expect.stringContaining('No guild config found'));
+    expect(stub.roles.create).not.toHaveBeenCalled();
   });
 
   it('throws when roles.fetch fails', async () => {

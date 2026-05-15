@@ -1,7 +1,6 @@
 import { ButtonInteraction, Client, Guild, PermissionFlagsBits } from 'discord.js';
 import { getLogger } from '../utils/logger.js';
 import type { GuildConfig } from '../domain/guild-config/guild-config.service.js';
-import { VERIFIED_ROLE_NAME, TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME } from '../config/roles.config.js';
 
 const logger = getLogger();
 
@@ -88,9 +87,16 @@ export async function addMissingDefaultRoles(
   client: Client,
   guildConfig: GuildConfig | null,
 ): Promise<void> {
-  const roleNames = guildConfig
-    ? [guildConfig.verifiedRoleName, guildConfig.tempMemberRoleName, guildConfig.potentialApplicantRoleName]
-    : [VERIFIED_ROLE_NAME, TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME];
+  if (guildConfig === null) {
+    logger.warn(`[${guild.name}] No guild config found; skipping role setup.`);
+    return;
+  }
+
+  const roleNames = [
+    guildConfig.verifiedRoleName,
+    guildConfig.tempMemberRoleName,
+    guildConfig.potentialApplicantRoleName,
+  ];
   logger.info(`[${guild.name}] Checking required roles: ${roleNames.join(', ')}`);
 
   try {
