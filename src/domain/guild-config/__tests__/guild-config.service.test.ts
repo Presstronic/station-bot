@@ -55,6 +55,8 @@ describe('getGuildConfigOrNull', () => {
       getGuildConfig,
       getAllGuildConfigs: jest.fn(async () => []),
       upsertGuildConfig: jest.fn(async () => config),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(),
     }));
 
     const { getGuildConfigOrNull } = await import('../guild-config.service.js');
@@ -71,6 +73,8 @@ describe('getGuildConfigOrNull', () => {
       getGuildConfig,
       getAllGuildConfigs: jest.fn(async () => []),
       upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(),
     }));
 
     const { getGuildConfigOrNull } = await import('../guild-config.service.js');
@@ -85,6 +89,8 @@ describe('getGuildConfigOrNull', () => {
       getGuildConfig,
       getAllGuildConfigs: jest.fn(async () => []),
       upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(),
     }));
 
     const { getGuildConfigOrNull } = await import('../guild-config.service.js');
@@ -102,6 +108,8 @@ describe('isFeatureEnabledForGuild', () => {
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
       upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');
@@ -116,6 +124,8 @@ describe('isFeatureEnabledForGuild', () => {
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
       upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');
@@ -129,6 +139,8 @@ describe('isFeatureEnabledForGuild', () => {
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
       upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');
@@ -152,6 +164,8 @@ describe('isFeatureEnabledForGuild', () => {
       getGuildConfig: jest.fn(),
       getAllGuildConfigs: jest.fn(async () => []),
       upsertGuildConfig: jest.fn(async () => makeGuildConfig()),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(),
     }));
 
     const { isFeatureEnabledForGuild } = await import('../guild-config.service.js');
@@ -168,5 +182,39 @@ describe('isFeatureEnabledForGuild', () => {
     expect(isFeatureEnabledForGuild(true, config, 'manufacturing')).toBe(false);
     expect(isFeatureEnabledForGuild(true, config, 'purgeJobs')).toBe(false);
     expect(isFeatureEnabledForGuild(true, config, 'birthday')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ensureGuildConfigsSchema
+// ---------------------------------------------------------------------------
+
+describe('ensureGuildConfigsSchema', () => {
+  it('delegates to the repository and resolves on success', async () => {
+    const ensureGuildConfigsSchemaRepo = jest.fn(async () => undefined);
+    jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      getAllGuildConfigs: jest.fn(),
+      upsertGuildConfig: jest.fn(),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: ensureGuildConfigsSchemaRepo,
+    }));
+
+    const { ensureGuildConfigsSchema } = await import('../guild-config.service.js');
+    await expect(ensureGuildConfigsSchema()).resolves.toBeUndefined();
+    expect(ensureGuildConfigsSchemaRepo).toHaveBeenCalledTimes(1);
+  });
+
+  it('propagates errors from the repository', async () => {
+    jest.unstable_mockModule('../guild-config.repository.js', () => ({
+      getGuildConfig: jest.fn(),
+      getAllGuildConfigs: jest.fn(),
+      upsertGuildConfig: jest.fn(),
+      insertGuildConfigIfAbsent: jest.fn(),
+      ensureGuildConfigsSchema: jest.fn(async () => { throw new Error('guild_configs table not found'); }),
+    }));
+
+    const { ensureGuildConfigsSchema } = await import('../guild-config.service.js');
+    await expect(ensureGuildConfigsSchema()).rejects.toThrow('guild_configs table not found');
   });
 });

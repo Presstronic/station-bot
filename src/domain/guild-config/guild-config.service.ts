@@ -2,6 +2,7 @@ import {
   getGuildConfig,
   getAllGuildConfigs as getAllGuildConfigsRepo,
   upsertGuildConfig as upsertGuildConfigRepo,
+  ensureGuildConfigsSchema as ensureGuildConfigsSchemaRepo,
   type GuildConfig,
   type GuildConfigPatch,
 } from './guild-config.repository.js';
@@ -10,7 +11,9 @@ export type { GuildConfig, GuildConfigPatch };
 
 export type GuildFeature = 'verification' | 'nominationDigest' | 'manufacturing' | 'purgeJobs' | 'birthday';
 
-const FEATURE_FLAG_MAP: Record<GuildFeature, keyof GuildConfig> = {
+type BooleanKeys<T> = { [K in keyof T]: T[K] extends boolean ? K : never }[keyof T];
+
+const FEATURE_FLAG_MAP: Record<GuildFeature, BooleanKeys<GuildConfig>> = {
   verification:    'verificationEnabled',
   nominationDigest:'nominationDigestEnabled',
   manufacturing:   'manufacturingEnabled',
@@ -31,6 +34,10 @@ export async function getAllGuildConfigs(): Promise<GuildConfig[]> {
 
 export async function upsertGuildConfig(guildId: string, patch: GuildConfigPatch): Promise<GuildConfig> {
   return upsertGuildConfigRepo(guildId, patch);
+}
+
+export async function ensureGuildConfigsSchema(): Promise<void> {
+  return ensureGuildConfigsSchemaRepo();
 }
 
 export function isFeatureEnabledForGuild(
