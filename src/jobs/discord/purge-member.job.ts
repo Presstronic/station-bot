@@ -2,18 +2,14 @@ import cron from 'node-cron';
 import { Client, Guild } from 'discord.js';
 import { getLogger } from '../../utils/logger.js';
 import i18n from 'i18n';
-import { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME } from '../../config/roles.config.js';
-
-export { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME };
+import { getGuildConfigOrNull, type GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 
 const logger = getLogger();
 
-const temporaryMemberPurgeCronSchedule = process.env.TEMPORARY_MEMBER_PURGE_CRON_SCHEDULE || '0 3 * * *';
-const potentialApplicantPurgeCronSchedule = process.env.POTENTIAL_APPLICANT_PURGE_CRON_SCHEDULE || '0 4 * * *';
+const activeTasks = new Map<string, cron.ScheduledTask>();
 
-/**
- * Kicks members with a given role who have exceeded the time limit.
- */
+const NO_OP_TASK = { stop: () => {} } as unknown as cron.ScheduledTask;
+
 export async function purgeMembers(
   guild: Guild,
   roleName: string,
@@ -25,7 +21,7 @@ export async function purgeMembers(
   const expirationMs = hoursToExpire * 60 * 60 * 1000;
 
   try {
-    await guild.members.fetch(); // Load full member list
+    await guild.members.fetch();
   } catch (err) {
     logger.error(`Could not fetch members for guild ${guild.name}:`, err);
     return MEMBERS_KICKED;
@@ -63,83 +59,110 @@ export async function purgeMembers(
   return MEMBERS_KICKED;
 }
 
-/**
- * Cleanup task for temporary member role (configured via DEFAULT_ROLES[1]).
- */
-export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTask {
-  const HOURS_TO_EXPIRE = 48;
-
-  logger.info(`SCHEDTEMPMBR: Bot is in ${client.guilds.cache.size} guild(s). Role: "${TEMP_MEMBER_ROLE_NAME}"`);
-
-  return cron.schedule(temporaryMemberPurgeCronSchedule, async () => {
-    logger.info('[Job] Running Temporary Member Cleanup');
-    logger.info(`SCHEDTEMPMBR->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
-
-    for (const guild of client.guilds.cache.values()) {
+function createTaskForGuild(client: Client, guildId: string, cronSchedule: string): cron.ScheduledTask {
+  return cron.schedule(
+    cronSchedule,
+    async () => {
       try {
-        const locale = guild.preferredLocale?.substring(0, 2) || 'en';
-        const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
+        const guildConfig = await getGuildConfigOrNull(guildId);
+
+        if (!guildConfig) {
+          logger.warn('[purge-member] Guild config unavailable at tick time; skipping', { guildId });
+          return;
+        }
+
+        if (!guildConfig.purgeJobsEnabled) {
+          logger.warn('[purge-member] Purge jobs disabled for guild at tick time; skipping', { guildId });
+          return;
+        }
+
+        const cachedGuild = client.guilds.cache.get(guildId);
+        if (!cachedGuild) {
+          logger.warn('[purge-member] Guild not in client cache; skipping', { guildId });
+          return;
+        }
+
+        const locale = cachedGuild.preferredLocale?.substring(0, 2) || 'en';
+        const cleanGuildName = cachedGuild.name.replace(/[^\w\s\-]/g, '');
 
         const message = i18n.__mf(
           { phrase: 'jobs.purgeMember.temporaryMemberKickMessage', locale },
           {
             cleanGuildName,
-            hoursToExpire: HOURS_TO_EXPIRE.toString()
+            hoursToExpire: guildConfig.tempMemberHoursToExpire.toString(),
           }
         );
 
         const kicked = await purgeMembers(
-          guild,
-          TEMP_MEMBER_ROLE_NAME,
-          HOURS_TO_EXPIRE,
+          cachedGuild,
+          guildConfig.tempMemberRoleName,
+          guildConfig.tempMemberHoursToExpire,
           'TEMPORARY MEMBERS TIME LIMIT',
           message
         );
 
         logger.info(`[${cleanGuildName}] Temporary Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
       } catch (error) {
-        logger.error(`Temporary Member cleanup failed for guild ${guild.id}:`, error);
+        logger.error('[purge-member] Unhandled error in purge tick', { guildId, error });
       }
-    }
-  });
+    },
+    { timezone: 'UTC' },
+  );
 }
 
-/**
- * Cleanup task for potential applicant role (configured via DEFAULT_ROLES[2]).
- */
-export function schedulePotentialApplicantCleanup(client: Client): cron.ScheduledTask {
-  const HOURS_TO_EXPIRE = 720; // 30 days
+export function schedulePurgeJobs(
+  client: Client,
+  guildConfigs: GuildConfig[],
+): Map<string, cron.ScheduledTask> {
+  for (const task of activeTasks.values()) task.stop();
+  activeTasks.clear();
 
-  logger.info(`SCHEDPOTAPP: Bot is in ${client.guilds.cache.size} guild(s). Role: "${POTENTIAL_APPLICANT_ROLE_NAME}"`);
+  for (const config of guildConfigs) {
+    if (!config.purgeJobsEnabled) continue;
 
-  return cron.schedule(potentialApplicantPurgeCronSchedule, async () => {
-    logger.info('[Job] Running Potential Applicant Cleanup');
-    logger.info(`SCHEDPOTAPP->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
+    const { guildId, tempMemberPurgeCronSchedule } = config;
 
-    for (const guild of client.guilds.cache.values()) {
-      try {
-        const locale = guild.preferredLocale?.substring(0, 2) || 'en';
-        const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
-        const message = i18n.__mf(
-          { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
-          {
-            cleanGuildName,
-            hoursToExpire: HOURS_TO_EXPIRE.toString()
-          }
-        );
-
-        const kicked = await purgeMembers(
-          guild,
-          POTENTIAL_APPLICANT_ROLE_NAME,
-          HOURS_TO_EXPIRE,
-          'POTENTIAL APPLICANT TIME LIMIT',
-          message
-        );
-
-        logger.info(`[${cleanGuildName}] Potential Applicant cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
-      } catch (error) {
-        logger.error(`Potential Applicant cleanup failed for guild ${guild.id}:`, error);
-      }
+    if (!cron.validate(tempMemberPurgeCronSchedule)) {
+      logger.error('[purge-member] Invalid cron schedule — job will not run', {
+        guildId,
+        tempMemberPurgeCronSchedule,
+      });
+      continue;
     }
-  });
+
+    const task = createTaskForGuild(client, guildId, tempMemberPurgeCronSchedule);
+    activeTasks.set(guildId, task);
+    logger.info(`[purge-member] Scheduled temp member purge for guild ${guildId}`, {
+      schedule: tempMemberPurgeCronSchedule,
+    });
+  }
+
+  return activeTasks;
+}
+
+export function rescheduleGuildPurge(
+  client: Client,
+  guildId: string,
+  guildConfig: GuildConfig,
+): cron.ScheduledTask {
+  activeTasks.get(guildId)?.stop();
+  activeTasks.delete(guildId);
+
+  if (!guildConfig.purgeJobsEnabled) {
+    return NO_OP_TASK;
+  }
+
+  const { tempMemberPurgeCronSchedule } = guildConfig;
+
+  if (!cron.validate(tempMemberPurgeCronSchedule)) {
+    logger.error('[purge-member] Invalid cron schedule; purge not rescheduled', {
+      guildId,
+      tempMemberPurgeCronSchedule,
+    });
+    return NO_OP_TASK;
+  }
+
+  const task = createTaskForGuild(client, guildId, tempMemberPurgeCronSchedule);
+  activeTasks.set(guildId, task);
+  return task;
 }

@@ -36,7 +36,6 @@ afterEach(() => {
 async function loadIndexAndRunReady(
   readOnlyMode: 'true' | 'false',
   options: {
-    purgeJobsEnabled?: 'true' | 'false';
     nominationDigestEnabled?: 'true' | 'false';
     dbConfigured?: boolean;
     digestTaskCount?: number;
@@ -44,11 +43,6 @@ async function loadIndexAndRunReady(
   } = {}
 ) {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
-  if (options.purgeJobsEnabled !== undefined) {
-    process.env.PURGE_JOBS_ENABLED = options.purgeJobsEnabled;
-  } else {
-    delete process.env.PURGE_JOBS_ENABLED;
-  }
   if (options.nominationDigestEnabled !== undefined) {
     process.env.NOMINATION_DIGEST_ENABLED = options.nominationDigestEnabled;
   } else {
@@ -59,8 +53,7 @@ async function loadIndexAndRunReady(
   const ensureNominationsSchema = jest.fn(async () => undefined);
   const isDatabaseConfigured = jest.fn(() => options.dbConfigured ?? false);
   const addMissingDefaultRoles = jest.fn(async () => undefined);
-  const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: jest.fn() }));
-  const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: jest.fn() }));
+  const schedulePurgeJobs = jest.fn(() => new Map());
   const digestTaskCount = options.digestTaskCount ?? 0;
   const digestTasks = new Map(
     Array.from({ length: digestTaskCount }, (_, i) => [`guild-${i}`, { stop: jest.fn() }]),
@@ -91,8 +84,8 @@ async function loadIndexAndRunReady(
     attemptFallbackReply: jest.fn(async () => undefined),
   }));
   await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
-    scheduleTemporaryMemberCleanup,
-    schedulePotentialApplicantCleanup,
+    schedulePurgeJobs,
+    rescheduleGuildPurge: jest.fn(),
   }));
   await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
     scheduleNominationDigests,
@@ -200,8 +193,7 @@ async function loadIndexAndRunReady(
     ensureNominationsSchema,
     isDatabaseConfigured,
     addMissingDefaultRoles,
-    scheduleTemporaryMemberCleanup,
-    schedulePotentialApplicantCleanup,
+    schedulePurgeJobs,
     scheduleNominationDigests,
     startNominationCheckWorkerLoop,
     buildStartupBanner,
@@ -215,8 +207,7 @@ describe('startup wiring with read-only mode', () => {
     const {
       registerAllCommands,
       addMissingDefaultRoles,
-      scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
+      schedulePurgeJobs,
       startNominationCheckWorkerLoop,
       seedGuildConfigsFromEnv,
     } = await loadIndexAndRunReady('true');
@@ -224,8 +215,7 @@ describe('startup wiring with read-only mode', () => {
     expect(registerAllCommands).toHaveBeenCalledTimes(1);
     expect(registerAllCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).not.toHaveBeenCalled();
-    expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
-    expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
+    expect(schedulePurgeJobs).not.toHaveBeenCalled();
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
     expect(seedGuildConfigsFromEnv).not.toHaveBeenCalled();
   });
@@ -234,28 +224,27 @@ describe('startup wiring with read-only mode', () => {
     const {
       registerAllCommands,
       addMissingDefaultRoles,
-      scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
+      schedulePurgeJobs,
       startNominationCheckWorkerLoop,
-    } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'true' });
+    } = await loadIndexAndRunReady('false');
 
     expect(registerAllCommands).toHaveBeenCalledTimes(1);
     expect(registerAllCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
-    expect(scheduleTemporaryMemberCleanup).toHaveBeenCalledTimes(1);
-    expect(schedulePotentialApplicantCleanup).toHaveBeenCalledTimes(1);
+    expect(schedulePurgeJobs).not.toHaveBeenCalled();
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
   });
 
   it('schedules nomination digest jobs when enabled and the database is configured', async () => {
     process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
 
-    const { scheduleNominationDigests, buildStartupBanner } = await loadIndexAndRunReady(
+    const { scheduleNominationDigests, schedulePurgeJobs, buildStartupBanner } = await loadIndexAndRunReady(
       'false',
-      { purgeJobsEnabled: 'false', nominationDigestEnabled: 'true', dbConfigured: true, digestTaskCount: 1 },
+      { nominationDigestEnabled: 'true', dbConfigured: true, digestTaskCount: 1 },
     );
 
     expect(scheduleNominationDigests).toHaveBeenCalledTimes(1);
+    expect(schedulePurgeJobs).toHaveBeenCalledTimes(1);
     expect(buildStartupBanner).toHaveBeenCalledWith(
       expect.objectContaining({ nominationDigestJobActive: true }),
     );
@@ -267,7 +256,6 @@ describe('startup wiring with read-only mode', () => {
     const { scheduleNominationDigests, buildStartupBanner } = await loadIndexAndRunReady(
       'false',
       {
-        purgeJobsEnabled: 'false',
         nominationDigestEnabled: 'true',
         dbConfigured: true,
         digestTaskCount: 0,
@@ -280,16 +268,17 @@ describe('startup wiring with read-only mode', () => {
     );
   });
 
-  it('skips purge jobs when PURGE_JOBS_ENABLED=false even if not in read-only mode', async () => {
-    const {
-      addMissingDefaultRoles,
-      scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
-    } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'false' });
+  it('calls schedulePurgeJobs with guild configs when database is configured', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
 
-    expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
-    expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
-    expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
+    const { schedulePurgeJobs } = await loadIndexAndRunReady('false', { dbConfigured: true });
+    expect(schedulePurgeJobs).toHaveBeenCalledTimes(1);
+    expect(schedulePurgeJobs).toHaveBeenCalledWith(expect.anything(), expect.any(Array));
+  });
+
+  it('does not call schedulePurgeJobs when database is not configured', async () => {
+    const { schedulePurgeJobs } = await loadIndexAndRunReady('false');
+    expect(schedulePurgeJobs).not.toHaveBeenCalled();
   });
 
   it('skips addMissingDefaultRoles when guild config load throws during startup', async () => {
@@ -311,8 +300,6 @@ describe('startup wiring with read-only mode', () => {
     });
     const isDatabaseConfigured = jest.fn(() => true);
     const addMissingDefaultRoles = jest.fn(async () => undefined);
-    const scheduleTemporaryMemberCleanup = jest.fn();
-    const schedulePotentialApplicantCleanup = jest.fn();
     const startNominationCheckWorkerLoop = jest.fn();
     const logger = {
       debug: jest.fn(),
@@ -341,8 +328,8 @@ describe('startup wiring with read-only mode', () => {
       attemptFallbackReply: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
-      scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
+      schedulePurgeJobs: jest.fn(() => new Map()),
+      rescheduleGuildPurge: jest.fn(),
     }));
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
       scheduleNominationDigests: jest.fn(() => new Map()),
@@ -461,8 +448,8 @@ describe('startup wiring with read-only mode', () => {
       attemptFallbackReply: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
-      scheduleTemporaryMemberCleanup: jest.fn(),
-      schedulePotentialApplicantCleanup: jest.fn(),
+      schedulePurgeJobs: jest.fn(() => new Map()),
+      rescheduleGuildPurge: jest.fn(),
     }));
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
       scheduleNominationDigests: jest.fn(() => new Map()),
@@ -550,10 +537,8 @@ describe('startup wiring with read-only mode', () => {
     const ensureNominationsSchema = jest.fn(async () => undefined);
     const isDatabaseConfigured = jest.fn(() => true);
     const addMissingDefaultRoles = jest.fn(async () => undefined);
-    const tempMemberStopSpy = jest.fn();
-    const potentialApplicantStopSpy = jest.fn();
-    const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: tempMemberStopSpy }));
-    const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: potentialApplicantStopSpy }));
+    const purgeTaskStopSpy = jest.fn();
+    const schedulePurgeJobs = jest.fn(() => new Map([['guild-1', { stop: purgeTaskStopSpy }]]));
     const startNominationCheckWorkerLoop = jest.fn(() => fakeInterval);
     const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
@@ -571,8 +556,8 @@ describe('startup wiring with read-only mode', () => {
       attemptFallbackReply: jest.fn(async () => undefined),
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
-      scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
+      schedulePurgeJobs,
+      rescheduleGuildPurge: jest.fn(),
     }));
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
       scheduleNominationDigests: jest.fn(() => new Map()),
@@ -646,7 +631,6 @@ describe('startup wiring with read-only mode', () => {
     });
 
     process.env.BOT_READ_ONLY_MODE = 'false';
-    process.env.PURGE_JOBS_ENABLED = 'true';
     process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
     process.env.NOMINATION_WORKER_ENABLED = 'true';
 
@@ -657,8 +641,7 @@ describe('startup wiring with read-only mode', () => {
 
     expect(process.exitCode).toBe(0);
     expect(clearIntervalSpy).toHaveBeenCalledWith(fakeInterval);
-    expect(tempMemberStopSpy).toHaveBeenCalledTimes(1);
-    expect(potentialApplicantStopSpy).toHaveBeenCalledTimes(1);
+    expect(purgeTaskStopSpy).toHaveBeenCalledTimes(1);
     expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(endDbPoolIfInitialized).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_000);
@@ -671,11 +654,10 @@ describe('startup wiring with read-only mode', () => {
     exitSpy.mockRestore();
     setTimeoutSpy.mockRestore();
     delete process.env.NOMINATION_WORKER_ENABLED;
-    delete process.env.PURGE_JOBS_ENABLED;
   });
 
   it('logs the startup banner via logger.info after "Startup tasks completed."', async () => {
-    const { buildStartupBanner, logger } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'true' });
+    const { buildStartupBanner, logger } = await loadIndexAndRunReady('false');
 
     expect(buildStartupBanner).toHaveBeenCalledTimes(1);
 

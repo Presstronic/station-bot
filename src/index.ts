@@ -4,15 +4,12 @@ import { createRequire } from 'node:module';
 import { ChannelType, Client, ForumChannel, IntentsBitField } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
 import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
-import {
-  scheduleTemporaryMemberCleanup,
-  schedulePotentialApplicantCleanup,
-} from './jobs/discord/purge-member.job.js';
+import { schedulePurgeJobs } from './jobs/discord/purge-member.job.js';
 import { scheduleManufacturingKeepalives } from './jobs/discord/manufacturing-keepalive.job.js';
 import { scheduleNominationDigests } from './jobs/discord/nomination-digest.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
-import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
+import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.js';
 import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
 import { isManufacturingEnabled } from './config/manufacturing.config.js';
 import {
@@ -41,7 +38,6 @@ const { version: appVersion } = _require('../package.json') as { version: string
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
-const purgeJobsEnabled = isPurgeJobsEnabled();
 const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
 
@@ -51,7 +47,7 @@ const nominationDigestEnabled = isNominationDigestEnabled();
 function getEffectiveAuditFlags() {
   return {
     verificationEnabled: verificationEnabled && !readOnlyMode,
-    purgeJobsEnabled: purgeJobsEnabled && !readOnlyMode,
+    purgeJobsEnabled: !readOnlyMode,
     manufacturingEnabled: manufacturingEnabled && !readOnlyMode,
   };
 }
@@ -79,8 +75,7 @@ const client = new Client({
 // when the signal arrives (before or after ready, jobs enabled or not).
 let workerHandle: NodeJS.Timeout | null = null;
 let loopMonitorHandle: NodeJS.Timeout | null = null;
-let tempMemberCronTask: { stop: () => void } | null = null;
-let potentialApplicantCronTask: { stop: () => void } | null = null;
+let purgeCronTasks: Map<string, { stop: () => void }> = new Map();
 let keepAliveCronTasks: Map<string, { stop: () => void }> = new Map();
 let nominationDigestCronTasks: Map<string, { stop: () => void }> = new Map();
 let shuttingDown = false;
@@ -100,8 +95,7 @@ const shutdown = () => {
   if (loopMonitorHandle !== null) {
     clearInterval(loopMonitorHandle);
   }
-  tempMemberCronTask?.stop();
-  potentialApplicantCronTask?.stop();
+  for (const task of purgeCronTasks.values()) task.stop();
   for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
   client.destroy();
@@ -186,20 +180,17 @@ client.once('clientReady', async () => {
       logger.info('VERIFICATION_ENABLED=false — skipping role setup.');
     }
 
-    if (purgeJobsEnabled) {
-      tempMemberCronTask = scheduleTemporaryMemberCleanup(client);
-      potentialApplicantCronTask = schedulePotentialApplicantCleanup(client);
-      logger.info('Scheduled member purge jobs.');
-    } else {
-      logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
-    }
     if (isDatabaseConfigured()) {
       let allGuildConfigs: GuildConfig[];
       try {
         allGuildConfigs = await getAllGuildConfigs();
       } catch (error) {
-        logger.error('Failed to load guild configs for job scheduling; skipping digest and keep-alive jobs.', { error });
+        logger.error('Failed to load guild configs for job scheduling; skipping purge, digest, and keep-alive jobs.', { error });
         allGuildConfigs = [];
+      }
+      purgeCronTasks = schedulePurgeJobs(client, allGuildConfigs);
+      if (purgeCronTasks.size > 0) {
+        logger.info('[purge-member] Scheduled purge jobs.', { guilds: purgeCronTasks.size });
       }
       if (nominationDigestEnabled) {
         nominationDigestCronTasks = scheduleNominationDigests(client, allGuildConfigs);
@@ -245,7 +236,7 @@ client.once('clientReady', async () => {
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
       nominationDigestJobActive: nominationDigestCronTasks.size > 0,
-      purgeJobsEnabled: !readOnlyMode && purgeJobsEnabled,
+      purgeJobsEnabled: purgeCronTasks.size > 0,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
       guildCount: client.guilds.cache.size,

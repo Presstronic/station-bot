@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 import i18n from '../../../utils/i18n-config.js';
 import { purgeMembers } from '../purge-member.job.js';
 import { Client, Guild, GuildMember, Role, Collection } from 'discord.js';
+import type { GuildConfig } from '../../../domain/guild-config/guild-config.service.js';
 
 // Lightweight mock type for Guild, safe for test usage
 type MockGuild = {
@@ -13,119 +14,266 @@ type MockGuild = {
   };
 };
 
-// Helper function to convert array to Collection
 function toCollection(members: GuildMember[]): Collection<string, GuildMember> {
   return new Collection(members.map((m) => [m.user.tag, m]));
 }
 
-describe('role name resolution from DEFAULT_ROLES', () => {
-  beforeEach(() => {
-    jest.resetModules();
-    delete process.env.DEFAULT_ROLES;
+function makeGuildConfig(overrides: Partial<GuildConfig> = {}): GuildConfig {
+  return {
+    guildId: 'guild-1',
+    verificationEnabled: true,
+    verifiedRoleName: 'Verified',
+    tempMemberRoleName: 'Temporary Member',
+    potentialApplicantRoleName: 'Potential Applicant',
+    orgMemberRoleId: null,
+    orgMemberRoleName: null,
+    nominationDigestEnabled: false,
+    nominationDigestChannelId: null,
+    nominationDigestRoleId: null,
+    nominationDigestCronSchedule: '0 9 * * *',
+    manufacturingEnabled: false,
+    manufacturingForumChannelId: null,
+    manufacturingStaffChannelId: null,
+    manufacturingRoleId: null,
+    manufacturingCreateOrderThreadId: null,
+    manufacturingOrderLimit: 5,
+    manufacturingMaxItemsPerOrder: 10,
+    manufacturingOrderRateLimitPer5Min: 1,
+    manufacturingOrderRateLimitPerHour: 5,
+    manufacturingCreateOrderPostTitle: '📋 Create Order',
+    manufacturingCreateOrderPostMessage: 'Click the button below to submit a new manufacturing order.',
+    manufacturingKeepaliveCronSchedule: '0 6 * * *',
+    purgeJobsEnabled: true,
+    tempMemberHoursToExpire: 48,
+    tempMemberPurgeCronSchedule: '0 3 * * *',
+    birthdayEnabled: false,
+    birthdayChannelId: null,
+    birthdayCronSchedule: '0 12 * * *',
+    createdAt: '2024-01-01T00:00:00.000Z',
+    updatedAt: '2024-01-01T00:00:00.000Z',
+    ...overrides,
+  };
+}
+
+function makeMockClient(guildId = 'guild-1', guildName = 'Test Guild') {
+  return {
+    guilds: {
+      cache: new Map([[guildId, { id: guildId, name: guildName, preferredLocale: 'en-US' }]]),
+    },
+  } as unknown as Client;
+}
+
+type CronCallback = () => Promise<void>;
+
+beforeEach(() => {
+  jest.resetModules();
+});
+
+describe('schedulePurgeJobs', () => {
+  async function setupMocks(opts: {
+    validateResult?: boolean;
+    guildConfigResult?: GuildConfig | null;
+  } = {}) {
+    const { validateResult = true, guildConfigResult = makeGuildConfig() } = opts;
+    const capturedCallbacks = new Map<string, CronCallback>();
+    let scheduleCallCount = 0;
+
+    const mockWarn = jest.fn();
+    const mockInfo = jest.fn();
+    const mockError = jest.fn();
+
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ debug: jest.fn(), info: mockInfo, warn: mockWarn, error: mockError }),
+    }));
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => guildConfigResult),
+    }));
+    jest.unstable_mockModule('node-cron', () => ({
+      default: {
+        validate: jest.fn(() => validateResult),
+        schedule: jest.fn((_schedule: string, cb: CronCallback) => {
+          const key = `task-${scheduleCallCount++}`;
+          capturedCallbacks.set(key, cb);
+          return { stop: jest.fn(), _key: key };
+        }),
+      },
+    }));
+
+    const { schedulePurgeJobs, rescheduleGuildPurge } = await import('../purge-member.job.js');
+    return { schedulePurgeJobs, rescheduleGuildPurge, capturedCallbacks, mockWarn, mockInfo, mockError };
+  }
+
+  it('creates one task per guild with purgeJobsEnabled=true', async () => {
+    const { schedulePurgeJobs } = await setupMocks();
+    const configs = [
+      makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: true }),
+      makeGuildConfig({ guildId: 'g2', purgeJobsEnabled: false }),
+      makeGuildConfig({ guildId: 'g3', purgeJobsEnabled: true }),
+    ];
+
+    const tasks = schedulePurgeJobs(makeMockClient('g1'), configs);
+    expect(tasks.size).toBe(2);
+    expect(tasks.has('g1')).toBe(true);
+    expect(tasks.has('g2')).toBe(false);
+    expect(tasks.has('g3')).toBe(true);
   });
 
-  it('uses hardcoded defaults when DEFAULT_ROLES is not set', async () => {
-    const { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME } = await import('../purge-member.job.js');
-    expect(TEMP_MEMBER_ROLE_NAME).toBe('Temporary Member');
-    expect(POTENTIAL_APPLICANT_ROLE_NAME).toBe('Potential Applicant');
+  it('skips guilds with purgeJobsEnabled=false and creates no task', async () => {
+    const { schedulePurgeJobs } = await setupMocks();
+    const configs = [makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: false })];
+    const tasks = schedulePurgeJobs(makeMockClient('g1'), configs);
+    expect(tasks.size).toBe(0);
   });
 
-  it('uses env-configured names when DEFAULT_ROLES is set', async () => {
-    process.env.DEFAULT_ROLES = 'Verified,Temp Member,Pot Applicant';
-    const { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME } = await import('../purge-member.job.js');
-    expect(TEMP_MEMBER_ROLE_NAME).toBe('Temp Member');
-    expect(POTENTIAL_APPLICANT_ROLE_NAME).toBe('Pot Applicant');
+  it('skips guilds with invalid cron schedule and logs error', async () => {
+    const { schedulePurgeJobs, mockError } = await setupMocks({ validateResult: false });
+    const configs = [makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: true })];
+    const tasks = schedulePurgeJobs(makeMockClient('g1'), configs);
+    expect(tasks.size).toBe(0);
+    expect(mockError).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid cron schedule'),
+      expect.any(Object),
+    );
   });
 
-  it('falls back to defaults when DEFAULT_ROLES has fewer than 3 entries', async () => {
-    process.env.DEFAULT_ROLES = 'Verified,Temp Member';
-    const { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME } = await import('../purge-member.job.js');
-    expect(TEMP_MEMBER_ROLE_NAME).toBe('Temp Member');
-    expect(POTENTIAL_APPLICANT_ROLE_NAME).toBe('Potential Applicant');
+  it('stops all existing tasks and reschedules on repeated calls', async () => {
+    const { schedulePurgeJobs } = await setupMocks();
+    const configs = [makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: true })];
+    const client = makeMockClient('g1');
+    const first = schedulePurgeJobs(client, configs);
+    const firstTask = first.get('g1') as unknown as { stop: jest.Mock };
+    schedulePurgeJobs(client, configs);
+    expect(firstTask.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('tick skips when guild config is unavailable', async () => {
+    const { schedulePurgeJobs, capturedCallbacks, mockWarn } = await setupMocks({
+      guildConfigResult: null,
+    });
+    const configs = [makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: true })];
+    schedulePurgeJobs(makeMockClient('g1'), configs);
+    const [cb] = capturedCallbacks.values();
+    await cb();
+    expect(mockWarn).toHaveBeenCalledWith(
+      expect.stringContaining('Guild config unavailable'),
+      expect.any(Object),
+    );
+  });
+
+  it('tick uses tempMemberHoursToExpire from guild config rather than a hardcoded value', async () => {
+    const customHours = 24;
+    const { schedulePurgeJobs, capturedCallbacks } = await setupMocks({
+      guildConfigResult: makeGuildConfig({ guildId: 'g1', tempMemberHoursToExpire: customHours }),
+    });
+
+    const mockGuild = {
+      id: 'g1',
+      name: 'Test Guild',
+      preferredLocale: 'en-US',
+      members: {
+        fetch: jest.fn(async () => new Map()),
+        cache: new Map<string, unknown>([
+          [
+            'member-1',
+            {
+              user: { tag: 'OldMember#1111', send: jest.fn() },
+              roles: { cache: [{ name: 'Temporary Member' }] },
+              joinedTimestamp: Date.now() - (customHours + 1) * 60 * 60 * 1000,
+              kickable: true,
+              kick: jest.fn(),
+            },
+          ],
+        ]),
+      },
+    };
+
+    const client = {
+      guilds: { cache: new Map([['g1', mockGuild]]) },
+    } as unknown as Client;
+
+    schedulePurgeJobs(client, [makeGuildConfig({ guildId: 'g1', tempMemberHoursToExpire: customHours })]);
+    const [cb] = capturedCallbacks.values();
+    await cb();
+
+    const member = mockGuild.members.cache.get('member-1') as { kick: jest.Mock };
+    expect(member.kick).toHaveBeenCalledTimes(1);
   });
 });
 
-describe('locale normalization in schedule callbacks', () => {
-  beforeEach(() => {
-    jest.resetModules();
-  });
-
-  function makeMockClient(preferredLocale: string) {
-    const mockGuild = {
-      id: 'guild-1',
-      name: 'Test Guild',
-      preferredLocale,
-      members: {
-        fetch: jest.fn<() => Promise<unknown>>().mockResolvedValue(new Map()),
-        cache: new Map(),
+describe('rescheduleGuildPurge', () => {
+  async function setupMocks() {
+    const mockError = jest.fn();
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: mockError }),
+    }));
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => null),
+    }));
+    const scheduleMock = jest.fn((_schedule: string, _cb: CronCallback) => ({ stop: jest.fn() }));
+    jest.unstable_mockModule('node-cron', () => ({
+      default: {
+        validate: jest.fn(() => true),
+        schedule: scheduleMock,
       },
-    };
-    return {
-      guilds: {
-        cache: {
-          size: 1,
-          values: () => [mockGuild].values(),
-        },
-      },
-    } as unknown as Client;
+    }));
+    const { schedulePurgeJobs, rescheduleGuildPurge } = await import('../purge-member.job.js');
+    return { schedulePurgeJobs, rescheduleGuildPurge, scheduleMock, mockError };
   }
 
-  it('passes 2-char locale to i18n in scheduleTemporaryMemberCleanup', async () => {
-    let capturedCallback: (() => Promise<void>) | undefined;
-    const mockI18nMf = jest.fn<typeof i18n.__mf>().mockReturnValue('');
+  it('stops old task and starts a new one', async () => {
+    const { schedulePurgeJobs, rescheduleGuildPurge, scheduleMock } = await setupMocks();
+    const client = makeMockClient('g1');
+    const config = makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: true });
+    schedulePurgeJobs(client, [config]);
+    const oldTask = scheduleMock.mock.results[0].value as { stop: jest.Mock };
 
-    jest.unstable_mockModule('node-cron', () => ({
-      default: {
-        schedule: jest.fn((_: string, cb: () => Promise<void>) => {
-          capturedCallback = cb;
-          return { stop: jest.fn() };
-        }),
-      },
-    }));
-    jest.unstable_mockModule('i18n', () => ({
-      default: { __mf: mockI18nMf },
-    }));
-
-    const { scheduleTemporaryMemberCleanup } = await import('../purge-member.job.js') as {
-      scheduleTemporaryMemberCleanup: (client: Client) => unknown;
-    };
-
-    scheduleTemporaryMemberCleanup(makeMockClient('en-US'));
-    await capturedCallback!();
-
-    expect(mockI18nMf).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'en' }),
-      expect.any(Object)
-    );
+    rescheduleGuildPurge(client, 'g1', makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: true }));
+    expect(oldTask.stop).toHaveBeenCalledTimes(1);
+    expect(scheduleMock).toHaveBeenCalledTimes(2);
   });
 
-  it('passes 2-char locale to i18n in schedulePotentialApplicantCleanup', async () => {
-    let capturedCallback: (() => Promise<void>) | undefined;
-    const mockI18nMf = jest.fn<typeof i18n.__mf>().mockReturnValue('');
+  it('returns no-op task when purgeJobsEnabled is false', async () => {
+    const { rescheduleGuildPurge } = await setupMocks();
+    const task = rescheduleGuildPurge(
+      makeMockClient('g1'),
+      'g1',
+      makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: false }),
+    );
+    expect(task).toBeDefined();
+    expect(() => task.stop()).not.toThrow();
+  });
 
+  it('returns no-op task and logs error on invalid cron schedule', async () => {
+    const { mockError } = await setupMocks();
+
+    jest.resetModules();
+    const logErr = jest.fn();
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: logErr }),
+    }));
+    jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
+      getGuildConfigOrNull: jest.fn(async () => null),
+    }));
     jest.unstable_mockModule('node-cron', () => ({
       default: {
-        schedule: jest.fn((_: string, cb: () => Promise<void>) => {
-          capturedCallback = cb;
-          return { stop: jest.fn() };
-        }),
+        validate: jest.fn(() => false),
+        schedule: jest.fn(),
       },
     }));
-    jest.unstable_mockModule('i18n', () => ({
-      default: { __mf: mockI18nMf },
-    }));
+    const { rescheduleGuildPurge: rescheduleFresh } = await import('../purge-member.job.js');
 
-    const { schedulePotentialApplicantCleanup } = await import('../purge-member.job.js') as {
-      schedulePotentialApplicantCleanup: (client: Client) => unknown;
-    };
-
-    schedulePotentialApplicantCleanup(makeMockClient('de-DE'));
-    await capturedCallback!();
-
-    expect(mockI18nMf).toHaveBeenCalledWith(
-      expect.objectContaining({ locale: 'de' }),
-      expect.any(Object)
+    const task = rescheduleFresh(
+      makeMockClient('g1'),
+      'g1',
+      makeGuildConfig({ guildId: 'g1', purgeJobsEnabled: true }),
     );
+    expect(task).toBeDefined();
+    expect(() => task.stop()).not.toThrow();
+    expect(logErr).toHaveBeenCalledWith(
+      expect.stringContaining('Invalid cron schedule'),
+      expect.any(Object),
+    );
+    void mockError;
   });
 });
 
@@ -177,7 +325,7 @@ describe('purgeMembers - Temporary Member', () => {
     const message = i18n.__mf(
       { phrase: 'jobs.purgeMember.temporaryMemberKickMessage', locale },
       {
-        cleanGuildName: mockGuild.name.replace(/[^ -\u007E]/g, ''),
+        cleanGuildName: mockGuild.name.replace(/[^ -~]/g, ''),
         hoursToExpire: HOURS_TO_EXPIRE.toString(),
       }
     );
@@ -245,7 +393,7 @@ describe('purgeMembers - Potential Applicant', () => {
     const message = i18n.__mf(
       { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
       {
-        cleanGuildName: mockGuild.name.replace(/[^ -\u007E]/g, ''),
+        cleanGuildName: mockGuild.name.replace(/[^ -~]/g, ''),
         hoursToExpire: HOURS_TO_EXPIRE.toString(),
       }
     );

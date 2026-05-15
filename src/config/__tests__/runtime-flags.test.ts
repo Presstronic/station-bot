@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it } from '@jest/globals';
-import { isReadOnlyMode, isPurgeJobsEnabled, verifySessionTtlMinutes } from '../runtime-flags.js';
+import { isReadOnlyMode, verifySessionTtlMinutes } from '../runtime-flags.js';
 
 const originalReadOnlyMode = process.env.BOT_READ_ONLY_MODE;
-const originalPurgeJobsEnabled = process.env.PURGE_JOBS_ENABLED;
 const originalVerifySessionTtl = process.env.VERIFY_SESSION_TTL_MINUTES;
 
 afterEach(() => {
@@ -10,11 +9,6 @@ afterEach(() => {
     delete process.env.BOT_READ_ONLY_MODE;
   } else {
     process.env.BOT_READ_ONLY_MODE = originalReadOnlyMode;
-  }
-  if (originalPurgeJobsEnabled === undefined) {
-    delete process.env.PURGE_JOBS_ENABLED;
-  } else {
-    process.env.PURGE_JOBS_ENABLED = originalPurgeJobsEnabled;
   }
   if (originalVerifySessionTtl === undefined) {
     delete process.env.VERIFY_SESSION_TTL_MINUTES;
@@ -75,22 +69,5 @@ describe('verifySessionTtlMinutes', () => {
   it('caps the value at 35791 minutes to prevent Node.js timer overflow', () => {
     process.env.VERIFY_SESSION_TTL_MINUTES = '99999';
     expect(verifySessionTtlMinutes()).toBe(35_791);
-  });
-});
-
-describe('isPurgeJobsEnabled', () => {
-  it('defaults to false when env var is not set', () => {
-    delete process.env.PURGE_JOBS_ENABLED;
-    expect(isPurgeJobsEnabled()).toBe(false);
-  });
-
-  it('returns true when PURGE_JOBS_ENABLED is true', () => {
-    process.env.PURGE_JOBS_ENABLED = 'true';
-    expect(isPurgeJobsEnabled()).toBe(true);
-  });
-
-  it('returns false when PURGE_JOBS_ENABLED is false', () => {
-    process.env.PURGE_JOBS_ENABLED = 'false';
-    expect(isPurgeJobsEnabled()).toBe(false);
   });
 });
