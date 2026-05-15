@@ -266,10 +266,13 @@ export async function triggerOrderModal(
     }
 
     const {
-      manufacturingOrderRateLimitPer5Min: orderRateLimitPer5Min,
-      manufacturingOrderRateLimitPerHour: orderRateLimitPerHour,
+      manufacturingOrderRateLimitPer5Min: rawRateLimitPer5Min,
+      manufacturingOrderRateLimitPerHour: rawRateLimitPerHour,
       manufacturingOrderLimit: orderLimit,
     } = guildConfig;
+    // Clamp to 1 so zero/negative DB values never produce an out-of-bounds index.
+    const orderRateLimitPer5Min = Math.max(1, rawRateLimitPer5Min);
+    const orderRateLimitPerHour = Math.max(1, rawRateLimitPerHour);
 
     // The slot is already counted in submitEntries, so use > (not >=) to allow
     // exactly orderRateLimitPer5Min requests per window.

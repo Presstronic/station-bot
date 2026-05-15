@@ -490,6 +490,25 @@ describe('handleOrderCommand — rate limiting', () => {
     expect(i2.showModal).toHaveBeenCalledTimes(1);
     expect(i2.reply).not.toHaveBeenCalled();
   });
+
+  it('zero/negative rate-limit values from DB are clamped to 1 and do not crash', async () => {
+    // If DB stores 0 or negative, the index math would go out-of-bounds without clamping.
+    // With clamping to 1, the second submission within the 5-min window is blocked safely.
+    const h = await setupMocks({
+      guildConfigOverrides: { manufacturingOrderRateLimitPer5Min: 0, manufacturingOrderRateLimitPerHour: 0 },
+    });
+    await h.handleOrderCommand(makeSlashInteraction({ id: 'clamp-1' }) as any);
+
+    jest.setSystemTime(base + 30_000); // 30 s later — still inside the 5-min window
+    const i2 = makeSlashInteraction({ id: 'clamp-2' });
+    await h.handleOrderCommand(i2 as any);
+
+    // Should be rate-limited (clamped limit = 1), not crash with out-of-bounds access
+    const reply = (i2.reply as jest.Mock).mock.calls[0][0] as { content: string; flags: number };
+    expect(reply.flags).toBe(64); // MessageFlags.Ephemeral
+    expect(reply.content).toMatch(/too quickly/i);
+    expect(i2.showModal).not.toHaveBeenCalled();
+  });
 });
 
 // ---------------------------------------------------------------------------
