@@ -84,6 +84,7 @@ Before opening a PR, verify:
 - [ ] `docker-compose` config tested if infra changed
 - [ ] For releases: version bumped in `package.json` AND `package-lock.json` updated via `npm install --package-lock-only` — confirm with `grep '"version"' package.json`
 - [ ] Documentation is consistent with the final implementation: inline comments, PR title/body/test-plan, and any referenced GitHub issues all reflect what was actually built — not an earlier draft or superseded approach
+- [ ] For bash/SSH/CI snippets: re-read every `if`/`while`/pipeline branch under shell semantics, not just happy-path logic. `set -e` does not abort inside conditional tests; commands that can fail due to auth/network/socket issues must have stderr/exit codes surfaced explicitly rather than being collapsed into “not found” or other generic fallback states
 - [ ] When touching discord.js command handlers: do test stubs faithfully replicate real interaction state mutations (`replied`, `deferred`)? Is `fetchReply: true` set when `awaitMessageComponent` is needed on the response?
 - [ ] When replacing a feature: grepped test file for old option names, response strings, and function signatures — none remain?
 - [ ] All mocked modules include every named export from the real module?
