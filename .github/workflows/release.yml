@@ -210,8 +210,17 @@ jobs:
                echo 'B2_BUCKET could not be read from /opt/station-bot/.env.production' >&2
                exit 1
              fi
-             BACKUP_MONTH=\"\$(date +%Y%m)\"
-             rclone ls \"b2:\${B2_BUCKET}/postgres/\${BACKUP_MONTH}/\" | grep \"pre-deploy-${SHA_SHORT}\\.sql.gz\""
+             FOUND_BACKUP=0
+             for BACKUP_MONTH in \"\$(date +%Y%m)\" \"\$(date -d '1 month ago' +%Y%m)\"; do
+               if rclone ls \"b2:\${B2_BUCKET}/postgres/\${BACKUP_MONTH}/\" | grep -q \"pre-deploy-${SHA_SHORT}\\.sql.gz\"; then
+                 FOUND_BACKUP=1
+                 break
+               fi
+             done
+             if [ \"\${FOUND_BACKUP}\" -ne 1 ]; then
+               echo 'Pre-deploy backup file was not found in the current or previous month prefix' >&2
+               exit 1
+             fi"
 
       - name: Deploy production
         env:
@@ -232,7 +241,20 @@ jobs:
             if [ -S \"\${ROOTLESS_SOCK}\" ]; then
               export DOCKER_HOST=\"unix://\${ROOTLESS_SOCK}\"
             fi
-            STATUS=\"\$(docker inspect --format='{{.State.Status}}' station-bot 2>/dev/null || true)\"
+            set +e
+            INSPECT_OUTPUT=\"\$(docker inspect --format='{{.State.Status}}' station-bot 2>&1)\"
+            INSPECT_EXIT=\$?
+            set -e
+            if [ \"\${INSPECT_EXIT}\" -ne 0 ]; then
+              if printf '%s' \"\${INSPECT_OUTPUT}\" | grep -qi 'No such object'; then
+                STATUS=''
+              else
+                echo \"docker inspect failed: \${INSPECT_OUTPUT}\" >&2
+                exit 1
+              fi
+            else
+              STATUS=\"\${INSPECT_OUTPUT}\"
+            fi
             if [ \"\${STATUS}\" != 'running' ]; then
               echo 'station-bot container is not running (status: '\${STATUS:-not found}')' >&2
               docker logs station-bot --tail 50 || true
