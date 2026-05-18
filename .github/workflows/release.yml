@@ -210,7 +210,8 @@ jobs:
                echo 'B2_BUCKET could not be read from /opt/station-bot/.env.production' >&2
                exit 1
              fi
-             rclone ls \"b2:\${B2_BUCKET}/postgres/\" | grep \"pre-deploy-${SHA_SHORT}\\.sql.gz\""
+             BACKUP_MONTH=\"\$(date +%Y%m)\"
+             rclone ls \"b2:\${B2_BUCKET}/postgres/\${BACKUP_MONTH}/\" | grep \"pre-deploy-${SHA_SHORT}\\.sql.gz\""
 
       - name: Deploy production
         env:
