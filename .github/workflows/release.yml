@@ -147,7 +147,7 @@ jobs:
           BACKUP_HEALTHCHECK_URL: ${{ secrets.BACKUP_HEALTHCHECK_URL }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'mkdir -p /opt/station-bot'
-          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "cat > /opt/station-bot/.env.production <<'ENVEOF'
+          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > /opt/station-bot/.env.production && chmod 600 /opt/station-bot/.env.production'
           DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
           CLIENT_ID=${CLIENT_ID}
           DATABASE_URL=${DATABASE_URL}
@@ -161,8 +161,7 @@ jobs:
           B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
           B2_BUCKET=${B2_BUCKET}
           BACKUP_HEALTHCHECK_URL=${BACKUP_HEALTHCHECK_URL}
-          ENVEOF
-          chmod 600 /opt/station-bot/.env.production"
+          EOF
 
       - name: Write production rclone config
         env:
@@ -172,14 +171,13 @@ jobs:
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'mkdir -p ~/.config/rclone'
-          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "cat > ~/.config/rclone/rclone.conf <<'RCLONEEOF'
+          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > ~/.config/rclone/rclone.conf && chmod 600 ~/.config/rclone/rclone.conf'
           [b2]
           type = b2
           account = ${B2_ACCOUNT_ID}
           key = ${B2_APPLICATION_KEY}
           hard_delete = false
-          RCLONEEOF
-          chmod 600 ~/.config/rclone/rclone.conf"
+          EOF
 
       - name: Update repo to release tag
         env:
@@ -206,7 +204,12 @@ jobs:
           SHA_SHORT: ${{ needs.build-and-push.outputs.sha_short }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
-            "B2_BUCKET=\"\$(grep '^B2_BUCKET=' /opt/station-bot/.env.production | cut -d= -f2-)\" && \
+            "set -euo pipefail
+             B2_BUCKET=\"\$(grep '^B2_BUCKET=' /opt/station-bot/.env.production | cut -d= -f2- || true)\"
+             if [ -z \"\${B2_BUCKET}\" ]; then
+               echo 'B2_BUCKET could not be read from /opt/station-bot/.env.production' >&2
+               exit 1
+             fi
              rclone ls \"b2:\${B2_BUCKET}/postgres/\" | grep \"pre-deploy-${SHA_SHORT}\\.sql.gz\""
 
       - name: Deploy production
@@ -224,6 +227,10 @@ jobs:
           VPS_USER: ${{ secrets.VPS_USER }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "
+            ROOTLESS_SOCK=\"/run/user/\$(id -u)/docker.sock\"
+            if [ -S \"\${ROOTLESS_SOCK}\" ]; then
+              export DOCKER_HOST=\"unix://\${ROOTLESS_SOCK}\"
+            fi
             STATUS=\"\$(docker inspect --format='{{.State.Status}}' station-bot 2>/dev/null || true)\"
             if [ \"\${STATUS}\" != 'running' ]; then
               echo 'station-bot container is not running (status: '\${STATUS:-not found}')' >&2
