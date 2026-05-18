@@ -147,7 +147,7 @@ jobs:
           BACKUP_HEALTHCHECK_URL: ${{ secrets.BACKUP_HEALTHCHECK_URL }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'mkdir -p /opt/station-bot'
-          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > /opt/station-bot/.env.production && chmod 600 /opt/station-bot/.env.production'
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "cat > /opt/station-bot/.env.production <<'ENVEOF'
           DISCORD_BOT_TOKEN=${DISCORD_BOT_TOKEN}
           CLIENT_ID=${CLIENT_ID}
           DATABASE_URL=${DATABASE_URL}
@@ -161,7 +161,8 @@ jobs:
           B2_APPLICATION_KEY=${B2_APPLICATION_KEY}
           B2_BUCKET=${B2_BUCKET}
           BACKUP_HEALTHCHECK_URL=${BACKUP_HEALTHCHECK_URL}
-          EOF
+          ENVEOF
+          chmod 600 /opt/station-bot/.env.production"
 
       - name: Write production rclone config
         env:
@@ -171,13 +172,14 @@ jobs:
           B2_APPLICATION_KEY: ${{ secrets.B2_APPLICATION_KEY }}
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'mkdir -p ~/.config/rclone'
-          cat <<EOF | ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" 'cat > ~/.config/rclone/rclone.conf && chmod 600 ~/.config/rclone/rclone.conf'
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "cat > ~/.config/rclone/rclone.conf <<'RCLONEEOF'
           [b2]
           type = b2
           account = ${B2_ACCOUNT_ID}
           key = ${B2_APPLICATION_KEY}
           hard_delete = false
-          EOF
+          RCLONEEOF
+          chmod 600 ~/.config/rclone/rclone.conf"
 
       - name: Update repo to release tag
         env:
@@ -197,6 +199,16 @@ jobs:
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
             "cd /opt/station-bot && BACKUP_LABEL=pre-deploy-${SHA_SHORT} bash infra/scripts/backup-db.sh"
 
+      - name: Verify pre-deploy backup uploaded
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+          SHA_SHORT: ${{ needs.build-and-push.outputs.sha_short }}
+        run: |
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
+            "B2_BUCKET=\"\$(grep '^B2_BUCKET=' /opt/station-bot/.env.production | cut -d= -f2-)\" && \
+             rclone ls \"b2:\${B2_BUCKET}/postgres/\" | grep \"pre-deploy-${SHA_SHORT}\\.sql.gz\""
+
       - name: Deploy production
         env:
           VERSION: ${{ needs.build-and-push.outputs.version }}
@@ -205,6 +217,21 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" \
             "cd /opt/station-bot && BOT_IMAGE_TAG=${VERSION} bash infra/scripts/deploy.sh"
+
+      - name: Verify container is running
+        env:
+          VPS_HOST: ${{ secrets.VPS_HOST }}
+          VPS_USER: ${{ secrets.VPS_USER }}
+        run: |
+          ssh -o StrictHostKeyChecking=yes "${VPS_USER}@${VPS_HOST}" "
+            STATUS=\"\$(docker inspect --format='{{.State.Status}}' station-bot 2>/dev/null || true)\"
+            if [ \"\${STATUS}\" != 'running' ]; then
+              echo 'station-bot container is not running (status: '\${STATUS:-not found}')' >&2
+              docker logs station-bot --tail 50 || true
+              exit 1
+            fi
+            echo \"station-bot is running\"
+          "
 
   create-release:
     name: Create Release
