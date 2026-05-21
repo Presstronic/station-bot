@@ -166,7 +166,7 @@ export function schedulePurgeJobs(
   guildConfigs: GuildConfig[],
 ): Map<string, cron.ScheduledTask> {
   for (const config of guildConfigs) {
-    const { guildId, tempMemberPurgeCronSchedule } = config;
+    const { guildId, tempMemberPurgeCronSchedule, tempMemberHoursToExpire } = config;
 
     if (!config.purgeJobsEnabled) {
       disposeTask(activeTasks.get(guildId));
@@ -178,6 +178,16 @@ export function schedulePurgeJobs(
       logger.error('[purge] Invalid cron schedule — job will not run', {
         guildId,
         tempMemberPurgeCronSchedule,
+      });
+      disposeTask(activeTasks.get(guildId));
+      activeTasks.delete(guildId);
+      continue;
+    }
+
+    if (!isValidHoursToExpire(tempMemberHoursToExpire)) {
+      logger.error('[purge] Invalid tempMemberHoursToExpire — job will not run', {
+        guildId,
+        tempMemberHoursToExpire,
       });
       disposeTask(activeTasks.get(guildId));
       activeTasks.delete(guildId);
@@ -216,6 +226,14 @@ export function rescheduleGuildPurge(
     logger.error('[purge] Invalid cron schedule for reschedule', {
       guildId,
       tempMemberPurgeCronSchedule: guildConfig.tempMemberPurgeCronSchedule,
+    });
+    return createNoOpTask();
+  }
+
+  if (!isValidHoursToExpire(guildConfig.tempMemberHoursToExpire)) {
+    logger.error('[purge] Invalid tempMemberHoursToExpire for reschedule', {
+      guildId,
+      tempMemberHoursToExpire: guildConfig.tempMemberHoursToExpire,
     });
     return createNoOpTask();
   }

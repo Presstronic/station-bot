@@ -217,6 +217,17 @@ describe('schedulePurgeJobs', () => {
     expect(scheduleMock).not.toHaveBeenCalled();
   });
 
+  it('skips scheduling when tempMemberHoursToExpire is invalid', async () => {
+    const { schedulePurgeJobs, scheduleMock } = await setup();
+
+    const tasks = schedulePurgeJobs({} as Client, [
+      makeGuildConfig({ guildId: 'guild-1', tempMemberHoursToExpire: -1 }),
+    ]);
+
+    expect(tasks.size).toBe(0);
+    expect(scheduleMock).not.toHaveBeenCalled();
+  });
+
   it('rescheduleGuildPurge stops the old task and starts a new one', async () => {
     const { schedulePurgeJobs, rescheduleGuildPurge } = await setup();
     const initialConfig = makeGuildConfig({ guildId: 'guild-1' });
@@ -334,6 +345,19 @@ describe('schedulePurgeJobs', () => {
       {} as Client,
       'guild-1',
       makeGuildConfig({ guildId: 'guild-1', tempMemberPurgeCronSchedule: 'bad-cron' }),
+    );
+
+    expect(scheduleMock).not.toHaveBeenCalled();
+    expect(task.stop).toEqual(expect.any(Function));
+  });
+
+  it('returns a no-op task when rescheduleGuildPurge receives invalid tempMemberHoursToExpire', async () => {
+    const { rescheduleGuildPurge, scheduleMock } = await setup();
+
+    const task = rescheduleGuildPurge(
+      {} as Client,
+      'guild-1',
+      makeGuildConfig({ guildId: 'guild-1', tempMemberHoursToExpire: Number.NaN }),
     );
 
     expect(scheduleMock).not.toHaveBeenCalled();
