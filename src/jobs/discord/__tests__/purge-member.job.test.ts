@@ -123,6 +123,42 @@ describe('purgeMembers', () => {
     expect(mockMembers[1].kick).not.toHaveBeenCalled();
     expect(mockMembers[2].kick).not.toHaveBeenCalled();
   });
+
+  it('returns early when hoursToExpire is negative', async () => {
+    const { purgeMembers } = await import('../purge-member.job.js');
+
+    const kickedMembers = await purgeMembers(
+      mockGuild as unknown as Guild,
+      'Temporary Member',
+      -1,
+      'TEST TEMPORARY MEMBERS TIME LIMIT',
+      'purge message',
+    );
+
+    expect(kickedMembers).toEqual([]);
+    expect(mockGuild.members.fetch).not.toHaveBeenCalled();
+    expect(mockMembers[0].kick).not.toHaveBeenCalled();
+    expect(mockMembers[1].kick).not.toHaveBeenCalled();
+    expect(mockMembers[2].kick).not.toHaveBeenCalled();
+  });
+
+  it('returns early when hoursToExpire is not finite', async () => {
+    const { purgeMembers } = await import('../purge-member.job.js');
+
+    const kickedMembers = await purgeMembers(
+      mockGuild as unknown as Guild,
+      'Temporary Member',
+      Number.NaN,
+      'TEST TEMPORARY MEMBERS TIME LIMIT',
+      'purge message',
+    );
+
+    expect(kickedMembers).toEqual([]);
+    expect(mockGuild.members.fetch).not.toHaveBeenCalled();
+    expect(mockMembers[0].kick).not.toHaveBeenCalled();
+    expect(mockMembers[1].kick).not.toHaveBeenCalled();
+    expect(mockMembers[2].kick).not.toHaveBeenCalled();
+  });
 });
 
 describe('schedulePurgeJobs', () => {

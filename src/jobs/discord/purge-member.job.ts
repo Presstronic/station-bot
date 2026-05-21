@@ -43,6 +43,10 @@ function buildTemporaryMemberKickMessage(guild: Guild, hoursToExpire: number): s
   );
 }
 
+function isValidHoursToExpire(hoursToExpire: number): boolean {
+  return Number.isFinite(hoursToExpire) && hoursToExpire >= 0;
+}
+
 function createTaskForGuild(
   client: Client,
   guildId: string,
@@ -108,6 +112,16 @@ export async function purgeMembers(
   purgeMessage: string,
 ): Promise<string[]> {
   const MEMBERS_KICKED: string[] = [];
+
+  if (!isValidHoursToExpire(hoursToExpire)) {
+    logger.error('[purge] Invalid tempMemberHoursToExpire; skipping purge', {
+      guildId: guild.id,
+      guildName: guild.name,
+      hoursToExpire,
+    });
+    return MEMBERS_KICKED;
+  }
+
   const expirationMs = hoursToExpire * 60 * 60 * 1000;
 
   try {
