@@ -92,7 +92,8 @@
       "responses": {
         "none": "You haven't nominated any players yet.",
         "historyTitle": "Your nomination history:",
-        "lifetimeTotal": "Lifetime total: {count}"
+        "lifetimeTotal": "Lifetime total: {count}",
+        "pendingTitle": "Pending Review ({count})"
       }
     },
     "nominationReview": {

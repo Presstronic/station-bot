@@ -1,8 +1,9 @@
 import { ChatInputCommandInteraction, MessageFlags, SlashCommandBuilder } from 'discord.js';
 import i18n from '../utils/i18n-config.js';
-import { getNominationCountsByUser } from '../services/nominations/nominations.repository.js';
+import { getNominationCountsByUser, getPendingNominationsByUser } from '../services/nominations/nominations.repository.js';
 import { getCommandLocale, isNominationConfigurationError } from './nomination.helpers.js';
 import { getLogger } from '../utils/logger.js';
+import { toDateString } from '../utils/date.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
@@ -32,7 +33,10 @@ export async function handleMyNominationsCommand(interaction: ChatInputCommandIn
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
   try {
-    const history = await getNominationCountsByUser(interaction.user.id);
+    const [history, pendingNominations] = await Promise.all([
+      getNominationCountsByUser(interaction.user.id),
+      getPendingNominationsByUser(interaction.user.id),
+    ]);
 
     if (history.length === 0) {
       await interaction.editReply({
@@ -44,17 +48,32 @@ export async function handleMyNominationsCommand(interaction: ChatInputCommandIn
 
     const yearlyLines = history.map(({ year, count }) => `${year}: ${formatNominationCount(count)}`);
     const lifetimeTotal = history.reduce((sum, { count }) => sum + count, 0);
+    const pendingLines = pendingNominations.map(
+      ({ displayHandle, createdAt }) => `• ${displayHandle} — submitted ${toDateString(createdAt)}`
+    );
+    const contentLines = [
+      i18n.__({ phrase: 'commands.myNominations.responses.historyTitle', locale }),
+      ...yearlyLines,
+      '──────────────────────',
+      i18n.__mf(
+        { phrase: 'commands.myNominations.responses.lifetimeTotal', locale },
+        { count: formatNominationCount(lifetimeTotal) }
+      ),
+    ];
+
+    if (pendingLines.length > 0) {
+      contentLines.push(
+        '',
+        i18n.__mf(
+          { phrase: 'commands.myNominations.responses.pendingTitle', locale },
+          { count: pendingLines.length.toString() }
+        ),
+        ...pendingLines
+      );
+    }
 
     await interaction.editReply({
-      content: [
-        i18n.__({ phrase: 'commands.myNominations.responses.historyTitle', locale }),
-        ...yearlyLines,
-        '──────────────────────',
-        i18n.__mf(
-          { phrase: 'commands.myNominations.responses.lifetimeTotal', locale },
-          { count: formatNominationCount(lifetimeTotal) }
-        ),
-      ].join('\n'),
+      content: contentLines.join('\n'),
       allowedMentions: { parse: [] },
     });
   } catch (error) {

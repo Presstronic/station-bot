@@ -6,8 +6,10 @@ beforeEach(() => {
 
 async function loadCommand({
   history = [],
+  pending = [],
 }: {
   history?: Array<{ year: number; count: number }>;
+  pending?: Array<{ displayHandle: string; createdAt: string }>;
 } = {}) {
   const loggerError = jest.fn();
 
@@ -22,6 +24,7 @@ async function loadCommand({
 
   jest.unstable_mockModule('../../services/nominations/nominations.repository.js', () => ({
     getNominationCountsByUser: jest.fn(async () => history),
+    getPendingNominationsByUser: jest.fn(async () => pending),
   }));
 
   jest.unstable_mockModule('../nomination.helpers.js', () => ({
@@ -48,6 +51,9 @@ async function loadCommand({
         ({ phrase }: { phrase: string }, vars: Record<string, string>) => {
           if (phrase === 'commands.myNominations.responses.lifetimeTotal') {
             return `Lifetime total: ${vars.count}`;
+          }
+          if (phrase === 'commands.myNominations.responses.pendingTitle') {
+            return `Pending Review (${vars.count})`;
           }
           return phrase;
         }
@@ -92,6 +98,7 @@ describe('handleMyNominationsCommand', () => {
     expect(content).toContain('2026: 12 nominations');
     expect(content).toContain('2025: 8 nominations');
     expect(content).toContain('Lifetime total: 20 nominations');
+    expect(content).not.toContain('Pending Review');
   });
 
   it('returns a single-year history reply', async () => {
@@ -105,6 +112,28 @@ describe('handleMyNominationsCommand', () => {
     const content = interaction.editReply.mock.calls[0][0].content as string;
     expect(content).toContain('2026: 1 nomination');
     expect(content).toContain('Lifetime total: 1 nomination');
+    expect(content).not.toContain('Pending Review');
+  });
+
+  it('appends pending nominations below the historical counts when present', async () => {
+    const { handleMyNominationsCommand } = await loadCommand({
+      history: [{ year: 2026, count: 3 }],
+      pending: [
+        { displayHandle: 'QuantumPilot', createdAt: '2026-04-20T18:30:00.000Z' },
+        { displayHandle: 'NovaWing', createdAt: '2026-04-22T09:15:00.000Z' },
+      ],
+    });
+    const interaction = makeInteraction();
+
+    await handleMyNominationsCommand(interaction);
+
+    const content = interaction.editReply.mock.calls[0][0].content as string;
+    expect(content).toContain('Your nomination history:');
+    expect(content).toContain('2026: 3 nominations');
+    expect(content).toContain('Lifetime total: 3 nominations');
+    expect(content).toContain('Pending Review (2)');
+    expect(content).toContain('• QuantumPilot — submitted 2026-04-20');
+    expect(content).toContain('• NovaWing — submitted 2026-04-22');
   });
 
   it('returns a friendly message when the user has no nominations', async () => {

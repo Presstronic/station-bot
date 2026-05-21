@@ -21,6 +21,11 @@ export interface UserNominationCountByYear {
   count: number;
 }
 
+export interface PendingNominationSummary {
+  displayHandle: string;
+  createdAt: string;
+}
+
 const SORT_CLAUSE_MAP: Record<NominationSortOption, string> = {
   newest:                'updated_at DESC',
   oldest:                'updated_at ASC',
@@ -297,6 +302,34 @@ export async function getNominationCountsByUser(userId: string): Promise<UserNom
   return result.rows.map((row) => ({
     year: Number(row.year),
     count: Number(row.count),
+  }));
+}
+
+export async function getPendingNominationsByUser(userId: string): Promise<PendingNominationSummary[]> {
+  assertDatabaseConfigured();
+  await ensureNominationsSchema();
+
+  const result = await withClient((client) =>
+    client.query(
+      `
+      SELECT display_handle, created_at
+      FROM nominations
+      WHERE lifecycle_state != 'processed'
+        AND EXISTS (
+          SELECT 1
+          FROM nomination_events
+          WHERE nomination_events.normalized_handle = nominations.normalized_handle
+            AND nomination_events.nominator_user_id = $1
+        )
+      ORDER BY created_at ASC
+      `,
+      [userId]
+    )
+  );
+
+  return result.rows.map((row) => ({
+    displayHandle: row.display_handle,
+    createdAt: new Date(row.created_at).toISOString(),
   }));
 }
 
