@@ -1,21 +1,102 @@
 import cron from 'node-cron';
-import { Client, Guild } from 'discord.js';
-import { getLogger } from '../../utils/logger.js';
+import type { Client, Guild } from 'discord.js';
 import i18n from 'i18n';
 import { getGuildConfigOrNull, type GuildConfig } from '../../domain/guild-config/guild-config.service.js';
+import { getLogger } from '../../utils/logger.js';
 
 const logger = getLogger();
-
 const activeTasks = new Map<string, cron.ScheduledTask>();
 
-const NO_OP_TASK = { stop: () => {} } as unknown as cron.ScheduledTask;
+function createNoOpTask(): cron.ScheduledTask {
+  return {
+    start() {
+      return undefined;
+    },
+    stop() {
+      return undefined;
+    },
+    destroy() {
+      return undefined;
+    },
+  } as unknown as cron.ScheduledTask;
+}
+
+function buildTemporaryMemberKickMessage(guild: Guild, hoursToExpire: number): string {
+  const locale = guild.preferredLocale?.substring(0, 2) || 'en';
+  const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
+
+  return i18n.__mf(
+    { phrase: 'jobs.purgeMember.temporaryMemberKickMessage', locale },
+    {
+      cleanGuildName,
+      hoursToExpire: hoursToExpire.toString(),
+    },
+  );
+}
+
+function createTaskForGuild(
+  client: Client,
+  guildId: string,
+  guildConfig: GuildConfig,
+): cron.ScheduledTask {
+  const task = cron.schedule(
+    guildConfig.tempMemberPurgeCronSchedule,
+    async () => {
+      try {
+        const currentGuildConfig = await getGuildConfigOrNull(guildId);
+
+        if (currentGuildConfig === null) {
+          logger.warn('[purge] Guild config unavailable or missing at tick time; skipping', { guildId });
+          return;
+        }
+
+        if (!currentGuildConfig.purgeJobsEnabled) {
+          logger.info('[purge] Purge disabled for guild at tick time; skipping', { guildId });
+          return;
+        }
+
+        const guild = client.guilds.cache.get(guildId);
+        if (!guild) {
+          logger.warn('[purge] Guild not in client cache; skipping', { guildId });
+          return;
+        }
+
+        const message = buildTemporaryMemberKickMessage(guild, currentGuildConfig.tempMemberHoursToExpire);
+        const kicked = await purgeMembers(
+          guild,
+          currentGuildConfig.tempMemberRoleName,
+          currentGuildConfig.tempMemberHoursToExpire,
+          'TEMPORARY MEMBERS TIME LIMIT',
+          message,
+        );
+
+        logger.info('[purge] Temporary member cleanup complete', {
+          guildId,
+          guildName: guild.name,
+          kickedMembers: kicked,
+        });
+      } catch (error) {
+        logger.error('[purge] Temporary member cleanup failed for guild', { guildId, error });
+      }
+    },
+    { timezone: 'UTC' },
+  );
+
+  activeTasks.set(guildId, task);
+  logger.info('[purge] Scheduled temporary member purge job for guild', {
+    guildId,
+    schedule: guildConfig.tempMemberPurgeCronSchedule,
+    hoursToExpire: guildConfig.tempMemberHoursToExpire,
+  });
+  return task;
+}
 
 export async function purgeMembers(
   guild: Guild,
   roleName: string,
   hoursToExpire: number,
   purgeReason: string,
-  purgeMessage: string
+  purgeMessage: string,
 ): Promise<string[]> {
   const MEMBERS_KICKED: string[] = [];
   const expirationMs = hoursToExpire * 60 * 60 * 1000;
@@ -28,12 +109,10 @@ export async function purgeMembers(
   }
 
   for (const member of guild.members.cache.values()) {
-    const hasRole = member.roles.cache.some(role => role.name === roleName);
+    const hasRole = member.roles.cache.some((role) => role.name === roleName);
     const joinedTime = member.joinedTimestamp ?? 0;
     const isOverExpiration = Date.now() - joinedTime > expirationMs;
 
-    // If hoursToExpire is 0, bypass the expiration check and immediately trigger a kick.
-    // Otherwise, check if the member has exceeded the expiration time.
     if (hasRole && (hoursToExpire === 0 || isOverExpiration)) {
       if (!member.kickable) {
         logger.warn(`Cannot kick ${member.user.tag} in ${guild.name}; insufficient permissions.`);
@@ -59,82 +138,39 @@ export async function purgeMembers(
   return MEMBERS_KICKED;
 }
 
-function createTaskForGuild(client: Client, guildId: string, cronSchedule: string): cron.ScheduledTask {
-  return cron.schedule(
-    cronSchedule,
-    async () => {
-      try {
-        const guildConfig = await getGuildConfigOrNull(guildId);
-
-        if (!guildConfig) {
-          logger.warn('[purge-member] Guild config unavailable at tick time; skipping', { guildId });
-          return;
-        }
-
-        if (!guildConfig.purgeJobsEnabled) {
-          logger.warn('[purge-member] Purge jobs disabled for guild at tick time; skipping', { guildId });
-          return;
-        }
-
-        const cachedGuild = client.guilds.cache.get(guildId);
-        if (!cachedGuild) {
-          logger.warn('[purge-member] Guild not in client cache; skipping', { guildId });
-          return;
-        }
-
-        const locale = cachedGuild.preferredLocale?.substring(0, 2) || 'en';
-        const cleanGuildName = cachedGuild.name.replace(/[^\w\s\-]/g, '');
-
-        const message = i18n.__mf(
-          { phrase: 'jobs.purgeMember.temporaryMemberKickMessage', locale },
-          {
-            cleanGuildName,
-            hoursToExpire: guildConfig.tempMemberHoursToExpire.toString(),
-          }
-        );
-
-        const kicked = await purgeMembers(
-          cachedGuild,
-          guildConfig.tempMemberRoleName,
-          guildConfig.tempMemberHoursToExpire,
-          'TEMPORARY MEMBERS TIME LIMIT',
-          message
-        );
-
-        logger.info(`[${cleanGuildName}] Temporary Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
-      } catch (error) {
-        logger.error('[purge-member] Unhandled error in purge tick', { guildId, error });
-      }
-    },
-    { timezone: 'UTC' },
-  );
-}
-
 export function schedulePurgeJobs(
   client: Client,
   guildConfigs: GuildConfig[],
 ): Map<string, cron.ScheduledTask> {
-  for (const task of activeTasks.values()) task.stop();
-  activeTasks.clear();
-
   for (const config of guildConfigs) {
-    if (!config.purgeJobsEnabled) continue;
-
     const { guildId, tempMemberPurgeCronSchedule } = config;
 
-    if (!cron.validate(tempMemberPurgeCronSchedule)) {
-      logger.error('[purge-member] Invalid cron schedule — job will not run', {
-        guildId,
-        tempMemberPurgeCronSchedule,
-      });
+    if (!config.purgeJobsEnabled) {
+      activeTasks.get(guildId)?.stop();
+      activeTasks.delete(guildId);
       continue;
     }
 
-    const task = createTaskForGuild(client, guildId, tempMemberPurgeCronSchedule);
-    activeTasks.set(guildId, task);
-    logger.info(`[purge-member] Scheduled temp member purge for guild ${guildId}`, {
-      schedule: tempMemberPurgeCronSchedule,
-    });
+    if (!cron.validate(tempMemberPurgeCronSchedule)) {
+      logger.error('[purge] Invalid cron schedule — job will not run', {
+        guildId,
+        tempMemberPurgeCronSchedule,
+      });
+      activeTasks.get(guildId)?.stop();
+      activeTasks.delete(guildId);
+      continue;
+    }
+
+    activeTasks.get(guildId)?.stop();
+    createTaskForGuild(client, guildId, config);
+  }
+
+  const incomingIds = new Set(guildConfigs.map((config) => config.guildId));
+  for (const [guildId, task] of activeTasks) {
+    if (!incomingIds.has(guildId)) {
+      task.stop();
+      activeTasks.delete(guildId);
+    }
   }
 
   return activeTasks;
@@ -149,20 +185,17 @@ export function rescheduleGuildPurge(
   activeTasks.delete(guildId);
 
   if (!guildConfig.purgeJobsEnabled) {
-    return NO_OP_TASK;
+    logger.info('[purge] Purge disabled for guild; not rescheduling', { guildId });
+    return createNoOpTask();
   }
 
-  const { tempMemberPurgeCronSchedule } = guildConfig;
-
-  if (!cron.validate(tempMemberPurgeCronSchedule)) {
-    logger.error('[purge-member] Invalid cron schedule; purge not rescheduled', {
+  if (!cron.validate(guildConfig.tempMemberPurgeCronSchedule)) {
+    logger.error('[purge] Invalid cron schedule for reschedule', {
       guildId,
-      tempMemberPurgeCronSchedule,
+      tempMemberPurgeCronSchedule: guildConfig.tempMemberPurgeCronSchedule,
     });
-    return NO_OP_TASK;
+    return createNoOpTask();
   }
 
-  const task = createTaskForGuild(client, guildId, tempMemberPurgeCronSchedule);
-  activeTasks.set(guildId, task);
-  return task;
+  return createTaskForGuild(client, guildId, guildConfig);
 }
