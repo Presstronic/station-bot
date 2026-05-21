@@ -181,7 +181,7 @@ describe('schedulePurgeJobs', () => {
         validate: validateMock,
       },
     }));
-    await jest.unstable_mockModule('i18n', () => ({
+    await jest.unstable_mockModule('../../../utils/i18n-config.js', () => ({
       default: { __mf: jest.fn(() => 'translated message') },
     }));
     await jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({
@@ -316,7 +316,7 @@ describe('schedulePurgeJobs', () => {
         validate: validateMock,
       },
     }));
-    await jest.unstable_mockModule('i18n', () => ({
+    await jest.unstable_mockModule('../../../utils/i18n-config.js', () => ({
       default: { __mf: i18nMf },
     }));
     await jest.unstable_mockModule('../../../domain/guild-config/guild-config.service.js', () => ({

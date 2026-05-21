@@ -1,8 +1,8 @@
 import cron from 'node-cron';
 import type { Client, Guild } from 'discord.js';
-import i18n from 'i18n';
 import { getGuildConfigOrNull, type GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 import { getLogger } from '../../utils/logger.js';
+import i18n from '../../utils/i18n-config.js';
 
 const logger = getLogger();
 type ManagedScheduledTask = cron.ScheduledTask & {
