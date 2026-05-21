@@ -43,7 +43,7 @@ const nominationDigestEnabled = isNominationDigestEnabled();
 
 function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
   return {
-    verificationEnabled: verificationEnabled && !readOnlyMode,
+    verificationEnabled: verificationEnabled && !readOnlyMode && guildConfig?.verificationEnabled === true,
     purgeJobsEnabled: !readOnlyMode && guildConfig?.purgeJobsEnabled === true,
     manufacturingEnabled: !readOnlyMode && manufacturingEnabled && guildConfig?.manufacturingEnabled === true,
   };

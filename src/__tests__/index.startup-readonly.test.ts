@@ -36,6 +36,7 @@ async function loadIndexAndRunReady(
     purgeTaskCount?: number;
     digestTaskCount?: number;
     guildConfigThrows?: boolean;
+    guildConfigs?: Array<{ guildId: string; verificationEnabled: boolean; purgeJobsEnabled: boolean; manufacturingEnabled: boolean }>;
   } = {},
 ) {
   process.env.BOT_READ_ONLY_MODE = readOnlyMode;
@@ -61,6 +62,8 @@ async function loadIndexAndRunReady(
   const scheduleNominationDigests = jest.fn(() => digestTasks);
   const startNominationCheckWorkerLoop = jest.fn();
   const buildStartupBanner = jest.fn(() => '[startup banner]');
+  const checkBotPermissions = jest.fn(() => []);
+  const notifyOwnerOfMissingPermissions = jest.fn(async () => undefined);
   const logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -107,8 +110,8 @@ async function loadIndexAndRunReady(
     buildStartupBanner,
   }));
   await jest.unstable_mockModule('../utils/permission-check.js', () => ({
-    checkBotPermissions: jest.fn(() => []),
-    notifyOwnerOfMissingPermissions: jest.fn(async () => undefined),
+    checkBotPermissions,
+    notifyOwnerOfMissingPermissions,
   }));
   await jest.unstable_mockModule('../utils/logger.js', () => ({
     getLogger: () => logger,
@@ -140,8 +143,8 @@ async function loadIndexAndRunReady(
     ensureGuildConfigsSchema: jest.fn(async () => undefined),
     getGuildConfigOrNull: options.guildConfigThrows
       ? jest.fn(async () => { throw new Error('DB down'); })
-      : jest.fn(async () => null),
-    getAllGuildConfigs: jest.fn(async () => []),
+      : jest.fn(async (guildId: string) => options.guildConfigs?.find((config) => config.guildId === guildId) ?? null),
+    getAllGuildConfigs: jest.fn(async () => options.guildConfigs ?? []),
   }));
   await jest.unstable_mockModule('discord.js', () => {
     class MockClient {
@@ -196,6 +199,8 @@ async function loadIndexAndRunReady(
     scheduleNominationDigests,
     startNominationCheckWorkerLoop,
     buildStartupBanner,
+    checkBotPermissions,
+    notifyOwnerOfMissingPermissions,
     logger,
     seedGuildConfigsFromEnv,
   };
@@ -288,6 +293,31 @@ describe('startup wiring with read-only mode', () => {
     });
 
     expect(addMissingDefaultRoles).not.toHaveBeenCalled();
+  });
+
+  it('does not require verification permissions in guilds where guild config disables verification', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const { checkBotPermissions } = await loadIndexAndRunReady('false', {
+      dbConfigured: true,
+      guildConfigs: [
+        {
+          guildId: '1',
+          verificationEnabled: false,
+          purgeJobsEnabled: false,
+          manufacturingEnabled: false,
+        },
+      ],
+    });
+
+    expect(checkBotPermissions).toHaveBeenCalledWith(
+      expect.objectContaining({ id: '1' }),
+      expect.objectContaining({
+        verificationEnabled: false,
+        purgeJobsEnabled: false,
+        manufacturingEnabled: false,
+      }),
+    );
   });
 
   it('fails fast when DATABASE_URL is configured but schema check fails', async () => {
