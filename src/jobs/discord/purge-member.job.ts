@@ -5,9 +5,18 @@ import { getGuildConfigOrNull, type GuildConfig } from '../../domain/guild-confi
 import { getLogger } from '../../utils/logger.js';
 
 const logger = getLogger();
-const activeTasks = new Map<string, cron.ScheduledTask>();
+type ManagedScheduledTask = cron.ScheduledTask & {
+  destroy?: () => void;
+};
 
-function createNoOpTask(): cron.ScheduledTask {
+const activeTasks = new Map<string, ManagedScheduledTask>();
+
+function disposeTask(task: ManagedScheduledTask | undefined): void {
+  task?.stop();
+  task?.destroy?.();
+}
+
+function createNoOpTask(): ManagedScheduledTask {
   return {
     start() {
       return undefined;
@@ -82,7 +91,7 @@ function createTaskForGuild(
     { timezone: 'UTC' },
   );
 
-  activeTasks.set(guildId, task);
+  activeTasks.set(guildId, task as ManagedScheduledTask);
   logger.info('[purge] Scheduled temporary member purge job for guild', {
     guildId,
     schedule: guildConfig.tempMemberPurgeCronSchedule,
@@ -146,7 +155,7 @@ export function schedulePurgeJobs(
     const { guildId, tempMemberPurgeCronSchedule } = config;
 
     if (!config.purgeJobsEnabled) {
-      activeTasks.get(guildId)?.stop();
+      disposeTask(activeTasks.get(guildId));
       activeTasks.delete(guildId);
       continue;
     }
@@ -156,19 +165,19 @@ export function schedulePurgeJobs(
         guildId,
         tempMemberPurgeCronSchedule,
       });
-      activeTasks.get(guildId)?.stop();
+      disposeTask(activeTasks.get(guildId));
       activeTasks.delete(guildId);
       continue;
     }
 
-    activeTasks.get(guildId)?.stop();
+    disposeTask(activeTasks.get(guildId));
     createTaskForGuild(client, guildId, config);
   }
 
   const incomingIds = new Set(guildConfigs.map((config) => config.guildId));
   for (const [guildId, task] of activeTasks) {
     if (!incomingIds.has(guildId)) {
-      task.stop();
+      disposeTask(task);
       activeTasks.delete(guildId);
     }
   }
@@ -181,7 +190,7 @@ export function rescheduleGuildPurge(
   guildId: string,
   guildConfig: GuildConfig,
 ): cron.ScheduledTask {
-  activeTasks.get(guildId)?.stop();
+  disposeTask(activeTasks.get(guildId));
   activeTasks.delete(guildId);
 
   if (!guildConfig.purgeJobsEnabled) {

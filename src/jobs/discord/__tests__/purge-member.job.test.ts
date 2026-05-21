@@ -18,6 +18,11 @@ type MockGuild = {
   };
 };
 
+type MockScheduledTask = {
+  stop: ReturnType<typeof jest.fn>;
+  destroy: ReturnType<typeof jest.fn>;
+};
+
 function toCollection(members: GuildMember[]): Collection<string, GuildMember> {
   return new Collection(members.map((member) => [member.user.tag, member]));
 }
@@ -128,6 +133,7 @@ describe('schedulePurgeJobs', () => {
   async function setup() {
     const scheduleMock = jest.fn((_: string, callback: () => Promise<void>) => ({
       stop: jest.fn(),
+      destroy: jest.fn(),
       __callback: callback,
     }));
     const validateMock = jest.fn((schedule: string) => schedule !== 'bad-cron');
@@ -187,8 +193,38 @@ describe('schedulePurgeJobs', () => {
     );
 
     expect(originalTask).toBeDefined();
-    expect(originalTask!.stop).toHaveBeenCalledTimes(1);
+    const managedOriginalTask = originalTask as unknown as MockScheduledTask;
+    expect(managedOriginalTask.stop).toHaveBeenCalledTimes(1);
+    expect(managedOriginalTask.destroy).toHaveBeenCalledTimes(1);
     expect(newTask).not.toBe(originalTask);
+  });
+
+  it('destroys the old task when a guild is disabled', async () => {
+    const { schedulePurgeJobs } = await setup();
+    const originalTask = schedulePurgeJobs({} as Client, [makeGuildConfig({ guildId: 'guild-1' })]).get('guild-1');
+
+    const tasks = schedulePurgeJobs({} as Client, [
+      makeGuildConfig({ guildId: 'guild-1', purgeJobsEnabled: false }),
+    ]);
+
+    expect(tasks.size).toBe(0);
+    expect(originalTask).toBeDefined();
+    const managedOriginalTask = originalTask as unknown as MockScheduledTask;
+    expect(managedOriginalTask.stop).toHaveBeenCalledTimes(1);
+    expect(managedOriginalTask.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('destroys tasks for guilds that are no longer in the incoming config set', async () => {
+    const { schedulePurgeJobs } = await setup();
+    const originalTask = schedulePurgeJobs({} as Client, [makeGuildConfig({ guildId: 'guild-1' })]).get('guild-1');
+
+    const tasks = schedulePurgeJobs({} as Client, [makeGuildConfig({ guildId: 'guild-2' })]);
+
+    expect(tasks.has('guild-1')).toBe(false);
+    expect(originalTask).toBeDefined();
+    const managedOriginalTask = originalTask as unknown as MockScheduledTask;
+    expect(managedOriginalTask.stop).toHaveBeenCalledTimes(1);
+    expect(managedOriginalTask.destroy).toHaveBeenCalledTimes(1);
   });
 
   it('uses guildConfig.tempMemberHoursToExpire during the scheduled purge tick', async () => {
@@ -215,6 +251,7 @@ describe('schedulePurgeJobs', () => {
 
     const scheduleMock = jest.fn((_: string, callback: () => Promise<void>) => ({
       stop: jest.fn(),
+      destroy: jest.fn(),
       __callback: callback,
     }));
     const validateMock = jest.fn(() => true);
