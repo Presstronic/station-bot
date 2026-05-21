@@ -228,6 +228,22 @@ describe('schedulePurgeJobs', () => {
     expect(scheduleMock).not.toHaveBeenCalled();
   });
 
+  it('skips scheduling and destroys any existing task when the cron is invalid', async () => {
+    const { schedulePurgeJobs, scheduleMock } = await setup();
+    const originalTask = schedulePurgeJobs({} as Client, [makeGuildConfig({ guildId: 'guild-1' })]).get('guild-1');
+
+    const tasks = schedulePurgeJobs({} as Client, [
+      makeGuildConfig({ guildId: 'guild-1', tempMemberPurgeCronSchedule: 'bad-cron' }),
+    ]);
+
+    expect(tasks.size).toBe(0);
+    expect(scheduleMock).toHaveBeenCalledTimes(1);
+    expect(originalTask).toBeDefined();
+    const managedOriginalTask = originalTask as unknown as MockScheduledTask;
+    expect(managedOriginalTask.stop).toHaveBeenCalledTimes(1);
+    expect(managedOriginalTask.destroy).toHaveBeenCalledTimes(1);
+  });
+
   it('rescheduleGuildPurge stops the old task and starts a new one', async () => {
     const { schedulePurgeJobs, rescheduleGuildPurge } = await setup();
     const initialConfig = makeGuildConfig({ guildId: 'guild-1' });
