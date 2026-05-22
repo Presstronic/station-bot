@@ -264,7 +264,7 @@ client.on('guildCreate', async (guild) => {
           guildConfigsById.set(guild.id, guildConfig);
         }
       } catch (error) {
-        logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; using hardcoded role-name defaults`, error);
+        logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; skipping role setup`, error);
       }
     }
     try {
