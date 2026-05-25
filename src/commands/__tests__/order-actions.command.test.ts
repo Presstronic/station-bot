@@ -623,11 +623,13 @@ describe('handleMfgAdvance', () => {
     });
 
     const publicEditMock = jest.fn(async () => {});
+    const publicSendMock = jest.fn(async () => {});
     const publicSetTagsMock = jest.fn(async () => {});
     const publicFetchStarterMock = jest.fn(async () => ({ edit: publicEditMock }));
     const publicThread = {
       isThread: () => true,
       fetchStarterMessage: publicFetchStarterMock,
+      send: publicSendMock,
       setAppliedTags: publicSetTagsMock,
       parent: makeForumParent(),
     };
@@ -658,7 +660,55 @@ describe('handleMfgAdvance', () => {
     expect(publicEditMock).toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.any(String), components: expect.any(Array) }),
     );
+    expect(publicSendMock).toHaveBeenCalledWith({
+      content: 'transition reply text',
+      allowedMentions: { parse: [], users: ['owner-1'] },
+    });
     expect(publicSetTagsMock).toHaveBeenCalledWith(['t-accepted']);
+  });
+
+  it('does not ping the requester in the counterpart thread when interaction originates from the member thread', async () => {
+    const makeForumParent = () => ({
+      type: 15, // GuildForum
+      availableTags: [
+        { name: 'New', id: 't-new' },
+        { name: 'Accepted', id: 't-accepted' },
+        { name: 'Processing', id: 't-processing' },
+        { name: 'Ready for Pickup', id: 't-pickup' },
+        { name: 'Complete', id: 't-complete' },
+        { name: 'Cancelled', id: 't-cancelled' },
+      ],
+      setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+        availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+      })),
+    });
+
+    const staffSendMock = jest.fn(async () => {});
+    const staffThread = {
+      isThread: () => true,
+      fetchStarterMessage: jest.fn(async () => ({ edit: jest.fn(async () => {}) })),
+      send: staffSendMock,
+      setAppliedTags: jest.fn(async () => {}),
+      parent: makeForumParent(),
+    };
+
+    const h = await setupMocks({
+      findById: jest.fn(async () =>
+        makeOrder({ forumThreadId: 'pub-thread-id', staffThreadId: 'staff-thread-id' }),
+      ),
+      transitionStatus: jest.fn(async () =>
+        makeOrder({ status: 'accepted', forumThreadId: 'pub-thread-id', staffThreadId: 'staff-thread-id' }),
+      ),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    (btn as Record<string, unknown>).channelId = 'pub-thread-id';
+    (btn as Record<string, unknown>).client = {
+      channels: { fetch: jest.fn(async (id: unknown) => id === 'staff-thread-id' ? staffThread : null) },
+    };
+
+    await h.handleMfgAdvance(btn as any);
+
+    expect(staffSendMock).not.toHaveBeenCalled();
   });
 
   it('does not fetch counterpart thread when no staffThreadId and no forumThreadId', async () => {
@@ -697,5 +747,53 @@ describe('handleMfgAdvance', () => {
 
     // Transition succeeded — editReply was called with the updated post
     expect(btn.editReply).toHaveBeenCalled();
+  });
+
+  it('transition still succeeds when counterpart member-thread notification send throws', async () => {
+    const makeForumParent = () => ({
+      type: 15, // GuildForum
+      availableTags: [
+        { name: 'New', id: 't-new' },
+        { name: 'Accepted', id: 't-accepted' },
+        { name: 'Processing', id: 't-processing' },
+        { name: 'Ready for Pickup', id: 't-pickup' },
+        { name: 'Complete', id: 't-complete' },
+        { name: 'Cancelled', id: 't-cancelled' },
+      ],
+      setAvailableTags: jest.fn(async (tags: { name: string }[]) => ({
+        availableTags: tags.map((t) => ({ ...t, id: `id-${t.name}` })),
+      })),
+    });
+
+    const publicThread = {
+      isThread: () => true,
+      fetchStarterMessage: jest.fn(async () => ({ edit: jest.fn(async () => {}) })),
+      send: jest.fn(async () => { throw new Error('counterpart send failed'); }),
+      setAppliedTags: jest.fn(async () => {}),
+      parent: makeForumParent(),
+    };
+
+    const h = await setupMocks({
+      findById: jest.fn(async () =>
+        makeOrder({ forumThreadId: 'pub-thread-id', staffThreadId: 'staff-thread-id' }),
+      ),
+      transitionStatus: jest.fn(async () =>
+        makeOrder({ status: 'accepted', forumThreadId: 'pub-thread-id', staffThreadId: 'staff-thread-id' }),
+      ),
+    });
+    const btn = makeButtonInteraction('mfg-accept-order:42');
+    const staffChannel = makeThreadChannel({ parentId: 'staff-ch', parent: makeForumParent() });
+    (btn as Record<string, unknown>).channel = staffChannel;
+    (btn as Record<string, unknown>).channelId = 'staff-thread-id';
+    (btn as Record<string, unknown>).client = {
+      channels: { fetch: jest.fn(async (id: unknown) => id === 'pub-thread-id' ? publicThread : null) },
+    };
+
+    await h.handleMfgAdvance(btn as any);
+
+    expect(btn.editReply).toHaveBeenCalled();
+    expect(btn.followUp).not.toHaveBeenCalledWith(
+      expect.objectContaining({ content: expect.stringContaining('An error occurred while updating the order status') }),
+    );
   });
 });

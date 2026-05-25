@@ -155,6 +155,12 @@ async function applyPostTransition(
             allowedMentions: { parse: [], users: counterpartTarget === 'staff' ? [] : [updatedOrder.discordUserId] },
           });
         }
+        if (counterpartTarget === 'member') {
+          await counterpartThread.send({
+            content: formatTransitionReply(toStatus, interaction.user.id),
+            allowedMentions: { parse: [], users: [updatedOrder.discordUserId] },
+          });
+        }
         const counterpartParent = counterpartThread.parent;
         if (counterpartParent && counterpartParent.type === ChannelType.GuildForum) {
           const counterpartTagMap = await ensureForumTags(counterpartParent as ForumChannel);
