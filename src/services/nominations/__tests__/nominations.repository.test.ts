@@ -360,3 +360,105 @@ describe('getNominationCountsByUser', () => {
     ]);
   });
 });
+
+describe('getPendingNominationsByUser', () => {
+  it('returns an empty array when the user has no unprocessed nominations', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({ rows: [] });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getPendingNominationsByUser } = await import('../nominations.repository.js');
+
+    await expect(getPendingNominationsByUser('user-1')).resolves.toEqual([]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("WHERE nominations.lifecycle_state != 'processed'"),
+      ['user-1']
+    );
+  });
+
+  it('returns unprocessed nominations for handles the user nominated', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { display_handle: 'QuantumPilot', created_at: '2026-04-20T18:30:00.000Z' },
+          { display_handle: 'NovaWing', created_at: '2026-04-22T09:15:00.000Z' },
+        ],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getPendingNominationsByUser } = await import('../nominations.repository.js');
+
+    await expect(getPendingNominationsByUser('user-1')).resolves.toEqual([
+      { displayHandle: 'QuantumPilot', createdAt: '2026-04-20T18:30:00.000Z' },
+      { displayHandle: 'NovaWing', createdAt: '2026-04-22T09:15:00.000Z' },
+    ]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('MIN(nomination_events.created_at) AS created_at'),
+      ['user-1']
+    );
+  });
+
+  it('does not return processed nominations', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [{ display_handle: 'StillPending', created_at: '2026-04-22T09:15:00.000Z' }],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getPendingNominationsByUser } = await import('../nominations.repository.js');
+
+    await expect(getPendingNominationsByUser('user-1')).resolves.toEqual([
+      { displayHandle: 'StillPending', createdAt: '2026-04-22T09:15:00.000Z' },
+    ]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining("nominations.lifecycle_state != 'processed'"),
+      ['user-1']
+    );
+  });
+
+  it('orders pending nominations by the user nomination event date', async () => {
+    const query = jest.fn<() => Promise<{ rows: any[]; rowCount?: number }>>()
+      .mockResolvedValueOnce({
+        rows: [
+          { display_handle: 'EarlierNomination', created_at: '2026-04-20T18:30:00.000Z' },
+          { display_handle: 'LaterNomination', created_at: '2026-04-22T09:15:00.000Z' },
+        ],
+      });
+    const withClient = jest.fn(async (fn: (client: any) => Promise<any>) => fn({ query }));
+
+    jest.unstable_mockModule('../db.js', () => ({
+      isDatabaseConfigured: () => true,
+      ensureNominationsSchema: jest.fn(async () => undefined),
+      withClient,
+    }));
+
+    const { getPendingNominationsByUser } = await import('../nominations.repository.js');
+
+    await expect(getPendingNominationsByUser('user-1')).resolves.toEqual([
+      { displayHandle: 'EarlierNomination', createdAt: '2026-04-20T18:30:00.000Z' },
+      { displayHandle: 'LaterNomination', createdAt: '2026-04-22T09:15:00.000Z' },
+    ]);
+    expect(query).toHaveBeenCalledWith(
+      expect.stringContaining('ORDER BY MIN(nomination_events.created_at) ASC'),
+      ['user-1']
+    );
+  });
+});
