@@ -4,15 +4,12 @@ import { createRequire } from 'node:module';
 import { ChannelType, Client, ForumChannel, IntentsBitField } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
 import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
-import {
-  scheduleTemporaryMemberCleanup,
-  schedulePotentialApplicantCleanup,
-} from './jobs/discord/purge-member.job.js';
+import { schedulePurgeJobs } from './jobs/discord/purge-member.job.js';
 import { scheduleManufacturingKeepalives } from './jobs/discord/manufacturing-keepalive.job.js';
 import { scheduleNominationDigests } from './jobs/discord/nomination-digest.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
-import { isReadOnlyMode, isVerificationEnabled, isPurgeJobsEnabled } from './config/runtime-flags.js';
+import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.js';
 import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
 import { isManufacturingEnabled } from './config/manufacturing.config.js';
 import {
@@ -41,18 +38,14 @@ const { version: appVersion } = _require('../package.json') as { version: string
 const logger = getLogger();
 const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
-const purgeJobsEnabled = isPurgeJobsEnabled();
 const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
 
-// Returns the feature flags that are actually active in the current mode.
-// Features are treated as disabled when readOnlyMode is true so permission
-// audits do not raise false alarms for features that won't run.
-function getEffectiveAuditFlags() {
+function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
   return {
-    verificationEnabled: verificationEnabled && !readOnlyMode,
-    purgeJobsEnabled: purgeJobsEnabled && !readOnlyMode,
-    manufacturingEnabled: manufacturingEnabled && !readOnlyMode,
+    verificationEnabled: verificationEnabled && !readOnlyMode && guildConfig?.verificationEnabled === true,
+    purgeJobsEnabled: !readOnlyMode && guildConfig?.purgeJobsEnabled === true,
+    manufacturingEnabled: !readOnlyMode && manufacturingEnabled && guildConfig?.manufacturingEnabled === true,
   };
 }
 
@@ -75,18 +68,14 @@ const client = new Client({
   intents: [IntentsBitField.Flags.Guilds, IntentsBitField.Flags.GuildMembers],
 });
 
-// Declared at module scope so the shutdown handler can stop them regardless of
-// when the signal arrives (before or after ready, jobs enabled or not).
 let workerHandle: NodeJS.Timeout | null = null;
 let loopMonitorHandle: NodeJS.Timeout | null = null;
-let tempMemberCronTask: { stop: () => void } | null = null;
-let potentialApplicantCronTask: { stop: () => void } | null = null;
+let purgeCronTasks: Map<string, { stop: () => void }> = new Map();
 let keepAliveCronTasks: Map<string, { stop: () => void }> = new Map();
 let nominationDigestCronTasks: Map<string, { stop: () => void }> = new Map();
+let guildConfigsById = new Map<string, GuildConfig>();
 let shuttingDown = false;
 
-// Subscribe to undici TCP-level diagnostics before any HTTP activity begins.
-// Only active when LOG_LEVEL=trace; no-op otherwise.
 subscribeUndiciDiagnostics();
 
 const shutdown = () => {
@@ -100,8 +89,7 @@ const shutdown = () => {
   if (loopMonitorHandle !== null) {
     clearInterval(loopMonitorHandle);
   }
-  tempMemberCronTask?.stop();
-  potentialApplicantCronTask?.stop();
+  for (const task of purgeCronTasks.values()) task.stop();
   for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
   client.destroy();
@@ -109,8 +97,6 @@ const shutdown = () => {
     const message = err instanceof Error ? err.message : String(err);
     logger.error(`Error closing PG pool during shutdown: ${message}`, err);
   });
-  // Force-exit after 10 s as a last-resort safety net in case any remaining
-  // handle keeps the event loop alive after cleanup.
   const forceExit = setTimeout(() => process.exit(0), 10_000);
   forceExit.unref();
 };
@@ -186,20 +172,19 @@ client.once('clientReady', async () => {
       logger.info('VERIFICATION_ENABLED=false — skipping role setup.');
     }
 
-    if (purgeJobsEnabled) {
-      tempMemberCronTask = scheduleTemporaryMemberCleanup(client);
-      potentialApplicantCronTask = schedulePotentialApplicantCleanup(client);
-      logger.info('Scheduled member purge jobs.');
-    } else {
-      logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');
-    }
     if (isDatabaseConfigured()) {
       let allGuildConfigs: GuildConfig[];
       try {
         allGuildConfigs = await getAllGuildConfigs();
+        guildConfigsById = new Map(allGuildConfigs.map((config) => [config.guildId, config]));
       } catch (error) {
-        logger.error('Failed to load guild configs for job scheduling; skipping digest and keep-alive jobs.', { error });
+        logger.error('Failed to load guild configs for job scheduling; skipping guild-config-driven jobs.', { error });
         allGuildConfigs = [];
+        guildConfigsById = new Map();
+      }
+      purgeCronTasks = schedulePurgeJobs(client, allGuildConfigs);
+      if (purgeCronTasks.size > 0) {
+        logger.info('[purge] Scheduled temporary member purge jobs.', { guilds: purgeCronTasks.size });
       }
       if (nominationDigestEnabled) {
         nominationDigestCronTasks = scheduleNominationDigests(client, allGuildConfigs);
@@ -217,16 +202,16 @@ client.once('clientReady', async () => {
       if (workerHandle) {
         logger.info('Started nomination check worker loop.');
       }
+    } else {
+      logger.info('DATABASE_URL is not configured — guild-config-driven jobs will not run.');
     }
   } else {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
   }
 
-  // Fire permission audits in the background — DM delivery is independent per
-  // guild and must not gate the startup completion log.
   void Promise.allSettled(
     [...client.guilds.cache.values()].map(async (guild) => {
-      const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags());
+      const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags(guildConfigsById.get(guild.id) ?? null));
       if (missingPerms.length > 0) {
         logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
         await notifyOwnerOfMissingPermissions(guild, missingPerms);
@@ -245,7 +230,7 @@ client.once('clientReady', async () => {
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
       nominationDigestJobActive: nominationDigestCronTasks.size > 0,
-      purgeJobsEnabled: !readOnlyMode && purgeJobsEnabled,
+      purgeJobsEnabled: purgeCronTasks.size > 0,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
       guildCount: client.guilds.cache.size,
@@ -257,9 +242,14 @@ client.once('clientReady', async () => {
 
 client.on('guildCreate', async (guild) => {
   logger.info(`[guildCreate] Bot joined guild: ${guild.name} (${guild.id})`);
+  let guildConfig: GuildConfig | null = null;
 
   if (!readOnlyMode && isDatabaseConfigured()) {
     await seedGuildConfigFromEnv(guild.id, guild.name);
+    guildConfig = await getGuildConfigOrNull(guild.id).catch(() => null);
+    if (guildConfig) {
+      guildConfigsById.set(guild.id, guildConfig);
+    }
   }
 
   if (readOnlyMode) {
@@ -267,40 +257,40 @@ client.on('guildCreate', async (guild) => {
   } else if (!verificationEnabled) {
     logger.info(`[${guild.name}] VERIFICATION_ENABLED=false — skipping role setup on guild join.`);
   } else {
-    {
-      let guildConfig = null;
-      if (isDatabaseConfigured()) {
-        try {
-          guildConfig = await getGuildConfigOrNull(guild.id);
-        } catch (error) {
-          logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; using hardcoded role-name defaults`, error);
-        }
-      }
+    if (isDatabaseConfigured() && guildConfig === null) {
       try {
-        await addMissingDefaultRoles(guild, client, guildConfig);
-        logger.info(`[${guild.name}] Successfully ensured required roles.`);
+        guildConfig = await getGuildConfigOrNull(guild.id);
+        if (guildConfig) {
+          guildConfigsById.set(guild.id, guildConfig);
+        }
       } catch (error) {
-        logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
+        logger.warn(`[${guild.name} (${guild.id})] Failed to load guild config on guild join; skipping role setup`, error);
       }
+    }
+    try {
+      await addMissingDefaultRoles(guild, client, guildConfig);
+      logger.info(`[${guild.name}] Successfully ensured required roles.`);
+    } catch (error) {
+      logger.error(`[${guild.name} (${guild.id})] Error ensuring required roles on guild join:`, error);
     }
   }
 
   if (!readOnlyMode && manufacturingEnabled) {
-    const guildConfig = await getGuildConfigOrNull(guild.id).catch(() => null);
+    if (guildConfig === null) {
+      guildConfig = await getGuildConfigOrNull(guild.id).catch(() => null);
+      if (guildConfig) {
+        guildConfigsById.set(guild.id, guildConfig);
+      }
+    }
     const forumChannelId = guildConfig?.manufacturingForumChannelId;
     const staffChannelId = guildConfig?.manufacturingStaffChannelId;
     if (guildConfig?.manufacturingEnabled && forumChannelId && staffChannelId) {
       try {
-        // Use guild-scoped fetch so we only act when the manufacturing channels
-        // actually belong to this guild. The bot may join guilds that are not the
-        // home guild; global client.channels.fetch() would resolve channels from
-        // any guild and produce misleading errors / log entries on every unrelated join.
         const [publicCh, staffCh] = await Promise.all([
           guild.channels.fetch(forumChannelId).catch(() => null),
           guild.channels.fetch(staffChannelId).catch(() => null),
         ]);
         if (!publicCh && !staffCh) {
-          // Neither channel belongs to this guild — not the home guild, skip silently.
         } else if (!publicCh || publicCh.type !== ChannelType.GuildForum || !(publicCh instanceof ForumChannel)) {
           logger.error(`[${guild.name}] [manufacturing] forumChannelId=${forumChannelId} is missing or not a forum channel. Skipping tag sync.`);
         } else if (!staffCh || staffCh.type !== ChannelType.GuildForum || !(staffCh instanceof ForumChannel)) {
@@ -315,7 +305,7 @@ client.on('guildCreate', async (guild) => {
     }
   }
 
-  const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags());
+  const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags(guildConfig));
   if (missingPerms.length > 0) {
     logger.warn(`[${guild.name}] Missing permissions: ${missingPerms.join(', ')}`);
     await notifyOwnerOfMissingPermissions(guild, missingPerms);

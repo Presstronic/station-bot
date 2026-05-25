@@ -38,10 +38,6 @@ export function isVerificationEnabled(): boolean {
   return envFlag('VERIFICATION_ENABLED', true);
 }
 
-export function isPurgeJobsEnabled(): boolean {
-  return envFlag('PURGE_JOBS_ENABLED', false);
-}
-
 export function verifyRateLimitPerMinute(): number {
   return envInt('VERIFY_RATE_LIMIT_PER_MINUTE', 1);
 }
