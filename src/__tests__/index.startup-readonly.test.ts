@@ -60,7 +60,6 @@ async function loadIndexAndRunReady(
   const isDatabaseConfigured = jest.fn(() => options.dbConfigured ?? false);
   const addMissingDefaultRoles = jest.fn(async () => undefined);
   const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: jest.fn() }));
-  const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: jest.fn() }));
   const digestTaskCount = options.digestTaskCount ?? 0;
   const digestTasks = new Map(
     Array.from({ length: digestTaskCount }, (_, i) => [`guild-${i}`, { stop: jest.fn() }]),
@@ -92,7 +91,6 @@ async function loadIndexAndRunReady(
   }));
   await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
     scheduleTemporaryMemberCleanup,
-    schedulePotentialApplicantCleanup,
   }));
   await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
     scheduleNominationDigests,
@@ -201,7 +199,6 @@ async function loadIndexAndRunReady(
     isDatabaseConfigured,
     addMissingDefaultRoles,
     scheduleTemporaryMemberCleanup,
-    schedulePotentialApplicantCleanup,
     scheduleNominationDigests,
     startNominationCheckWorkerLoop,
     buildStartupBanner,
@@ -216,7 +213,6 @@ describe('startup wiring with read-only mode', () => {
       registerAllCommands,
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
       startNominationCheckWorkerLoop,
       seedGuildConfigsFromEnv,
     } = await loadIndexAndRunReady('true');
@@ -225,7 +221,6 @@ describe('startup wiring with read-only mode', () => {
     expect(registerAllCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).not.toHaveBeenCalled();
     expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
-    expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
     expect(seedGuildConfigsFromEnv).not.toHaveBeenCalled();
   });
@@ -235,7 +230,6 @@ describe('startup wiring with read-only mode', () => {
       registerAllCommands,
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
       startNominationCheckWorkerLoop,
     } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'true' });
 
@@ -243,7 +237,6 @@ describe('startup wiring with read-only mode', () => {
     expect(registerAllCommands).toHaveBeenCalledWith();
     expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
     expect(scheduleTemporaryMemberCleanup).toHaveBeenCalledTimes(1);
-    expect(schedulePotentialApplicantCleanup).toHaveBeenCalledTimes(1);
     expect(startNominationCheckWorkerLoop).not.toHaveBeenCalled();
   });
 
@@ -284,12 +277,10 @@ describe('startup wiring with read-only mode', () => {
     const {
       addMissingDefaultRoles,
       scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
     } = await loadIndexAndRunReady('false', { purgeJobsEnabled: 'false' });
 
     expect(addMissingDefaultRoles).toHaveBeenCalledTimes(2);
     expect(scheduleTemporaryMemberCleanup).not.toHaveBeenCalled();
-    expect(schedulePotentialApplicantCleanup).not.toHaveBeenCalled();
   });
 
   it('skips addMissingDefaultRoles when guild config load throws during startup', async () => {
@@ -312,7 +303,6 @@ describe('startup wiring with read-only mode', () => {
     const isDatabaseConfigured = jest.fn(() => true);
     const addMissingDefaultRoles = jest.fn(async () => undefined);
     const scheduleTemporaryMemberCleanup = jest.fn();
-    const schedulePotentialApplicantCleanup = jest.fn();
     const startNominationCheckWorkerLoop = jest.fn();
     const logger = {
       debug: jest.fn(),
@@ -342,7 +332,6 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
       scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
     }));
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
       scheduleNominationDigests: jest.fn(() => new Map()),
@@ -462,7 +451,6 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
       scheduleTemporaryMemberCleanup: jest.fn(),
-      schedulePotentialApplicantCleanup: jest.fn(),
     }));
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
       scheduleNominationDigests: jest.fn(() => new Map()),
@@ -551,9 +539,7 @@ describe('startup wiring with read-only mode', () => {
     const isDatabaseConfigured = jest.fn(() => true);
     const addMissingDefaultRoles = jest.fn(async () => undefined);
     const tempMemberStopSpy = jest.fn();
-    const potentialApplicantStopSpy = jest.fn();
     const scheduleTemporaryMemberCleanup = jest.fn(() => ({ stop: tempMemberStopSpy }));
-    const schedulePotentialApplicantCleanup = jest.fn(() => ({ stop: potentialApplicantStopSpy }));
     const startNominationCheckWorkerLoop = jest.fn(() => fakeInterval);
     const logger = { debug: jest.fn(), info: jest.fn(), warn: jest.fn(), error: jest.fn() };
 
@@ -572,7 +558,6 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../jobs/discord/purge-member.job.js', () => ({
       scheduleTemporaryMemberCleanup,
-      schedulePotentialApplicantCleanup,
     }));
     await jest.unstable_mockModule('../jobs/discord/nomination-digest.job.js', () => ({
       scheduleNominationDigests: jest.fn(() => new Map()),
@@ -658,7 +643,6 @@ describe('startup wiring with read-only mode', () => {
     expect(process.exitCode).toBe(0);
     expect(clearIntervalSpy).toHaveBeenCalledWith(fakeInterval);
     expect(tempMemberStopSpy).toHaveBeenCalledTimes(1);
-    expect(potentialApplicantStopSpy).toHaveBeenCalledTimes(1);
     expect(destroySpy).toHaveBeenCalledTimes(1);
     expect(endDbPoolIfInitialized).toHaveBeenCalledTimes(1);
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_000);

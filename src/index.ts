@@ -4,10 +4,7 @@ import { createRequire } from 'node:module';
 import { ChannelType, Client, ForumChannel, IntentsBitField } from 'discord.js';
 import { registerAllCommands } from './commands/register-commands.js';
 import { handleInteraction, attemptFallbackReply } from './interactions/interactionRouter.js';
-import {
-  scheduleTemporaryMemberCleanup,
-  schedulePotentialApplicantCleanup,
-} from './jobs/discord/purge-member.job.js';
+import { scheduleTemporaryMemberCleanup } from './jobs/discord/purge-member.job.js';
 import { scheduleManufacturingKeepalives } from './jobs/discord/manufacturing-keepalive.job.js';
 import { scheduleNominationDigests } from './jobs/discord/nomination-digest.job.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
@@ -80,7 +77,6 @@ const client = new Client({
 let workerHandle: NodeJS.Timeout | null = null;
 let loopMonitorHandle: NodeJS.Timeout | null = null;
 let tempMemberCronTask: { stop: () => void } | null = null;
-let potentialApplicantCronTask: { stop: () => void } | null = null;
 let keepAliveCronTasks: Map<string, { stop: () => void }> = new Map();
 let nominationDigestCronTasks: Map<string, { stop: () => void }> = new Map();
 let shuttingDown = false;
@@ -101,7 +97,6 @@ const shutdown = () => {
     clearInterval(loopMonitorHandle);
   }
   tempMemberCronTask?.stop();
-  potentialApplicantCronTask?.stop();
   for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
   client.destroy();
@@ -188,7 +183,6 @@ client.once('clientReady', async () => {
 
     if (purgeJobsEnabled) {
       tempMemberCronTask = scheduleTemporaryMemberCleanup(client);
-      potentialApplicantCronTask = schedulePotentialApplicantCleanup(client);
       logger.info('Scheduled member purge jobs.');
     } else {
       logger.info('PURGE_JOBS_ENABLED=false — member purge jobs will not run.');

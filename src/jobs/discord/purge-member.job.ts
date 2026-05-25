@@ -2,14 +2,13 @@ import cron from 'node-cron';
 import { Client, Guild } from 'discord.js';
 import { getLogger } from '../../utils/logger.js';
 import i18n from 'i18n';
-import { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME } from '../../config/roles.config.js';
+import { TEMP_MEMBER_ROLE_NAME } from '../../config/roles.config.js';
 
-export { TEMP_MEMBER_ROLE_NAME, POTENTIAL_APPLICANT_ROLE_NAME };
+export { TEMP_MEMBER_ROLE_NAME };
 
 const logger = getLogger();
 
 const temporaryMemberPurgeCronSchedule = process.env.TEMPORARY_MEMBER_PURGE_CRON_SCHEDULE || '0 3 * * *';
-const potentialApplicantPurgeCronSchedule = process.env.POTENTIAL_APPLICANT_PURGE_CRON_SCHEDULE || '0 4 * * *';
 
 /**
  * Kicks members with a given role who have exceeded the time limit.
@@ -64,7 +63,7 @@ export async function purgeMembers(
 }
 
 /**
- * Cleanup task for temporary member role (configured via DEFAULT_ROLES[1]).
+ * Cleanup task for temporary member role.
  */
 export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTask {
   const HOURS_TO_EXPIRE = 48;
@@ -99,46 +98,6 @@ export function scheduleTemporaryMemberCleanup(client: Client): cron.ScheduledTa
         logger.info(`[${cleanGuildName}] Temporary Member cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
       } catch (error) {
         logger.error(`Temporary Member cleanup failed for guild ${guild.id}:`, error);
-      }
-    }
-  });
-}
-
-/**
- * Cleanup task for potential applicant role (configured via DEFAULT_ROLES[2]).
- */
-export function schedulePotentialApplicantCleanup(client: Client): cron.ScheduledTask {
-  const HOURS_TO_EXPIRE = 720; // 30 days
-
-  logger.info(`SCHEDPOTAPP: Bot is in ${client.guilds.cache.size} guild(s). Role: "${POTENTIAL_APPLICANT_ROLE_NAME}"`);
-
-  return cron.schedule(potentialApplicantPurgeCronSchedule, async () => {
-    logger.info('[Job] Running Potential Applicant Cleanup');
-    logger.info(`SCHEDPOTAPP->RUNNING: Bot is in ${client.guilds.cache.size} guild(s).`);
-
-    for (const guild of client.guilds.cache.values()) {
-      try {
-        const locale = guild.preferredLocale?.substring(0, 2) || 'en';
-        const cleanGuildName = guild.name.replace(/[^\w\s\-]/g, '');
-        const message = i18n.__mf(
-          { phrase: 'jobs.purgeMember.potentialApplicantKickMessage', locale },
-          {
-            cleanGuildName,
-            hoursToExpire: HOURS_TO_EXPIRE.toString()
-          }
-        );
-
-        const kicked = await purgeMembers(
-          guild,
-          POTENTIAL_APPLICANT_ROLE_NAME,
-          HOURS_TO_EXPIRE,
-          'POTENTIAL APPLICANT TIME LIMIT',
-          message
-        );
-
-        logger.info(`[${cleanGuildName}] Potential Applicant cleanup complete. Kicked: ${kicked.join(', ') || 'None'}`);
-      } catch (error) {
-        logger.error(`Potential Applicant cleanup failed for guild ${guild.id}:`, error);
       }
     }
   });
