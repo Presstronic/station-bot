@@ -7,6 +7,8 @@ import { toDateString } from '../utils/date.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
+const discordMessageLimit = 2000;
+const defaultMyNominationsMessageMaxLength = 2000;
 
 export const MY_NOMINATIONS_COMMAND_NAME = 'my-nominations';
 
@@ -19,8 +21,23 @@ function formatNominationCount(count: number): string {
   return `${count} nomination${count === 1 ? '' : 's'}`;
 }
 
+function getMyNominationsMessageMaxLength(): number {
+  const raw = process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH?.trim();
+  if (!raw) {
+    return defaultMyNominationsMessageMaxLength;
+  }
+
+  const parsed = Number(raw);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    return defaultMyNominationsMessageMaxLength;
+  }
+
+  return Math.min(parsed, discordMessageLimit);
+}
+
 export async function handleMyNominationsCommand(interaction: ChatInputCommandInteraction) {
   const locale = getCommandLocale(interaction);
+  const maxMessageLength = getMyNominationsMessageMaxLength();
 
   if (!interaction.inGuild()) {
     await interaction.reply({
@@ -48,10 +65,13 @@ export async function handleMyNominationsCommand(interaction: ChatInputCommandIn
 
     const yearlyLines = history.map(({ year, count }) => `${year}: ${formatNominationCount(count)}`);
     const lifetimeTotal = history.reduce((sum, { count }) => sum + count, 0);
-    const pendingLines = pendingNominations.map(
-      ({ displayHandle, createdAt }) => `• ${displayHandle} — submitted ${toDateString(createdAt)}`
+    const pendingLines = pendingNominations.map(({ displayHandle, createdAt }) =>
+      i18n.__mf(
+        { phrase: 'commands.myNominations.responses.pendingLine', locale },
+        { displayHandle, submittedAt: toDateString(createdAt) }
+      )
     );
-    const contentLines = [
+    const baseContentLines = [
       i18n.__({ phrase: 'commands.myNominations.responses.historyTitle', locale }),
       ...yearlyLines,
       '──────────────────────',
@@ -60,16 +80,39 @@ export async function handleMyNominationsCommand(interaction: ChatInputCommandIn
         { count: formatNominationCount(lifetimeTotal) }
       ),
     ];
+    const contentLines = [...baseContentLines];
 
     if (pendingLines.length > 0) {
-      contentLines.push(
-        '',
-        i18n.__mf(
-          { phrase: 'commands.myNominations.responses.pendingTitle', locale },
-          { count: pendingLines.length.toString() }
-        ),
-        ...pendingLines
+      const pendingTitle = i18n.__mf(
+        { phrase: 'commands.myNominations.responses.pendingTitle', locale },
+        { count: pendingLines.length }
       );
+      const pendingSectionLines = ['', pendingTitle, ...pendingLines];
+      let pendingSectionContent = pendingSectionLines.join('\n');
+
+      if ([...baseContentLines, pendingSectionContent].join('\n').length > maxMessageLength) {
+        for (let shownCount = pendingLines.length - 1; shownCount >= 0; shownCount -= 1) {
+          const hiddenCount = pendingLines.length - shownCount;
+          const truncatedLine = i18n.__mf(
+            { phrase: 'commands.myNominations.responses.pendingTruncated', locale },
+            { count: hiddenCount }
+          );
+          const candidateLines = ['', pendingTitle, ...pendingLines.slice(0, shownCount), truncatedLine];
+          pendingSectionContent = candidateLines.join('\n');
+          if ([...baseContentLines, pendingSectionContent].join('\n').length <= maxMessageLength) {
+            logger.warn('my-nominations response truncated to fit Discord message limit', {
+              userId: interaction.user.id,
+              maxMessageLength,
+              pendingNominationCount: pendingLines.length,
+              displayedPendingNominationCount: shownCount,
+              hiddenPendingNominationCount: hiddenCount,
+            });
+            break;
+          }
+        }
+      }
+
+      contentLines.push(pendingSectionContent);
     }
 
     await interaction.editReply({

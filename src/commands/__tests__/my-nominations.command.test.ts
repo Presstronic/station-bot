@@ -1,7 +1,18 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+
+const originalMessageLimit = process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH;
 
 beforeEach(() => {
   jest.resetModules();
+  delete process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH;
+});
+
+afterEach(() => {
+  if (originalMessageLimit === undefined) {
+    delete process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH;
+  } else {
+    process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH = originalMessageLimit;
+  }
 });
 
 async function loadCommand({
@@ -12,12 +23,13 @@ async function loadCommand({
   pending?: Array<{ displayHandle: string; createdAt: string }>;
 } = {}) {
   const loggerError = jest.fn();
+  const loggerWarn = jest.fn();
 
   jest.unstable_mockModule('../../utils/logger.js', () => ({
     getLogger: () => ({
       debug: jest.fn(),
       info: jest.fn(),
-      warn: jest.fn(),
+      warn: loggerWarn,
       error: loggerError,
     }),
   }));
@@ -55,6 +67,12 @@ async function loadCommand({
           if (phrase === 'commands.myNominations.responses.pendingTitle') {
             return `Pending Review (${vars.count})`;
           }
+          if (phrase === 'commands.myNominations.responses.pendingLine') {
+            return `• ${vars.displayHandle} — submitted ${vars.submittedAt}`;
+          }
+          if (phrase === 'commands.myNominations.responses.pendingTruncated') {
+            return `... ${vars.count} more pending entries not shown.`;
+          }
           return phrase;
         }
       ),
@@ -62,7 +80,7 @@ async function loadCommand({
   }));
 
   const mod = await import('../my-nominations.command.js');
-  return { ...mod, loggerError };
+  return { ...mod, loggerError, loggerWarn };
 }
 
 function makeInteraction() {
@@ -165,5 +183,35 @@ describe('handleMyNominationsCommand', () => {
       })
     );
     expect(interaction.deferReply).not.toHaveBeenCalled();
+  });
+
+  it('truncates pending nominations to fit the configured Discord message length limit', async () => {
+    process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH = '170';
+    const { handleMyNominationsCommand, loggerWarn } = await loadCommand({
+      history: [{ year: 2026, count: 3 }],
+      pending: [
+        { displayHandle: 'QuantumPilot', createdAt: '2026-04-20T18:30:00.000Z' },
+        { displayHandle: 'NovaWing', createdAt: '2026-04-22T09:15:00.000Z' },
+        { displayHandle: 'Starlance', createdAt: '2026-04-23T11:00:00.000Z' },
+      ],
+    });
+    const interaction = makeInteraction();
+
+    await handleMyNominationsCommand(interaction);
+
+    const content = interaction.editReply.mock.calls[0][0].content as string;
+    expect(content.length).toBeLessThanOrEqual(170);
+    expect(content).toContain('Pending Review (3)');
+    expect(content).toContain('... ');
+    expect(content).toContain('more pending entries not shown.');
+    expect(content).not.toContain('Starlance');
+    expect(loggerWarn).toHaveBeenCalledWith(
+      'my-nominations response truncated to fit Discord message limit',
+      expect.objectContaining({
+        userId: 'user-1',
+        maxMessageLength: 170,
+        pendingNominationCount: 3,
+      })
+    );
   });
 });
