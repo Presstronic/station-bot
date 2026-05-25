@@ -240,7 +240,7 @@ describe('scheduleNominationDigests', () => {
     expect(firstTask.stop).toHaveBeenCalledTimes(1);
   });
 
-  it('sends the zero-count digest message on tick', async () => {
+  it('skips the digest post when there are zero unprocessed nominations', async () => {
     const { runTaskByIndex, countUnprocessedNominations } = await setupMocks();
     const channel = makeTextChannel();
     const getGuildConfigOrNull = jest.fn(async () =>
@@ -258,10 +258,8 @@ describe('scheduleNominationDigests', () => {
     scheduleNominationDigests(client as never, [makeGuildConfig({ guildId: 'guild-1' })]);
     await runTaskByIndex(0);
 
-    expect(channel.send).toHaveBeenCalledWith({
-      content: '<@&role-456> Daily nomination digest: there are currently no unprocessed nominations in the queue.',
-      allowedMentions: { roles: ['role-456'] },
-    });
+    expect(countUnprocessedNominations).toHaveBeenCalledTimes(1);
+    expect(channel.send).not.toHaveBeenCalled();
   });
 
   it('sends the non-zero digest message on tick', async () => {
