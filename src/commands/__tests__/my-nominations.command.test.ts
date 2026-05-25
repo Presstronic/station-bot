@@ -154,6 +154,22 @@ describe('handleMyNominationsCommand', () => {
     expect(content).toContain('• NovaWing — submitted 2026-04-22');
   });
 
+  it('sanitizes pending nomination handles before rendering them inline', async () => {
+    const { handleMyNominationsCommand } = await loadCommand({
+      history: [{ year: 2026, count: 1 }],
+      pending: [
+        { displayHandle: 'Quantum`Pilot|Line\nBreak', createdAt: '2026-04-20T18:30:00.000Z' },
+      ],
+    });
+    const interaction = makeInteraction();
+
+    await handleMyNominationsCommand(interaction);
+
+    const content = interaction.editReply.mock.calls[0][0].content as string;
+    expect(content).toContain("• Quantum'Pilot/Line Break — submitted 2026-04-20");
+    expect(content).not.toContain('Quantum`Pilot|Line\nBreak');
+  });
+
   it('returns a friendly message when the user has no nominations', async () => {
     const { handleMyNominationsCommand } = await loadCommand({ history: [] });
     const interaction = makeInteraction();
@@ -186,7 +202,7 @@ describe('handleMyNominationsCommand', () => {
   });
 
   it('truncates pending nominations to fit the configured Discord message length limit', async () => {
-    process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH = '170';
+    process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH = '220';
     const { handleMyNominationsCommand, loggerWarn } = await loadCommand({
       history: [{ year: 2026, count: 3 }],
       pending: [
@@ -200,7 +216,7 @@ describe('handleMyNominationsCommand', () => {
     await handleMyNominationsCommand(interaction);
 
     const content = interaction.editReply.mock.calls[0][0].content as string;
-    expect(content.length).toBeLessThanOrEqual(170);
+    expect(content.length).toBeLessThanOrEqual(220);
     expect(content).toContain('Pending Review (3)');
     expect(content).toContain('... ');
     expect(content).toContain('more pending entries not shown.');
@@ -209,8 +225,33 @@ describe('handleMyNominationsCommand', () => {
       'my-nominations response truncated to fit Discord message limit',
       expect.objectContaining({
         userId: 'user-1',
-        maxMessageLength: 170,
+        maxMessageLength: 220,
         pendingNominationCount: 3,
+      })
+    );
+  });
+
+  it('ignores too-small configured message limits and logs a warning', async () => {
+    process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH = '10';
+    const { handleMyNominationsCommand, loggerWarn } = await loadCommand({
+      history: [{ year: 2026, count: 1 }],
+      pending: [
+        { displayHandle: 'QuantumPilot', createdAt: '2026-04-20T18:30:00.000Z' },
+      ],
+    });
+    const interaction = makeInteraction();
+
+    await handleMyNominationsCommand(interaction);
+
+    const content = interaction.editReply.mock.calls[0][0].content as string;
+    expect(content).toContain('Pending Review (1)');
+    expect(content).toContain('• QuantumPilot — submitted 2026-04-20');
+    expect(loggerWarn).toHaveBeenCalledWith(
+      'MY_NOMINATIONS_MAX_MESSAGE_LENGTH is below the supported minimum; using default',
+      expect.objectContaining({
+        configuredValue: 10,
+        minimumSupportedValue: 200,
+        defaultValue: 2000,
       })
     );
   });

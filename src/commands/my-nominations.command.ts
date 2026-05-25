@@ -4,11 +4,13 @@ import { getNominationCountsByUser, getPendingNominationsByUser } from '../servi
 import { getCommandLocale, isNominationConfigurationError } from './nomination.helpers.js';
 import { getLogger } from '../utils/logger.js';
 import { toDateString } from '../utils/date.js';
+import { sanitizeForInlineText } from '../utils/sanitize.js';
 
 const logger = getLogger();
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const discordMessageLimit = 2000;
 const defaultMyNominationsMessageMaxLength = 2000;
+const minimumMyNominationsMessageMaxLength = 200;
 
 export const MY_NOMINATIONS_COMMAND_NAME = 'my-nominations';
 
@@ -29,6 +31,15 @@ function getMyNominationsMessageMaxLength(): number {
 
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed < 1) {
+    return defaultMyNominationsMessageMaxLength;
+  }
+
+  if (parsed < minimumMyNominationsMessageMaxLength) {
+    logger.warn('MY_NOMINATIONS_MAX_MESSAGE_LENGTH is below the supported minimum; using default', {
+      configuredValue: parsed,
+      minimumSupportedValue: minimumMyNominationsMessageMaxLength,
+      defaultValue: defaultMyNominationsMessageMaxLength,
+    });
     return defaultMyNominationsMessageMaxLength;
   }
 
@@ -68,7 +79,7 @@ export async function handleMyNominationsCommand(interaction: ChatInputCommandIn
     const pendingLines = pendingNominations.map(({ displayHandle, createdAt }) =>
       i18n.__mf(
         { phrase: 'commands.myNominations.responses.pendingLine', locale },
-        { displayHandle, submittedAt: toDateString(createdAt) }
+        { displayHandle: sanitizeForInlineText(displayHandle), submittedAt: toDateString(createdAt) }
       )
     );
     const baseContentLines = [
