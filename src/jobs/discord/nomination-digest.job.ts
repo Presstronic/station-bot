@@ -9,10 +9,6 @@ const logger = getLogger();
 const activeTasks = new Map<string, cron.ScheduledTask>();
 
 function buildDigestMessage(roleId: string, count: number): string {
-  if (count === 0) {
-    return `<@&${roleId}> Daily nomination digest: there are currently no unprocessed nominations in the queue.`;
-  }
-
   return `<@&${roleId}> Daily nomination digest: **${count}** unprocessed nomination(s) are currently in the queue.`;
 }
 
@@ -58,6 +54,11 @@ function createTaskForGuild(client: Client, guildId: string, cronSchedule: strin
         }
 
         const count = await countUnprocessedNominations();
+        if (count === 0) {
+          logger.info('[nomination-digest] No unprocessed nominations; skipping digest post', { guildId, channelId });
+          return;
+        }
+
         await channel.send({
           content: buildDigestMessage(roleId, count),
           allowedMentions: { roles: [roleId] },
