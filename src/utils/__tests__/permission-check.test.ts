@@ -78,6 +78,20 @@ describe('checkBotPermissions', () => {
     expect(missing).not.toContain('ManageChannels');
   });
 
+  it('returns missing MentionEveryone when eventRemindersEnabled and perm absent', async () => {
+    const { checkBotPermissions } = await loadModule();
+    const guild = makeGuild({ me: makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers', 'ManageChannels']) });
+    const missing = checkBotPermissions(asGuild(guild), { ...allFlags, eventRemindersEnabled: true });
+    expect(missing).toContain('MentionEveryone');
+  });
+
+  it('does not include MentionEveryone when eventRemindersEnabled is false', async () => {
+    const { checkBotPermissions } = await loadModule();
+    const guild = makeGuild({ me: makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers', 'ManageChannels']) });
+    const missing = checkBotPermissions(asGuild(guild), { ...allFlags, eventRemindersEnabled: false });
+    expect(missing).not.toContain('MentionEveryone');
+  });
+
   it('returns all required permissions as missing when guild.members.me is null', async () => {
     const { checkBotPermissions } = await loadModule();
     const missing = checkBotPermissions(asGuild(makeGuild({ me: null })), allFlags);

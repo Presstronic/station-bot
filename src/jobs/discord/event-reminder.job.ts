@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import type { Client, Guild, GuildScheduledEvent } from 'discord.js';
 import { GuildScheduledEventEntityType, GuildScheduledEventStatus } from 'discord.js';
-import i18n from 'i18n';
+import i18n from '../../utils/i18n-config.js';
 import type { GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 import { getGuildConfigOrNull } from '../../domain/guild-config/guild-config.service.js';
 import {
@@ -18,6 +18,8 @@ const activeTasks = new Map<string, cron.ScheduledTask>();
 const HOUR_MS = 60 * 60 * 1000;
 const TOLERANCE_MS = 15 * 60 * 1000;
 const RESCHEDULE_NOTICE_WINDOW_MS = 48 * HOUR_MS;
+const DISCORD_MAX_MESSAGE_LENGTH = 2000;
+const TRUNCATION_SUFFIX = '…';
 
 interface ReminderTarget {
   key: '24h' | '6h';
@@ -37,6 +39,14 @@ function formatStartTimeToken(unixMs: number): string {
 
 function buildEventLink(guildId: string, eventId: string): string {
   return `https://discord.com/events/${guildId}/${eventId}`;
+}
+
+// Discord rejects message content longer than 2000 characters. Long event
+// descriptions can push us over; truncate the assembled message so the send
+// always succeeds rather than failing forever and re-claiming every tick.
+function truncateForDiscord(message: string): string {
+  if (message.length <= DISCORD_MAX_MESSAGE_LENGTH) return message;
+  return message.slice(0, DISCORD_MAX_MESSAGE_LENGTH - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
 }
 
 function pickChannelId(event: GuildScheduledEvent, defaultChannelId: string | null): string | null {
@@ -69,7 +79,7 @@ async function postReminder(
 
   try {
     await channel.send({
-      content: message,
+      content: truncateForDiscord(message),
       allowedMentions: { parse: ['everyone'] },
     });
     return true;

@@ -159,7 +159,7 @@ async function setupMocks(opts: {
     },
   }));
 
-  jest.unstable_mockModule('i18n', () => ({
+  jest.unstable_mockModule('../../../utils/i18n-config.js', () => ({
     default: { __mf: (params: { phrase: string }, vars: Record<string, unknown>) =>
       `[${params.phrase}] ${JSON.stringify(vars)}`,
     },
@@ -398,6 +398,26 @@ describe('event reminder tick', () => {
 
     const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
     expect(sendCall.content).toContain('https://discord.com/events/guild-1/event-xyz');
+  });
+
+  it('truncates messages that would exceed Discord 2000-char limit', async () => {
+    const now = Date.now();
+    const event = makeEvent({
+      description: 'x'.repeat(3000),
+      scheduledStartTimestamp: now + 24 * HOUR_MS,
+    });
+    const setup = await setupMocks({ events: [event] });
+    const { scheduleEventReminders } = await importJob();
+
+    scheduleEventReminders(
+      (setup as unknown as { _client: never })._client,
+      [makeGuildConfig()],
+    );
+    await setup.runTaskByIndex(0);
+
+    const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
+    expect(sendCall.content.length).toBeLessThanOrEqual(2000);
+    expect(sendCall.content.endsWith('…')).toBe(true);
   });
 });
 
