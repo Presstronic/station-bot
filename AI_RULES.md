@@ -9,7 +9,7 @@ These rules apply to any AI assistant or coding agent working in this repository
 
 ## Naming And Workflow
 - If a naming standard is unknown or ambiguous, ask before creating branches, issues, pull requests, tags, or release metadata.
-- Branch names must be `{type}/ISSUE-{n}` where `{type}` is one of `bug`, `feature`, `chore`, `refactor`.
+- For bug fixes, create a GitHub issue first and use `bug/ISSUE-{n}` as the branch name.
 - Use PR titles in the format `ISSUE-{n}: description` unless the user explicitly says otherwise.
 - Follow the repository's existing branch and release conventions unless the user overrides them.
 

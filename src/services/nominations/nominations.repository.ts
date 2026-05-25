@@ -312,16 +312,14 @@ export async function getPendingNominationsByUser(userId: string): Promise<Pendi
   const result = await withClient((client) =>
     client.query(
       `
-      SELECT display_handle, created_at
+      SELECT nominations.display_handle, MIN(nomination_events.created_at) AS created_at
       FROM nominations
-      WHERE lifecycle_state != 'processed'
-        AND EXISTS (
-          SELECT 1
-          FROM nomination_events
-          WHERE nomination_events.normalized_handle = nominations.normalized_handle
-            AND nomination_events.nominator_user_id = $1
-        )
-      ORDER BY created_at ASC
+      INNER JOIN nomination_events
+        ON nomination_events.normalized_handle = nominations.normalized_handle
+      WHERE nominations.lifecycle_state != 'processed'
+        AND nomination_events.nominator_user_id = $1
+      GROUP BY nominations.normalized_handle, nominations.display_handle
+      ORDER BY MIN(nomination_events.created_at) ASC
       `,
       [userId]
     )
