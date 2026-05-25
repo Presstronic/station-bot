@@ -255,4 +255,28 @@ describe('handleMyNominationsCommand', () => {
       })
     );
   });
+
+  it('falls back to the Discord limit when the configured limit cannot fit the base history section', async () => {
+    process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH = '200';
+    const { handleMyNominationsCommand, loggerWarn } = await loadCommand({
+      history: Array.from({ length: 15 }, (_, index) => ({ year: 2026 - index, count: 123456789 })),
+      pending: [],
+    });
+    const interaction = makeInteraction();
+
+    await handleMyNominationsCommand(interaction);
+
+    const content = interaction.editReply.mock.calls[0][0].content as string;
+    expect(content.length).toBeGreaterThan(200);
+    expect(content.length).toBeLessThanOrEqual(2000);
+    expect(content).toContain('Lifetime total:');
+    expect(loggerWarn).toHaveBeenCalledWith(
+      'my-nominations response exceeded configured limit; falling back to Discord limit',
+      expect.objectContaining({
+        userId: 'user-1',
+        configuredMaxMessageLength: 200,
+        fallbackMaxMessageLength: 2000,
+      })
+    );
+  });
 });

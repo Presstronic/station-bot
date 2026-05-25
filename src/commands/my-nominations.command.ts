@@ -23,6 +23,16 @@ function formatNominationCount(count: number): string {
   return `${count} nomination${count === 1 ? '' : 's'}`;
 }
 
+function truncateToLimit(value: string, limit: number): string {
+  if (value.length <= limit) {
+    return value;
+  }
+  if (limit <= 3) {
+    return value.slice(0, limit);
+  }
+  return `${value.slice(0, limit - 3)}...`;
+}
+
 function getMyNominationsMessageMaxLength(): number {
   const raw = process.env.MY_NOMINATIONS_MAX_MESSAGE_LENGTH?.trim();
   if (!raw) {
@@ -91,6 +101,7 @@ export async function handleMyNominationsCommand(interaction: ChatInputCommandIn
         { count: formatNominationCount(lifetimeTotal) }
       ),
     ];
+    const baseContent = baseContentLines.join('\n');
     const contentLines = [...baseContentLines];
 
     if (pendingLines.length > 0) {
@@ -126,8 +137,36 @@ export async function handleMyNominationsCommand(interaction: ChatInputCommandIn
       contentLines.push(pendingSectionContent);
     }
 
+    let finalContent = contentLines.join('\n');
+    if (finalContent.length > maxMessageLength) {
+      if (maxMessageLength < discordMessageLimit && finalContent.length <= discordMessageLimit) {
+        logger.warn('my-nominations response exceeded configured limit; falling back to Discord limit', {
+          userId: interaction.user.id,
+          configuredMaxMessageLength: maxMessageLength,
+          fallbackMaxMessageLength: discordMessageLimit,
+          finalContentLength: finalContent.length,
+        });
+      } else if (baseContent.length <= discordMessageLimit) {
+        logger.warn('my-nominations response exceeded configured limit even after pending truncation; dropping pending section', {
+          userId: interaction.user.id,
+          configuredMaxMessageLength: maxMessageLength,
+          fallbackMaxMessageLength: discordMessageLimit,
+          finalContentLength: finalContent.length,
+        });
+        finalContent = baseContent;
+      } else {
+        logger.warn('my-nominations base response exceeded Discord message limit; hard truncating output', {
+          userId: interaction.user.id,
+          configuredMaxMessageLength: maxMessageLength,
+          fallbackMaxMessageLength: discordMessageLimit,
+          baseContentLength: baseContent.length,
+        });
+        finalContent = truncateToLimit(baseContent, discordMessageLimit);
+      }
+    }
+
     await interaction.editReply({
-      content: contentLines.join('\n'),
+      content: finalContent,
       allowedMentions: { parse: [] },
     });
   } catch (error) {
