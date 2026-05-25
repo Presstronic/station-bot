@@ -155,6 +155,20 @@ async function applyPostTransition(
             allowedMentions: { parse: [], users: counterpartTarget === 'staff' ? [] : [updatedOrder.discordUserId] },
           });
         }
+        if (counterpartTarget === 'member') {
+          try {
+            await counterpartThread.send({
+              content: `<@${updatedOrder.discordUserId}> ${formatTransitionReply(toStatus, interaction.user.id)}`,
+              allowedMentions: { parse: [], users: [updatedOrder.discordUserId] },
+            });
+          } catch (err) {
+            logger.error('[manufacturing] Failed to post counterpart member-thread reply after status transition', {
+              orderId: updatedOrder.id,
+              toStatus,
+              error: err,
+            });
+          }
+        }
         const counterpartParent = counterpartThread.parent;
         if (counterpartParent && counterpartParent.type === ChannelType.GuildForum) {
           const counterpartTagMap = await ensureForumTags(counterpartParent as ForumChannel);
