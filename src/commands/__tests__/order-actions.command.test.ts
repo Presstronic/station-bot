@@ -661,13 +661,13 @@ describe('handleMfgAdvance', () => {
       expect.objectContaining({ content: expect.any(String), components: expect.any(Array) }),
     );
     expect(publicSendMock).toHaveBeenCalledWith({
-      content: 'transition reply text',
+      content: '<@owner-1> transition reply text',
       allowedMentions: { parse: [], users: ['owner-1'] },
     });
     expect(publicSetTagsMock).toHaveBeenCalledWith(['t-accepted']);
   });
 
-  it('does not ping the requester in the counterpart thread when interaction originates from the member thread', async () => {
+  it('does not send a counterpart staff-thread reply when interaction originates from the member thread', async () => {
     const makeForumParent = () => ({
       type: 15, // GuildForum
       availableTags: [
@@ -792,6 +792,7 @@ describe('handleMfgAdvance', () => {
     await h.handleMfgAdvance(btn as any);
 
     expect(btn.editReply).toHaveBeenCalled();
+    expect(publicThread.setAppliedTags).toHaveBeenCalledWith(['t-accepted']);
     expect(btn.followUp).not.toHaveBeenCalledWith(
       expect.objectContaining({ content: expect.stringContaining('An error occurred while updating the order status') }),
     );
