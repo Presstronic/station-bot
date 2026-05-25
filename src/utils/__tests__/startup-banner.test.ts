@@ -10,6 +10,7 @@ const BASE_OPTIONS = {
   dbConfigured: true,
   nominationWorkerActive: true,
   nominationDigestJobActive: true,
+  eventRemindersActive: true,
   purgeJobsEnabled: true,
   rsiVerificationEnabled: true,
   manufacturingOrdersEnabled: true,
@@ -48,6 +49,7 @@ describe('buildStartupBanner', () => {
     expect(banner).toContain('true'); // dbConfigured
     expect(banner).toMatch(/Nom\. worker\s+: enabled/); // nominationWorkerActive
     expect(banner).toMatch(/Nom\. digest\s+: enabled/); // nominationDigestJobActive
+    expect(banner).toMatch(/Event reminders\s+: enabled/); // eventRemindersActive
     expect(banner).toMatch(/Purge jobs\s+: enabled/); // purgeJobsEnabled
     expect(banner).toMatch(/RSI Verification\s+: enabled/); // rsiVerificationEnabled
     expect(banner).toMatch(/Mfg\. Orders\s+: enabled/); // manufacturingOrdersEnabled
@@ -64,6 +66,11 @@ describe('buildStartupBanner', () => {
   it('shows "disabled" when nomination digest is inactive', () => {
     const banner = buildStartupBanner({ ...BASE_OPTIONS, nominationDigestJobActive: false });
     expect(banner).toMatch(/Nom\. digest\s+: disabled/);
+  });
+
+  it('shows "disabled" when event reminders are inactive', () => {
+    const banner = buildStartupBanner({ ...BASE_OPTIONS, eventRemindersActive: false });
+    expect(banner).toMatch(/Event reminders\s+: disabled/);
   });
 
   it('shows "disabled" when purge jobs are off', () => {

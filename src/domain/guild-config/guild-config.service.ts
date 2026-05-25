@@ -9,7 +9,7 @@ import {
 
 export type { GuildConfig, GuildConfigPatch };
 
-export type GuildFeature = 'verification' | 'nominationDigest' | 'manufacturing' | 'purgeJobs' | 'birthday';
+export type GuildFeature = 'verification' | 'nominationDigest' | 'manufacturing' | 'purgeJobs' | 'birthday' | 'eventReminders';
 
 type BooleanKeys<T> = { [K in keyof T]: T[K] extends boolean ? K : never }[keyof T];
 
@@ -19,6 +19,7 @@ const FEATURE_FLAG_MAP: Record<GuildFeature, BooleanKeys<GuildConfig>> = {
   manufacturing:   'manufacturingEnabled',
   purgeJobs:       'purgeJobsEnabled',
   birthday:        'birthdayEnabled',
+  eventReminders:  'eventRemindersEnabled',
 };
 
 // Returns the config row or null when none exists. Throws on operational errors

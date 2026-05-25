@@ -42,6 +42,10 @@ export interface GuildConfig {
   birthdayChannelId: string | null;
   birthdayCronSchedule: string;
 
+  eventRemindersEnabled: boolean;
+  eventRemindersDefaultChannelId: string | null;
+  eventRemindersCronSchedule: string;
+
   createdAt: string;
   updatedAt: string;
 }
@@ -77,6 +81,9 @@ const PATCH_COLUMN_MAP: Record<keyof GuildConfigPatch, string> = {
   birthdayEnabled:               'birthday_enabled',
   birthdayChannelId:             'birthday_channel_id',
   birthdayCronSchedule:          'birthday_cron_schedule',
+  eventRemindersEnabled:            'event_reminders_enabled',
+  eventRemindersDefaultChannelId:   'event_reminders_default_channel_id',
+  eventRemindersCronSchedule:       'event_reminders_cron_schedule',
 };
 
 function mapGuildConfigRow(row: Record<string, unknown>): GuildConfig {
@@ -115,6 +122,10 @@ function mapGuildConfigRow(row: Record<string, unknown>): GuildConfig {
     birthdayEnabled:      Boolean(row.birthday_enabled),
     birthdayChannelId:    row.birthday_channel_id != null ? String(row.birthday_channel_id) : null,
     birthdayCronSchedule: String(row.birthday_cron_schedule),
+
+    eventRemindersEnabled:          Boolean(row.event_reminders_enabled),
+    eventRemindersDefaultChannelId: row.event_reminders_default_channel_id != null ? String(row.event_reminders_default_channel_id) : null,
+    eventRemindersCronSchedule:     String(row.event_reminders_cron_schedule),
 
     createdAt: new Date(row.created_at as string | number | Date).toISOString(),
     updatedAt: new Date(row.updated_at as string | number | Date).toISOString(),

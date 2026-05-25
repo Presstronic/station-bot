@@ -115,6 +115,15 @@ function buildPatchFromEnv(): GuildConfigPatch {
   const birthdayChannelId = envStr('BIRTHDAY_CHANNEL_ID');
   if (birthdayChannelId !== undefined) patch.birthdayChannelId = birthdayChannelId;
 
+  const eventRemindersEnabled = envBool('EVENT_REMINDERS_ENABLED');
+  if (eventRemindersEnabled !== undefined) patch.eventRemindersEnabled = eventRemindersEnabled;
+
+  const eventRemindersDefaultChannelId = envStr('EVENT_REMINDERS_DEFAULT_CHANNEL_ID');
+  if (eventRemindersDefaultChannelId !== undefined) patch.eventRemindersDefaultChannelId = eventRemindersDefaultChannelId;
+
+  const eventRemindersCronSchedule = envStr('EVENT_REMINDERS_CRON_SCHEDULE');
+  if (eventRemindersCronSchedule !== undefined) patch.eventRemindersCronSchedule = eventRemindersCronSchedule;
+
   return patch;
 }
 
