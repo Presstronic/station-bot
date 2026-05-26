@@ -375,7 +375,7 @@ describe('configure command', () => {
     });
     await handleConfigureModalSubmit(advancedModal as never);
 
-    const freqSelect = makeSelectInteraction('cfg-freq:cfg-mfg:manufacturing', 'every-2-days');
+    const freqSelect = makeSelectInteraction('cfg-freq:cfg-mfg:manufacturing', 'weekly');
     await handleConfigureSelectMenuInteraction(freqSelect as never);
     const hourSelect = makeSelectInteraction('cfg-hour:cfg-mfg:manufacturing', '06');
     await handleConfigureSelectMenuInteraction(hourSelect as never);
@@ -394,12 +394,56 @@ describe('configure command', () => {
       manufacturingOrderRateLimitPerHour: 6,
       manufacturingCreateOrderPostTitle: 'Build Request',
       manufacturingCreateOrderPostMessage: 'Use this thread to submit a build request.',
-      manufacturingKeepaliveCronSchedule: '0 6 */2 * *',
+      manufacturingKeepaliveCronSchedule: '0 6 * * 0',
     }));
     expect(mocks.rescheduleGuildKeepalive).toHaveBeenCalled();
     expect(saveButton.update).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/manufacturing saved/i),
+      }),
+    );
+  });
+
+  it('rejects empty nomination digest IDs before showing the schedule prompt', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-empty-digest', feature: 'nomination-digest' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-empty-digest:nomination-digest:base', {
+      'channel-id': '   ',
+      'role-id': '',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+    expect(modal.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/required/i),
+      }),
+    );
+  });
+
+  it('rejects unsupported schedule selections before enabling save', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-invalid-select', feature: 'nomination-digest' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-invalid-select:nomination-digest:base', {
+      'channel-id': 'channel-123',
+      'role-id': 'role-456',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    const invalidFreq = makeSelectInteraction('cfg-freq:cfg-invalid-select:nomination-digest', 'every-2-weeks');
+    await handleConfigureSelectMenuInteraction(invalidFreq as never);
+
+    expect(invalidFreq.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/unsupported schedule frequency/i),
       }),
     );
   });

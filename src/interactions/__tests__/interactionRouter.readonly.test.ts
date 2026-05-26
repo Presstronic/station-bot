@@ -226,6 +226,92 @@ describe('handleInteraction in read-only mode', () => {
     );
   });
 
+  it('returns maintenance message for string select menu interactions', async () => {
+    const handleHealthcheckCommand = jest.fn();
+    mockRouterOnlyDependencies();
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      handleVerifyCommand: jest.fn(),
+      getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand,
+    }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({
+        debug: jest.fn(),
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      }),
+    }));
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
+      assignVerifiedRole: jest.fn(),
+      removeVerifiedRole: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
+      verifyRSIProfile: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
+    }));
+
+    const { handleInteraction } = await import('../interactionRouter.js');
+    const reply = jest.fn(async () => undefined);
+
+    const interaction = {
+      isChatInputCommand: () => false,
+      isButton: () => false,
+      isModalSubmit: () => false,
+      isStringSelectMenu: () => true,
+      replied: false,
+      deferred: false,
+      reply,
+    } as any;
+
+    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flags: 64,
+      }),
+    );
+  });
+
   it('evaluates read-only mode at interaction time (not only at module import)', async () => {
     const handleVerifyCommand = jest.fn(async () => undefined);
     const handleHealthcheckCommand = jest.fn();

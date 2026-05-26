@@ -18,6 +18,7 @@ import {
   type Guild,
   type Role,
 } from 'discord.js';
+import cron from 'node-cron';
 import { isVerificationEnabled } from '../config/runtime-flags.js';
 import { isNominationDigestEnabled } from '../config/nomination-digest.config.js';
 import { isManufacturingEnabled } from '../config/manufacturing.config.js';
@@ -42,7 +43,7 @@ const SESSION_TTL_MS = 15 * 60 * 1000;
 
 type ConfigureFeature = 'verification' | 'nomination-digest' | 'manufacturing' | 'purge-jobs';
 type ConfigureMode = 'single' | 'full';
-type ScheduleFrequency = 'daily' | 'every-2-days' | 'weekly' | 'every-2-weeks';
+type ScheduleFrequency = 'daily' | 'weekly';
 
 type DraftValue = string | number | boolean | null;
 
@@ -207,13 +208,9 @@ function buildScheduleSummary(frequency?: ScheduleFrequency, hour?: string): str
   const frequencyLabel =
     frequency === 'daily'
       ? 'Daily'
-      : frequency === 'every-2-days'
-        ? 'Every 2 days'
-        : frequency === 'weekly'
-          ? 'Weekly'
-          : frequency === 'every-2-weeks'
-            ? 'Every 2 weeks'
-            : 'Not selected';
+      : frequency === 'weekly'
+        ? 'Weekly'
+        : 'Not selected';
   const hourLabel = hour !== undefined ? `${hour}:00 UTC` : 'Not selected';
   return `Frequency: ${frequencyLabel}\nTime: ${hourLabel}`;
 }
@@ -225,9 +222,7 @@ function buildScheduleComponents(sessionId: string, feature: ConfigureFeature, d
       .setPlaceholder('Choose frequency')
       .addOptions(
         { label: 'Daily', value: 'daily', default: draft.frequency === 'daily' },
-        { label: 'Every 2 days', value: 'every-2-days', default: draft.frequency === 'every-2-days' },
         { label: 'Weekly', value: 'weekly', default: draft.frequency === 'weekly' },
-        { label: 'Every 2 weeks', value: 'every-2-weeks', default: draft.frequency === 'every-2-weeks' },
       ),
   );
 
@@ -296,13 +291,32 @@ function buildCronFromSelection(frequency: ScheduleFrequency, hour: string): str
   switch (frequency) {
     case 'daily':
       return `0 ${cronHour} * * *`;
-    case 'every-2-days':
-      return `0 ${cronHour} */2 * *`;
     case 'weekly':
       return `0 ${cronHour} * * 0`;
-    case 'every-2-weeks':
-      return `0 ${cronHour} */14 * *`;
   }
+}
+
+function parseScheduleFrequency(value: string): ScheduleFrequency {
+  if (value === 'daily' || value === 'weekly') {
+    return value;
+  }
+  throw new Error('Unsupported schedule frequency selected. Please choose Daily or Weekly.');
+}
+
+function parseScheduleHour(value: string): string {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 23) {
+    throw new Error('Unsupported UTC hour selected. Please choose an hour from 00 through 23.');
+  }
+  return parsed.toString().padStart(2, '0');
+}
+
+function assertCronSupported(frequency: ScheduleFrequency, hour: string): string {
+  const cronExpression = buildCronFromSelection(frequency, hour);
+  if (!cron.validate(cronExpression)) {
+    throw new Error('The selected schedule could not be converted into a valid cron expression.');
+  }
+  return cronExpression;
 }
 
 function parsePositiveInteger(raw: string, fieldName: string, minimum: number, maximum?: number): number {
@@ -319,19 +333,27 @@ async function loadGuildConfigSnapshot(guildId: string): Promise<GuildConfig> {
 }
 
 async function validateGuildRole(guild: Guild, roleId: string, label: string): Promise<Role> {
-  const role = await guild.roles.fetch(roleId);
-  if (!role) {
-    throw new Error(`${label} is not a valid role ID.`);
+  try {
+    const role = await guild.roles.fetch(roleId);
+    if (!role) {
+      throw new Error(`${label} is not a valid role ID.`);
+    }
+    return role;
+  } catch {
+    throw new Error(`${label} is invalid or the bot cannot access that role.`);
   }
-  return role;
 }
 
 async function validateGuildChannel(guild: Guild, channelId: string, label: string): Promise<GuildBasedChannel> {
-  const channel = await guild.channels.fetch(channelId);
-  if (!channel) {
-    throw new Error(`${label} is not a valid channel ID.`);
+  try {
+    const channel = await guild.channels.fetch(channelId);
+    if (!channel) {
+      throw new Error(`${label} is not a valid channel ID.`);
+    }
+    return channel;
+  } catch {
+    throw new Error(`${label} is invalid or the bot cannot access that channel.`);
   }
-  return channel;
 }
 
 function isSendableTextChannel(channel: GuildBasedChannel): boolean {
@@ -719,6 +741,14 @@ async function handleNominationDigestModalSubmit(
   const channelId = interaction.fields.getTextInputValue('channel-id').trim();
   const roleId = interaction.fields.getTextInputValue('role-id').trim();
 
+  if (channelId.length === 0 || roleId.length === 0) {
+    await interaction.reply({
+      content: 'Digest channel ID and role ID are required.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   session.draft = {
     feature: 'nomination-digest',
     values: { channelId, roleId },
@@ -738,6 +768,9 @@ async function handleManufacturingBaseModalSubmit(
     const forumChannelId = interaction.fields.getTextInputValue('forum-channel-id').trim();
     const staffChannelId = interaction.fields.getTextInputValue('staff-channel-id').trim();
     const roleId = interaction.fields.getTextInputValue('role-id').trim();
+    if (forumChannelId.length === 0 || staffChannelId.length === 0 || roleId.length === 0) {
+      throw new Error('Manufacturing forum ID, staff forum ID, and role ID are required.');
+    }
     const orderLimit = parsePositiveInteger(interaction.fields.getTextInputValue('order-limit'), 'Active order limit', 1);
     const maxItemsPerOrder = parsePositiveInteger(interaction.fields.getTextInputValue('max-items'), 'Max items per order', 1);
 
@@ -923,6 +956,7 @@ async function saveNominationDigest(
   const roleId = String(session.draft.values.roleId ?? '').trim();
 
   try {
+    const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
     const channel = await validateGuildChannel(interaction.guild, channelId, 'Digest channel ID');
     if (!isSendableTextChannel(channel)) {
       throw new Error('Digest channel ID must point to a text-based channel.');
@@ -933,9 +967,9 @@ async function saveNominationDigest(
       nominationDigestEnabled: true,
       nominationDigestChannelId: channelId,
       nominationDigestRoleId: roleId,
-      nominationDigestCronSchedule: buildCronFromSelection(session.draft.frequency, session.draft.hour),
+      nominationDigestCronSchedule: cronExpression,
     });
-    rescheduleGuildDigest(interaction.client, updatedConfig.guildId, updatedConfig.nominationDigestCronSchedule);
+    rescheduleGuildDigest(interaction.client, updatedConfig.guildId, cronExpression);
     await completeConfigurationFromMessage(
       interaction,
       sessionId,
@@ -968,6 +1002,7 @@ async function saveManufacturing(
   const forumChannelId = String(values.forumChannelId ?? '').trim();
   const staffChannelId = String(values.staffChannelId ?? '').trim();
   const roleId = String(values.roleId ?? '').trim();
+  const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
   const patch: GuildConfigPatch = {
     manufacturingEnabled: true,
     manufacturingForumChannelId: forumChannelId,
@@ -979,7 +1014,7 @@ async function saveManufacturing(
     manufacturingOrderRateLimitPerHour: Number(values.rateLimitPerHour),
     manufacturingCreateOrderPostTitle: String(values.postTitle ?? '').trim(),
     manufacturingCreateOrderPostMessage: String(values.postMessage ?? '').trim(),
-    manufacturingKeepaliveCronSchedule: buildCronFromSelection(session.draft.frequency, session.draft.hour),
+    manufacturingKeepaliveCronSchedule: cronExpression,
   };
 
   try {
@@ -1026,10 +1061,11 @@ async function savePurgeJobs(
   }
 
   try {
+    const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
     const updatedConfig = await upsertGuildConfig(interaction.guildId ?? '', {
       purgeJobsEnabled: true,
       tempMemberHoursToExpire: Number(session.draft.values.tempMemberHoursToExpire),
-      tempMemberPurgeCronSchedule: buildCronFromSelection(session.draft.frequency, session.draft.hour),
+      tempMemberPurgeCronSchedule: cronExpression,
     });
     rescheduleGuildPurge(interaction.client, updatedConfig.guildId, updatedConfig);
     await completeConfigurationFromMessage(
@@ -1149,10 +1185,18 @@ export async function handleConfigureSelectMenuInteraction(interaction: StringSe
     return;
   }
 
-  if (prefix === CONFIGURE_SELECT_FREQ_PREFIX) {
-    session.draft.frequency = interaction.values[0] as ScheduleFrequency;
-  } else {
-    session.draft.hour = interaction.values[0];
+  try {
+    if (prefix === CONFIGURE_SELECT_FREQ_PREFIX) {
+      session.draft.frequency = parseScheduleFrequency(interaction.values[0]);
+    } else {
+      session.draft.hour = parseScheduleHour(interaction.values[0]);
+    }
+  } catch (error) {
+    await interaction.update({
+      ...buildSchedulePrompt(sessionId, feature, session.draft),
+      content: error instanceof Error ? error.message : 'Invalid schedule selection.',
+    });
+    return;
   }
 
   await interaction.update(buildSchedulePrompt(sessionId, feature, session.draft));

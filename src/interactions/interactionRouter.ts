@@ -122,7 +122,7 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
       if (
         readOnlyMode &&
         !isHealthcheckCommand &&
-        (interaction.isChatInputCommand() || interaction.isButton() || interaction.isModalSubmit())
+        (interaction.isChatInputCommand() || interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu())
       ) {
         const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
         const maintenanceMessage = i18n.__({
