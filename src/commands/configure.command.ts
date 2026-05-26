@@ -151,6 +151,9 @@ function buildDefaultGuildConfig(guildId: string): GuildConfig {
     birthdayEnabled: false,
     birthdayChannelId: null,
     birthdayCronSchedule: '0 12 * * *',
+    eventRemindersEnabled: false,
+    eventRemindersDefaultChannelId: null,
+    eventRemindersCronSchedule: '*/15 * * * *',
     createdAt: new Date(0).toISOString(),
     updatedAt: new Date(0).toISOString(),
   };
