@@ -22,7 +22,7 @@ import cron from 'node-cron';
 import { isVerificationEnabled } from '../config/runtime-flags.js';
 import { isNominationDigestEnabled } from '../config/nomination-digest.config.js';
 import { isManufacturingEnabled } from '../config/manufacturing.config.js';
-import { getGuildConfigOrNull, upsertGuildConfig, type GuildConfig, type GuildConfigPatch } from '../domain/guild-config/guild-config.service.js';
+import { upsertGuildConfig, type GuildConfig, type GuildConfigPatch } from '../domain/guild-config/guild-config.service.js';
 import { rescheduleGuildDigest } from '../jobs/discord/nomination-digest.job.js';
 import { rescheduleGuildKeepalive } from '../jobs/discord/manufacturing-keepalive.job.js';
 import { rescheduleGuildPurge } from '../jobs/discord/purge-member.job.js';
@@ -313,10 +313,6 @@ function buildUnavailableMessage(): string {
   return 'Configuration is currently unavailable because the database is not configured.';
 }
 
-function buildConfigurationLoadFailedMessage(): string {
-  return 'Configuration settings could not be loaded right now. Please try again in a moment.';
-}
-
 function parseCronHour(value: string): number {
   return Number.parseInt(value, 10);
 }
@@ -389,11 +385,6 @@ function parseDraftPositiveInteger(value: DraftValue, fieldName: string, minimum
   }
 
   return value;
-}
-
-async function loadGuildConfigSnapshot(guildId: string): Promise<GuildConfig> {
-  const existing = await getGuildConfigOrNull(guildId);
-  return existing ?? buildDefaultGuildConfig(guildId);
 }
 
 async function validateGuildRole(guild: Guild, roleId: string, label: string): Promise<Role> {
@@ -667,12 +658,7 @@ async function openFeatureModal(
   feature: ConfigureFeature,
 ): Promise<void> {
   const guildId = interaction.guildId ?? '';
-  let guildConfig: GuildConfig;
-  try {
-    guildConfig = await loadGuildConfigSnapshot(guildId);
-  } catch {
-    throw new Error(buildConfigurationLoadFailedMessage());
-  }
+  const guildConfig = buildDefaultGuildConfig(guildId);
 
   switch (feature) {
     case 'verification':
@@ -729,15 +715,7 @@ export async function handleConfigureCommand(interaction: ChatInputCommandIntera
     }
 
     createSession(interaction.id, guildId, [selectedFeature], 'single');
-    try {
-      await openFeatureModal(interaction, interaction.id, selectedFeature);
-    } catch (error) {
-      sessions.delete(interaction.id);
-      await interaction.reply({
-        content: error instanceof Error ? error.message : buildConfigurationLoadFailedMessage(),
-        flags: MessageFlags.Ephemeral,
-      });
-    }
+    await openFeatureModal(interaction, interaction.id, selectedFeature);
     return;
   }
 
@@ -978,6 +956,14 @@ export async function handleConfigureModalSubmit(interaction: ModalSubmitInterac
     return;
   }
 
+  if ((interaction.guildId ?? '') !== session.guildId) {
+    await interaction.reply({
+      content: 'This configure session does not belong to this server. Run `/configure` again to restart.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   if (feature === 'verification' && step === 'base') {
     await handleVerificationModalSubmit(interaction, sessionId, session);
     return;
@@ -1213,6 +1199,14 @@ export async function handleConfigureButtonInteraction(interaction: ButtonIntera
     return;
   }
 
+  if ((interaction.guildId ?? '') !== session.guildId) {
+    await interaction.update({
+      content: 'This configure session does not belong to this server. Run `/configure` again to restart.',
+      components: [],
+    });
+    return;
+  }
+
   if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
     await interaction.reply({
       content: 'This action requires Manage Server permission.',
@@ -1239,29 +1233,13 @@ export async function handleConfigureButtonInteraction(interaction: ButtonIntera
   }
 
   if (prefix === CONFIGURE_OPEN_PREFIX) {
-    try {
-      await openFeatureModal(interaction, sessionId, feature);
-    } catch (error) {
-      sessions.delete(sessionId);
-      await interaction.update({
-        content: error instanceof Error ? error.message : buildConfigurationLoadFailedMessage(),
-        components: [],
-      });
-    }
+    await openFeatureModal(interaction, sessionId, feature);
     return;
   }
 
   if (prefix === CONFIGURE_CONTINUE_PREFIX) {
-    try {
-      const guildConfig = await loadGuildConfigSnapshot(interaction.guildId ?? '');
-      await interaction.showModal(buildManufacturingAdvancedModal(sessionId, guildConfig));
-    } catch {
-      sessions.delete(sessionId);
-      await interaction.update({
-        content: buildConfigurationLoadFailedMessage(),
-        components: [],
-      });
-    }
+    const guildConfig = buildDefaultGuildConfig(interaction.guildId ?? '');
+    await interaction.showModal(buildManufacturingAdvancedModal(sessionId, guildConfig));
     return;
   }
 
@@ -1315,6 +1293,22 @@ export async function handleConfigureSelectMenuInteraction(interaction: StringSe
   const session = getCurrentSession(sessionId);
   if (!session || !session.draft || session.draft.feature !== feature) {
     await replySessionExpired(interaction);
+    return;
+  }
+
+  if ((interaction.guildId ?? '') !== session.guildId) {
+    await interaction.update({
+      content: 'This configure session does not belong to this server. Run `/configure` again to restart.',
+      components: [],
+    });
+    return;
+  }
+
+  if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    await interaction.reply({
+      content: 'This action requires Manage Server permission.',
+      flags: MessageFlags.Ephemeral,
+    });
     return;
   }
 

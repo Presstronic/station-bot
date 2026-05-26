@@ -257,6 +257,9 @@ function makeModalInteraction(customId: string, values: Record<string, string>, 
 function makeSelectInteraction(customId: string, value: string) {
   return {
     customId,
+    guildId: 'guild-1',
+    inGuild: () => true,
+    memberPermissions: { has: jest.fn(() => true) },
     values: [value],
     update: jest.fn(async () => undefined),
     reply: jest.fn(async () => undefined),
@@ -745,19 +748,19 @@ describe('configure command', () => {
     );
   });
 
-  it('surfaces a friendly message when guild config cannot be loaded for a single-feature run', async () => {
+  it('still opens a single-feature modal when guild config loading would fail elsewhere', async () => {
     const { handleConfigureCommand, teardownConfigureCommandForTests } = await setupWithGuildConfigFailure();
     teardown = teardownConfigureCommandForTests;
 
     const interaction = makeSlashInteraction({ feature: 'verification' });
     await handleConfigureCommand(interaction as never);
 
-    expect(interaction.reply).toHaveBeenCalledWith(
+    expect(interaction.showModal).toHaveBeenCalledTimes(1);
+    expect(interaction.reply).not.toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/could not be loaded right now/i),
       }),
     );
-    expect(interaction.showModal).not.toHaveBeenCalled();
   });
 
   it('uses friendly lower-bound wording for unbounded integer validation errors', async () => {
@@ -804,6 +807,54 @@ describe('configure command', () => {
     expect(baseModal.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/active order limit must be a whole number of at least 1/i),
+      }),
+    );
+  });
+
+  it('rejects select-menu interactions when the session guild does not match', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-guild-mismatch', feature: 'nomination-digest' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-guild-mismatch:nomination-digest:base', {
+      'channel-id': 'channel-123',
+      'role-id': 'role-456',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    const select = makeSelectInteraction('cfg-freq:cfg-guild-mismatch:nomination-digest', 'weekly');
+    select.guildId = 'guild-2';
+    await handleConfigureSelectMenuInteraction(select as never);
+
+    expect(select.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/does not belong to this server/i),
+      }),
+    );
+  });
+
+  it('rejects select-menu interactions without ManageGuild permission', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-select-perms', feature: 'nomination-digest' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-select-perms:nomination-digest:base', {
+      'channel-id': 'channel-123',
+      'role-id': 'role-456',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    const select = makeSelectInteraction('cfg-freq:cfg-select-perms:nomination-digest', 'weekly');
+    select.memberPermissions.has = jest.fn(() => false);
+    await handleConfigureSelectMenuInteraction(select as never);
+
+    expect(select.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/requires manage server permission/i),
       }),
     );
   });
