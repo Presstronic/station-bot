@@ -107,6 +107,7 @@ describe('handleInteraction in read-only mode', () => {
       }),
     }));
     jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
@@ -193,6 +194,7 @@ describe('handleInteraction in read-only mode', () => {
       }),
     }));
     jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
@@ -280,6 +282,7 @@ describe('handleInteraction in read-only mode', () => {
       }),
     }));
     jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
@@ -365,6 +368,7 @@ describe('handleInteraction in read-only mode', () => {
       }),
     }));
     jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
@@ -452,6 +456,7 @@ describe('handleInteraction error handling', () => {
       getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),
     }));
     jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
@@ -540,6 +545,7 @@ describe('handleInteraction error handling', () => {
       getLogger: () => ({ debug: jest.fn(), info: jest.fn(), warn: warnSpy, error: errorSpy }),
     }));
     jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
       assignVerifiedRole: jest.fn(),
       removeVerifiedRole: jest.fn(),
     }));
