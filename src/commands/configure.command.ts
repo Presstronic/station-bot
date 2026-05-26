@@ -27,9 +27,6 @@ import { rescheduleGuildKeepalive } from '../jobs/discord/manufacturing-keepaliv
 import { rescheduleGuildPurge } from '../jobs/discord/purge-member.job.js';
 import { isDatabaseConfigured } from '../services/nominations/db.js';
 import { addMissingDefaultRoles } from '../services/role.services.js';
-import { getLogger } from '../utils/logger.js';
-
-const logger = getLogger();
 
 export const CONFIGURE_COMMAND_NAME = 'configure';
 
