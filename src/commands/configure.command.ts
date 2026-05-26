@@ -71,6 +71,14 @@ interface ConfigureSession {
 }
 
 const sessions = new Map<string, ConfigureSession>();
+const CONFIGURE_FEATURES = [
+  'verification',
+  'nomination-digest',
+  'manufacturing',
+  'purge-jobs',
+] as const;
+const MANUFACTURING_POST_TITLE_MAX_LENGTH = 100;
+const MANUFACTURING_POST_MESSAGE_MAX_LENGTH = 2_000;
 
 const sessionCleanupInterval = setInterval(() => {
   const now = Date.now();
@@ -181,6 +189,18 @@ function isFeatureOperatorEnabled(feature: ConfigureFeature): boolean {
     case 'purge-jobs':
       return true;
   }
+}
+
+function parseConfigureFeature(value: string | null): ConfigureFeature | null {
+  if (value === null) {
+    return null;
+  }
+
+  if ((CONFIGURE_FEATURES as readonly string[]).includes(value)) {
+    return value as ConfigureFeature;
+  }
+
+  throw new Error('Unsupported feature selected. Run `/configure` again and choose a listed feature.');
 }
 
 function buildFeaturePrompt(sessionId: string, feature: ConfigureFeature): {
@@ -651,7 +671,16 @@ export async function handleConfigureCommand(interaction: ChatInputCommandIntera
     return;
   }
 
-  const selectedFeature = interaction.options.getString('feature', false) as ConfigureFeature | null;
+  let selectedFeature: ConfigureFeature | null;
+  try {
+    selectedFeature = parseConfigureFeature(interaction.options.getString('feature', false));
+  } catch (error) {
+    await interaction.reply({
+      content: error instanceof Error ? error.message : 'Unsupported feature selected.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
   const guildId = interaction.guildId ?? '';
 
   if (selectedFeature) {
@@ -676,12 +705,7 @@ export async function handleConfigureCommand(interaction: ChatInputCommandIntera
     return;
   }
 
-  const features = ([
-    'verification',
-    'nomination-digest',
-    'manufacturing',
-    'purge-jobs',
-  ] as const).filter((feature) => isFeatureOperatorEnabled(feature));
+  const features = CONFIGURE_FEATURES.filter((feature) => isFeatureOperatorEnabled(feature));
 
   if (features.length === 0) {
     await interaction.reply({
@@ -848,8 +872,24 @@ async function handleManufacturingAdvancedModalSubmit(
       'Rate limit per hour',
       1,
     );
-    session.draft.values.postTitle = interaction.fields.getTextInputValue('post-title').trim();
-    session.draft.values.postMessage = interaction.fields.getTextInputValue('post-message').trim();
+    const postTitle = interaction.fields.getTextInputValue('post-title').trim();
+    const postMessage = interaction.fields.getTextInputValue('post-message').trim();
+
+    if (postTitle.length === 0) {
+      throw new Error('Create Order post title cannot be empty.');
+    }
+    if (postTitle.length > MANUFACTURING_POST_TITLE_MAX_LENGTH) {
+      throw new Error(`Create Order post title must be ${MANUFACTURING_POST_TITLE_MAX_LENGTH} characters or fewer.`);
+    }
+    if (postMessage.length === 0) {
+      throw new Error('Create Order post message cannot be empty.');
+    }
+    if (postMessage.length > MANUFACTURING_POST_MESSAGE_MAX_LENGTH) {
+      throw new Error(`Create Order post message must be ${MANUFACTURING_POST_MESSAGE_MAX_LENGTH} characters or fewer.`);
+    }
+
+    session.draft.values.postTitle = postTitle;
+    session.draft.values.postMessage = postMessage;
 
     await interaction.reply({
       ...buildSchedulePrompt(interaction.customId.split(':')[1], 'manufacturing', session.draft),

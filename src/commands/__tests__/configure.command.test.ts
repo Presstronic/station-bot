@@ -321,6 +321,22 @@ describe('configure command', () => {
     expect(interaction.showModal).not.toHaveBeenCalled();
   });
 
+  it('rejects unsupported feature values before opening a configure session', async () => {
+    const { handleConfigureCommand, teardownConfigureCommandForTests, mocks } = await setup();
+    teardown = teardownConfigureCommandForTests;
+    const interaction = makeSlashInteraction({ feature: 'birthdays-later' });
+
+    await handleConfigureCommand(interaction as never);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/unsupported feature selected/i),
+      }),
+    );
+    expect(interaction.showModal).not.toHaveBeenCalled();
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+  });
+
   it('saves verification settings and ensures roles after modal submit', async () => {
     const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
     teardown = teardownConfigureCommandForTests;
@@ -532,6 +548,74 @@ describe('configure command', () => {
     expect(invalidFreq.update).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/unsupported schedule frequency/i),
+      }),
+    );
+  });
+
+  it('rejects empty manufacturing post content before showing the schedule prompt', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureButtonInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-mfg-empty-post', feature: 'manufacturing' });
+    await handleConfigureCommand(slash as never);
+
+    const baseModal = makeModalInteraction('cfg-modal:cfg-mfg-empty-post:manufacturing:base', {
+      'forum-channel-id': 'forum-1',
+      'staff-channel-id': 'staff-1',
+      'role-id': 'role-1',
+      'order-limit': '3',
+      'max-items': '7',
+    });
+    await handleConfigureModalSubmit(baseModal as never);
+
+    const continueButton = makeButtonInteraction('cfg-continue:cfg-mfg-empty-post:manufacturing');
+    await handleConfigureButtonInteraction(continueButton as never);
+
+    const advancedModal = makeModalInteraction('cfg-modal:cfg-mfg-empty-post:manufacturing:advanced', {
+      'rate-limit-5min': '2',
+      'rate-limit-hour': '6',
+      'post-title': '   ',
+      'post-message': '',
+    });
+    await handleConfigureModalSubmit(advancedModal as never);
+
+    expect(advancedModal.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/post title cannot be empty/i),
+      }),
+    );
+  });
+
+  it('rejects overlong manufacturing post content before showing the schedule prompt', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureButtonInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-mfg-long-post', feature: 'manufacturing' });
+    await handleConfigureCommand(slash as never);
+
+    const baseModal = makeModalInteraction('cfg-modal:cfg-mfg-long-post:manufacturing:base', {
+      'forum-channel-id': 'forum-1',
+      'staff-channel-id': 'staff-1',
+      'role-id': 'role-1',
+      'order-limit': '3',
+      'max-items': '7',
+    });
+    await handleConfigureModalSubmit(baseModal as never);
+
+    const continueButton = makeButtonInteraction('cfg-continue:cfg-mfg-long-post:manufacturing');
+    await handleConfigureButtonInteraction(continueButton as never);
+
+    const advancedModal = makeModalInteraction('cfg-modal:cfg-mfg-long-post:manufacturing:advanced', {
+      'rate-limit-5min': '2',
+      'rate-limit-hour': '6',
+      'post-title': 'T'.repeat(101),
+      'post-message': 'Message body',
+    });
+    await handleConfigureModalSubmit(advancedModal as never);
+
+    expect(advancedModal.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/100 characters or fewer/i),
       }),
     );
   });
