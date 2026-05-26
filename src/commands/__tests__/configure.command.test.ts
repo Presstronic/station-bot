@@ -552,6 +552,31 @@ describe('configure command', () => {
     );
   });
 
+  it('keeps the schedule summary visible when select-menu validation fails', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-invalid-select-summary', feature: 'nomination-digest' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-invalid-select-summary:nomination-digest:base', {
+      'channel-id': 'channel-123',
+      'role-id': 'role-456',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    await handleConfigureSelectMenuInteraction(makeSelectInteraction('cfg-freq:cfg-invalid-select-summary:nomination-digest', 'weekly') as never);
+
+    const invalidHour = makeSelectInteraction('cfg-hour:cfg-invalid-select-summary:nomination-digest', '99');
+    await handleConfigureSelectMenuInteraction(invalidHour as never);
+
+    expect(invalidHour.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/unsupported utc hour selected\..*finish configuring \*\*nomination digest\*\*.*weekly \(sunday utc\)/is),
+      }),
+    );
+  });
+
   it('shows weekly schedules as Sunday UTC in the schedule summary', async () => {
     const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, teardownConfigureCommandForTests } = await setup();
     teardown = teardownConfigureCommandForTests;
@@ -755,6 +780,30 @@ describe('configure command', () => {
     expect(baseModal.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/whole number of at least 1/i),
+      }),
+    );
+  });
+
+  it('rejects truncated numeric input instead of silently parsing it', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-mfg-truncated-number', feature: 'manufacturing' });
+    await handleConfigureCommand(slash as never);
+
+    const baseModal = makeModalInteraction('cfg-modal:cfg-mfg-truncated-number:manufacturing:base', {
+      'forum-channel-id': 'forum-1',
+      'staff-channel-id': 'staff-1',
+      'role-id': 'role-1',
+      'order-limit': '10abc',
+      'max-items': '7',
+    });
+    await handleConfigureModalSubmit(baseModal as never);
+
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+    expect(baseModal.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/active order limit must be a whole number of at least 1/i),
       }),
     );
   });

@@ -355,8 +355,17 @@ function assertCronSupported(frequency: ScheduleFrequency, hour: string): string
 }
 
 function parsePositiveInteger(raw: string, fieldName: string, minimum: number, maximum?: number): number {
-  const parsed = Number.parseInt(raw.trim(), 10);
-  if (!Number.isInteger(parsed) || parsed < minimum || (maximum !== undefined && parsed > maximum)) {
+  const normalized = raw.trim();
+  if (!/^\d+$/.test(normalized)) {
+    const boundsMessage =
+      maximum === undefined
+        ? `a whole number of at least ${minimum}`
+        : `a whole number between ${minimum} and ${maximum}`;
+    throw new Error(`${fieldName} must be ${boundsMessage}.`);
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isSafeInteger(parsed) || parsed < minimum || (maximum !== undefined && parsed > maximum)) {
     const boundsMessage =
       maximum === undefined
         ? `a whole number of at least ${minimum}`
@@ -1163,7 +1172,12 @@ async function savePurgeJobs(
     const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
     const updatedConfig = await upsertGuildConfig(interaction.guildId ?? '', {
       purgeJobsEnabled: true,
-      tempMemberHoursToExpire: Number(session.draft.values.tempMemberHoursToExpire),
+      tempMemberHoursToExpire: parseDraftPositiveInteger(
+        session.draft.values.tempMemberHoursToExpire,
+        'Temporary member expiry hours',
+        1,
+        720,
+      ),
       tempMemberPurgeCronSchedule: cronExpression,
     });
     rescheduleGuildPurge(interaction.client, updatedConfig.guildId, updatedConfig);
@@ -1311,10 +1325,14 @@ export async function handleConfigureSelectMenuInteraction(interaction: StringSe
       session.draft.hour = parseScheduleHour(interaction.values[0]);
     }
   } catch (error) {
-    await interaction.update({
-      ...buildSchedulePrompt(sessionId, feature, session.draft),
-      content: error instanceof Error ? error.message : 'Invalid schedule selection.',
-    });
+    await interaction.update(
+      buildScheduleErrorPrompt(
+        sessionId,
+        feature,
+        session.draft,
+        error instanceof Error ? error.message : 'Invalid schedule selection.',
+      ),
+    );
     return;
   }
 
