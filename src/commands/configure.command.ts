@@ -22,7 +22,12 @@ import cron from 'node-cron';
 import { isVerificationEnabled } from '../config/runtime-flags.js';
 import { isNominationDigestEnabled } from '../config/nomination-digest.config.js';
 import { isManufacturingEnabled } from '../config/manufacturing.config.js';
-import { upsertGuildConfig, type GuildConfig, type GuildConfigPatch } from '../domain/guild-config/guild-config.service.js';
+import {
+  getGuildConfigOrNull,
+  upsertGuildConfig,
+  type GuildConfig,
+  type GuildConfigPatch,
+} from '../domain/guild-config/guild-config.service.js';
 import { rescheduleGuildDigest } from '../jobs/discord/nomination-digest.job.js';
 import { rescheduleGuildKeepalive } from '../jobs/discord/manufacturing-keepalive.job.js';
 import { rescheduleGuildPurge } from '../jobs/discord/purge-member.job.js';
@@ -65,6 +70,7 @@ interface ConfigureSession {
   mode: ConfigureMode;
   features: ConfigureFeature[];
   index: number;
+  guildConfig: GuildConfig;
   draft: ConfigureDraft | null;
   results: ConfigureResult[];
   expiresAt: number;
@@ -313,6 +319,10 @@ function buildUnavailableMessage(): string {
   return 'Configuration is currently unavailable because the database is not configured.';
 }
 
+function buildConfigLoadFailedMessage(): string {
+  return 'Configuration could not be loaded right now. Please try again in a moment.';
+}
+
 function parseCronHour(value: string): number {
   return Number.parseInt(value, 10);
 }
@@ -421,12 +431,21 @@ function createSession(sessionId: string, guildId: string, features: ConfigureFe
     mode,
     features,
     index: 0,
+    guildConfig: buildDefaultGuildConfig(guildId),
     draft: null,
     results: [],
     expiresAt: Date.now() + SESSION_TTL_MS,
   };
   sessions.set(sessionId, session);
   return session;
+}
+
+async function loadGuildConfigSnapshot(guildId: string): Promise<GuildConfig> {
+  try {
+    return (await getGuildConfigOrNull(guildId)) ?? buildDefaultGuildConfig(guildId);
+  } catch {
+    throw new Error(buildConfigLoadFailedMessage());
+  }
 }
 
 async function replySessionExpired(interaction: ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction): Promise<void> {
@@ -655,10 +674,14 @@ function buildPurgeModal(sessionId: string, guildConfig: GuildConfig): ModalBuil
 async function openFeatureModal(
   interaction: ChatInputCommandInteraction | ButtonInteraction,
   sessionId: string,
-  feature: ConfigureFeature,
+  session: ConfigureSession,
 ): Promise<void> {
-  const guildId = interaction.guildId ?? '';
-  const guildConfig = buildDefaultGuildConfig(guildId);
+  const feature = getCurrentFeature(session);
+  if (!feature) {
+    throw new Error('This configure step is no longer active. Run `/configure` again if you need to restart.');
+  }
+
+  const guildConfig = session.guildConfig;
 
   switch (feature) {
     case 'verification':
@@ -714,8 +737,20 @@ export async function handleConfigureCommand(interaction: ChatInputCommandIntera
       return;
     }
 
-    createSession(interaction.id, guildId, [selectedFeature], 'single');
-    await openFeatureModal(interaction, interaction.id, selectedFeature);
+    let guildConfig: GuildConfig;
+    try {
+      guildConfig = await loadGuildConfigSnapshot(guildId);
+    } catch (error) {
+      await interaction.reply({
+        content: error instanceof Error ? error.message : buildConfigLoadFailedMessage(),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const session = createSession(interaction.id, guildId, [selectedFeature], 'single');
+    session.guildConfig = guildConfig;
+    await openFeatureModal(interaction, interaction.id, session);
     return;
   }
 
@@ -729,7 +764,19 @@ export async function handleConfigureCommand(interaction: ChatInputCommandIntera
     return;
   }
 
-  createSession(interaction.id, guildId, [...features], 'full');
+  let guildConfig: GuildConfig;
+  try {
+    guildConfig = await loadGuildConfigSnapshot(guildId);
+  } catch (error) {
+    await interaction.reply({
+      content: error instanceof Error ? error.message : buildConfigLoadFailedMessage(),
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const session = createSession(interaction.id, guildId, [...features], 'full');
+  session.guildConfig = guildConfig;
   await interaction.reply({
     ...buildFeaturePrompt(interaction.id, features[0]),
     flags: MessageFlags.Ephemeral,
@@ -776,6 +823,7 @@ async function handleVerificationModalSubmit(
       potentialApplicantRoleName,
       orgMemberRoleId: orgMemberRoleId.length > 0 ? orgMemberRoleId : null,
     });
+    session.guildConfig = updatedConfig;
     await addMissingDefaultRoles(interaction.guild, interaction.client, updatedConfig);
     await finishOrAdvanceFromModal(
       interaction,
@@ -964,6 +1012,15 @@ export async function handleConfigureModalSubmit(interaction: ModalSubmitInterac
     return;
   }
 
+  const currentFeature = getCurrentFeature(session);
+  if (!currentFeature || currentFeature !== feature) {
+    await interaction.reply({
+      content: 'This configure step is no longer active. Run `/configure` again if you need to restart.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
   if (feature === 'verification' && step === 'base') {
     await handleVerificationModalSubmit(interaction, sessionId, session);
     return;
@@ -1052,6 +1109,7 @@ async function saveNominationDigest(
       nominationDigestRoleId: roleId,
       nominationDigestCronSchedule: cronExpression,
     });
+    session.guildConfig = updatedConfig;
     rescheduleGuildDigest(interaction.client, updatedConfig.guildId, cronExpression);
     await completeConfigurationFromMessage(
       interaction,
@@ -1120,6 +1178,7 @@ async function saveManufacturing(
     await validateGuildRole(interaction.guild, roleId, 'Manufacturing role ID');
 
     const updatedConfig = await upsertGuildConfig(interaction.guildId ?? '', patch);
+    session.guildConfig = updatedConfig;
     rescheduleGuildKeepalive(interaction.client, updatedConfig.guildId, updatedConfig);
     await completeConfigurationFromMessage(
       interaction,
@@ -1166,6 +1225,7 @@ async function savePurgeJobs(
       ),
       tempMemberPurgeCronSchedule: cronExpression,
     });
+    session.guildConfig = updatedConfig;
     rescheduleGuildPurge(interaction.client, updatedConfig.guildId, updatedConfig);
     await completeConfigurationFromMessage(
       interaction,
@@ -1233,13 +1293,12 @@ export async function handleConfigureButtonInteraction(interaction: ButtonIntera
   }
 
   if (prefix === CONFIGURE_OPEN_PREFIX) {
-    await openFeatureModal(interaction, sessionId, feature);
+    await openFeatureModal(interaction, sessionId, session);
     return;
   }
 
   if (prefix === CONFIGURE_CONTINUE_PREFIX) {
-    const guildConfig = buildDefaultGuildConfig(interaction.guildId ?? '');
-    await interaction.showModal(buildManufacturingAdvancedModal(sessionId, guildConfig));
+    await interaction.showModal(buildManufacturingAdvancedModal(sessionId, session.guildConfig));
     return;
   }
 

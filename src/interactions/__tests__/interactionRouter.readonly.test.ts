@@ -30,6 +30,13 @@ function mockRouterOnlyDependencies() {
     handleManufacturingSetupCommand: jest.fn(),
     MANUFACTURING_SETUP_COMMAND_NAME: 'manufacturing-setup',
   }));
+  jest.unstable_mockModule('../../commands/configure.command.js', () => ({
+    handleConfigureButtonInteraction: jest.fn(),
+    handleConfigureCommand: jest.fn(),
+    handleConfigureModalSubmit: jest.fn(),
+    handleConfigureSelectMenuInteraction: jest.fn(),
+    CONFIGURE_COMMAND_NAME: 'configure',
+  }));
   jest.unstable_mockModule('../../commands/order-actions.command.js', () => ({
     handleMfgCancelOrder: jest.fn(),
     handleMfgStaffCancel: jest.fn(),
@@ -484,6 +491,106 @@ describe('handleInteraction in read-only mode', () => {
 });
 
 describe('handleInteraction error handling', () => {
+  it('acknowledges unrecognized string select menu interactions', async () => {
+    process.env.BOT_READ_ONLY_MODE = 'false';
+    const handleConfigureSelectMenuInteraction = jest.fn();
+    const debugSpy = jest.fn();
+    mockRouterOnlyDependencies();
+
+    jest.unstable_mockModule('../../commands/configure.command.js', () => ({
+      handleConfigureButtonInteraction: jest.fn(),
+      handleConfigureCommand: jest.fn(),
+      handleConfigureModalSubmit: jest.fn(),
+      handleConfigureSelectMenuInteraction,
+      CONFIGURE_COMMAND_NAME: 'configure',
+    }));
+    jest.unstable_mockModule('../../commands/verify.command.js', () => ({
+      VERIFY_COMMAND_NAME: 'verify',
+      handleVerifyCommand: jest.fn(),
+      getUserVerificationData: jest.fn(),
+      clearUserVerificationData: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/healthcheck.command.js', () => ({
+      HEALTHCHECK_COMMAND_NAME: 'healthcheck',
+      handleHealthcheckCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nominate-player.command.js', () => ({
+      NOMINATE_PLAYER_COMMAND_NAME: 'nominate-player',
+      handleNominatePlayerCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-review.command.js', () => ({
+      NOMINATION_REVIEW_COMMAND_NAME: 'nomination-review',
+      handleNominationReviewCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-refresh.command.js', () => ({
+      NOMINATION_REFRESH_COMMAND_NAME: 'nomination-refresh',
+      handleNominationRefreshCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-job-status.command.js', () => ({
+      NOMINATION_JOB_STATUS_COMMAND_NAME: 'nomination-job-status',
+      handleNominationJobStatusCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-process.command.js', () => ({
+      NOMINATION_PROCESS_COMMAND_NAME: 'nomination-process',
+      handleNominationProcessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-access.command.js', () => ({
+      NOMINATION_ACCESS_COMMAND_NAME: 'nomination-access',
+      handleNominationAccessCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/nomination-audit.command.js', () => ({
+      NOMINATION_AUDIT_COMMAND_NAME: 'nomination-audit',
+      handleNominationAuditCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../commands/my-nominations.command.js', () => ({
+      MY_NOMINATIONS_COMMAND_NAME: 'my-nominations',
+      handleMyNominationsCommand: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/logger.js', () => ({
+      getLogger: () => ({
+        debug: debugSpy,
+        info: jest.fn(),
+        warn: jest.fn(),
+        error: jest.fn(),
+      }),
+    }));
+    jest.unstable_mockModule('../../services/role.services.js', () => ({
+      addMissingDefaultRoles: jest.fn(),
+      assignVerifiedRole: jest.fn(),
+      removeVerifiedRole: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../services/rsi.services.js', () => ({
+      verifyRSIProfile: jest.fn(),
+    }));
+    jest.unstable_mockModule('../../utils/i18n-config.js', () => ({
+      default: { __: jest.fn(() => 'maintenance'), __mf: jest.fn() },
+    }));
+
+    const { handleInteraction } = await import('../interactionRouter.js');
+    const reply = jest.fn(async () => undefined);
+    const interaction = {
+      id: 'select-unknown',
+      customId: 'unknown-select:123',
+      isChatInputCommand: () => false,
+      isButton: () => false,
+      isModalSubmit: () => false,
+      isStringSelectMenu: () => true,
+      replied: false,
+      deferred: false,
+      reply,
+    } as any;
+
+    await expect(handleInteraction(interaction, {} as any)).resolves.toBeUndefined();
+    expect(handleConfigureSelectMenuInteraction).not.toHaveBeenCalled();
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/something went wrong handling that selection/i),
+        flags: 64,
+      }),
+    );
+    expect(debugSpy).toHaveBeenCalledWith(expect.stringMatching(/unrecognized string select menu customId/i));
+  });
+
   it('resolves without rethrowing when deferReply throws a ConnectTimeoutError (transport failure), no fallback reply', async () => {
     // Models the real failure mode: the Discord REST API is unreachable and
     // deferReply itself rejects with a ConnectTimeoutError from undici.

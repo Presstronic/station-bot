@@ -377,6 +377,23 @@ describe('configure command', () => {
     );
   });
 
+  it('prefills the verification modal from the persisted guild config snapshot', async () => {
+    const { handleConfigureCommand, teardownConfigureCommandForTests, guildConfig } = await setup();
+    teardown = teardownConfigureCommandForTests;
+    guildConfig.verifiedRoleName = 'Existing Verified';
+
+    const interaction = makeSlashInteraction({ id: 'cfg-verify-prefill', feature: 'verification' });
+    await handleConfigureCommand(interaction as never);
+
+    expect(interaction.showModal).toHaveBeenCalledTimes(1);
+    const modal = (interaction.showModal as jest.Mock).mock.calls.at(0)?.[0] as
+      | { toJSON: () => { components: Array<{ components: Array<{ value: string }> }> } }
+      | undefined;
+    expect(modal).toBeDefined();
+    const modalJson = modal!.toJSON();
+    expect(modalJson.components[0].components[0].value).toBe('Existing Verified');
+  });
+
   it('persists nomination digest settings after schedule selection', async () => {
     const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, handleConfigureButtonInteraction, teardownConfigureCommandForTests, mocks } = await setup();
     teardown = teardownConfigureCommandForTests;
@@ -509,6 +526,39 @@ describe('configure command', () => {
         content: expect.stringMatching(/manufacturing saved/i),
       }),
     );
+  });
+
+  it('prefills the manufacturing advanced modal from the persisted guild config snapshot', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureButtonInteraction, teardownConfigureCommandForTests, guildConfig } = await setup();
+    teardown = teardownConfigureCommandForTests;
+    guildConfig.manufacturingOrderRateLimitPer5Min = 4;
+    guildConfig.manufacturingOrderRateLimitPerHour = 9;
+    guildConfig.manufacturingCreateOrderPostTitle = 'Existing Order Title';
+
+    const slash = makeSlashInteraction({ id: 'cfg-mfg-prefill', feature: 'manufacturing' });
+    await handleConfigureCommand(slash as never);
+
+    const baseModal = makeModalInteraction('cfg-modal:cfg-mfg-prefill:manufacturing:base', {
+      'forum-channel-id': 'forum-1',
+      'staff-channel-id': 'staff-1',
+      'role-id': 'role-1',
+      'order-limit': '3',
+      'max-items': '7',
+    });
+    await handleConfigureModalSubmit(baseModal as never);
+
+    const continueButton = makeButtonInteraction('cfg-continue:cfg-mfg-prefill:manufacturing');
+    await handleConfigureButtonInteraction(continueButton as never);
+
+    expect(continueButton.showModal).toHaveBeenCalledTimes(1);
+    const modal = (continueButton.showModal as jest.Mock).mock.calls.at(0)?.[0] as
+      | { toJSON: () => { components: Array<{ components: Array<{ value: string }> }> } }
+      | undefined;
+    expect(modal).toBeDefined();
+    const modalJson = modal!.toJSON();
+    expect(modalJson.components[0].components[0].value).toBe('4');
+    expect(modalJson.components[1].components[0].value).toBe('9');
+    expect(modalJson.components[2].components[0].value).toBe('Existing Order Title');
   });
 
   it('rejects empty nomination digest IDs before showing the schedule prompt', async () => {
@@ -748,15 +798,15 @@ describe('configure command', () => {
     );
   });
 
-  it('still opens a single-feature modal when guild config loading would fail elsewhere', async () => {
+  it('returns a friendly message when the initial guild config snapshot cannot be loaded', async () => {
     const { handleConfigureCommand, teardownConfigureCommandForTests } = await setupWithGuildConfigFailure();
     teardown = teardownConfigureCommandForTests;
 
     const interaction = makeSlashInteraction({ feature: 'verification' });
     await handleConfigureCommand(interaction as never);
 
-    expect(interaction.showModal).toHaveBeenCalledTimes(1);
-    expect(interaction.reply).not.toHaveBeenCalledWith(
+    expect(interaction.showModal).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/could not be loaded right now/i),
       }),
@@ -855,6 +905,27 @@ describe('configure command', () => {
     expect(select.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/requires manage server permission/i),
+      }),
+    );
+  });
+
+  it('rejects stale modal submissions that no longer match the active feature step', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-stale-modal' });
+    await handleConfigureCommand(slash as never);
+
+    const staleModal = makeModalInteraction('cfg-modal:cfg-stale-modal:nomination-digest:base', {
+      'channel-id': 'channel-123',
+      'role-id': 'role-456',
+    });
+    await handleConfigureModalSubmit(staleModal as never);
+
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+    expect(staleModal.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/step is no longer active/i),
       }),
     );
   });

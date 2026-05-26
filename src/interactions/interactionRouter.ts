@@ -224,6 +224,14 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           interaction.customId.startsWith('cfg-hour:')
         ) {
           await handleConfigureSelectMenuInteraction(interaction);
+        } else {
+          logger.debug(`[cid:${correlationId}] Unrecognized string select menu customId: ${interaction.customId}`);
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: 'Sorry, something went wrong handling that selection. Please try again.',
+              flags: MessageFlags.Ephemeral,
+            });
+          }
         }
         return;
       }
