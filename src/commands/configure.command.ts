@@ -229,7 +229,7 @@ function buildScheduleSummary(frequency?: ScheduleFrequency, hour?: string): str
     frequency === 'daily'
       ? 'Daily'
       : frequency === 'weekly'
-        ? 'Weekly'
+        ? 'Weekly (Sunday UTC)'
         : 'Not selected';
   const hourLabel = hour !== undefined ? `${hour}:00 UTC` : 'Not selected';
   return `Frequency: ${frequencyLabel}\nTime: ${hourLabel}`;
@@ -280,6 +280,17 @@ function buildSchedulePrompt(sessionId: string, feature: ConfigureFeature, draft
   return {
     content: `Finish configuring **${getFeatureLabel(feature)}**.\n${buildScheduleSummary(draft.frequency, draft.hour)}`,
     components: buildScheduleComponents(sessionId, feature, draft),
+  };
+}
+
+function buildScheduleErrorPrompt(sessionId: string, feature: ConfigureFeature, draft: ConfigureDraft, message: string): {
+  content: string;
+  components: ActionRowBuilder<StringSelectMenuBuilder | ButtonBuilder>[];
+} {
+  const prompt = buildSchedulePrompt(sessionId, feature, draft);
+  return {
+    ...prompt,
+    content: `${message}\n\n${prompt.content}`,
   };
 }
 
@@ -353,6 +364,22 @@ function parsePositiveInteger(raw: string, fieldName: string, minimum: number, m
     throw new Error(`${fieldName} must be ${boundsMessage}.`);
   }
   return parsed;
+}
+
+function parseDraftPositiveInteger(value: DraftValue, fieldName: string, minimum: number, maximum?: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || !Number.isInteger(value)) {
+    throw new Error(`${fieldName} is missing or invalid. Restart this feature with \`/configure\`.`);
+  }
+
+  if (value < minimum || (maximum !== undefined && value > maximum)) {
+    const boundsMessage =
+      maximum === undefined
+        ? `at least ${minimum}`
+        : `between ${minimum} and ${maximum}`;
+    throw new Error(`${fieldName} must be a whole number ${boundsMessage}. Restart this feature with \`/configure\`.`);
+  }
+
+  return value;
 }
 
 async function loadGuildConfigSnapshot(guildId: string): Promise<GuildConfig> {
@@ -1039,10 +1066,14 @@ async function saveNominationDigest(
       'Nomination digest saved and rescheduled.',
     );
   } catch (error) {
-    await interaction.editReply({
-      ...buildSchedulePrompt(sessionId, 'nomination-digest', session.draft),
-      content: error instanceof Error ? error.message : 'Nomination digest could not be saved.',
-    });
+    await interaction.editReply(
+      buildScheduleErrorPrompt(
+        sessionId,
+        'nomination-digest',
+        session.draft,
+        error instanceof Error ? error.message : 'Nomination digest could not be saved.',
+      ),
+    );
   }
 }
 
@@ -1063,23 +1094,24 @@ async function saveManufacturing(
   const forumChannelId = String(values.forumChannelId ?? '').trim();
   const staffChannelId = String(values.staffChannelId ?? '').trim();
   const roleId = String(values.roleId ?? '').trim();
-  const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
-  const patch: GuildConfigPatch = {
-    manufacturingEnabled: true,
-    manufacturingForumChannelId: forumChannelId,
-    manufacturingStaffChannelId: staffChannelId,
-    manufacturingRoleId: roleId,
-    manufacturingOrderLimit: Number(values.orderLimit),
-    manufacturingMaxItemsPerOrder: Number(values.maxItemsPerOrder),
-    manufacturingOrderRateLimitPer5Min: Number(values.rateLimitPer5Min),
-    manufacturingOrderRateLimitPerHour: Number(values.rateLimitPerHour),
-    manufacturingCreateOrderPostTitle: String(values.postTitle ?? '').trim(),
-    manufacturingCreateOrderPostMessage: String(values.postMessage ?? '').trim(),
-    manufacturingKeepaliveCronSchedule: cronExpression,
-  };
 
   try {
     await interaction.deferUpdate();
+    const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
+    const patch: GuildConfigPatch = {
+      manufacturingEnabled: true,
+      manufacturingForumChannelId: forumChannelId,
+      manufacturingStaffChannelId: staffChannelId,
+      manufacturingRoleId: roleId,
+      manufacturingOrderLimit: parseDraftPositiveInteger(values.orderLimit, 'Active order limit', 1),
+      manufacturingMaxItemsPerOrder: parseDraftPositiveInteger(values.maxItemsPerOrder, 'Max items per order', 1),
+      manufacturingOrderRateLimitPer5Min: parseDraftPositiveInteger(values.rateLimitPer5Min, 'Rate limit per 5 minutes', 1),
+      manufacturingOrderRateLimitPerHour: parseDraftPositiveInteger(values.rateLimitPerHour, 'Rate limit per hour', 1),
+      manufacturingCreateOrderPostTitle: String(values.postTitle ?? '').trim(),
+      manufacturingCreateOrderPostMessage: String(values.postMessage ?? '').trim(),
+      manufacturingKeepaliveCronSchedule: cronExpression,
+    };
+
     const forumChannel = await validateGuildChannel(interaction.guild, forumChannelId, 'Manufacturing forum channel ID');
     if (forumChannel.type !== ChannelType.GuildForum) {
       throw new Error('Manufacturing forum channel ID must point to a forum channel.');
@@ -1102,10 +1134,14 @@ async function saveManufacturing(
       'Manufacturing saved and keep-alive rescheduled. Run `/manufacturing setup` to refresh the Create Order thread if needed.',
     );
   } catch (error) {
-    await interaction.editReply({
-      ...buildSchedulePrompt(sessionId, 'manufacturing', session.draft),
-      content: error instanceof Error ? error.message : 'Manufacturing could not be saved.',
-    });
+    await interaction.editReply(
+      buildScheduleErrorPrompt(
+        sessionId,
+        'manufacturing',
+        session.draft,
+        error instanceof Error ? error.message : 'Manufacturing could not be saved.',
+      ),
+    );
   }
 }
 
@@ -1139,10 +1175,14 @@ async function savePurgeJobs(
       'Purge jobs saved and rescheduled.',
     );
   } catch (error) {
-    await interaction.editReply({
-      ...buildSchedulePrompt(sessionId, 'purge-jobs', session.draft),
-      content: error instanceof Error ? error.message : 'Purge jobs could not be saved.',
-    });
+    await interaction.editReply(
+      buildScheduleErrorPrompt(
+        sessionId,
+        'purge-jobs',
+        session.draft,
+        error instanceof Error ? error.message : 'Purge jobs could not be saved.',
+      ),
+    );
   }
 }
 

@@ -9,7 +9,7 @@ const logger = getLogger();
 const activeTasks = new Map<string, cron.ScheduledTask>();
 
 function buildDigestMessage(roleId: string, count: number): string {
-  return `<@&${roleId}> Daily nomination digest: **${count}** unprocessed nomination(s) are currently in the queue.`;
+  return `<@&${roleId}> Nomination digest: **${count}** unprocessed nomination(s) are currently in the queue.`;
 }
 
 function createTaskForGuild(client: Client, guildId: string, cronSchedule: string): cron.ScheduledTask {

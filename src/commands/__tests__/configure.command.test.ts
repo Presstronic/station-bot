@@ -552,6 +552,65 @@ describe('configure command', () => {
     );
   });
 
+  it('shows weekly schedules as Sunday UTC in the schedule summary', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-weekly-summary', feature: 'nomination-digest' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-weekly-summary:nomination-digest:base', {
+      'channel-id': 'channel-123',
+      'role-id': 'role-456',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    const freqSelect = makeSelectInteraction('cfg-freq:cfg-weekly-summary:nomination-digest', 'weekly');
+    await handleConfigureSelectMenuInteraction(freqSelect as never);
+
+    expect(freqSelect.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/weekly \(sunday utc\)/i),
+      }),
+    );
+  });
+
+  it('keeps the digest schedule summary visible when save validation fails', async () => {
+    const textlessGuild = {
+      ...makeGuild(),
+      channels: {
+        fetch: jest.fn(async (channelId: string) => ({
+          id: channelId,
+          type: 0,
+          isTextBased: () => false,
+        })),
+      },
+    };
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureSelectMenuInteraction, handleConfigureButtonInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-digest-error', feature: 'nomination-digest' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-digest-error:nomination-digest:base', {
+      'channel-id': 'channel-123',
+      'role-id': 'role-456',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    await handleConfigureSelectMenuInteraction(makeSelectInteraction('cfg-freq:cfg-digest-error:nomination-digest', 'weekly') as never);
+    await handleConfigureSelectMenuInteraction(makeSelectInteraction('cfg-hour:cfg-digest-error:nomination-digest', '09') as never);
+
+    const button = makeButtonInteraction('cfg-save:cfg-digest-error:nomination-digest', textlessGuild as never);
+    await handleConfigureButtonInteraction(button as never);
+
+    expect(button.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/digest channel id must point to a text-based channel\..*finish configuring \*\*nomination digest\*\*.*weekly \(sunday utc\)/is),
+      }),
+    );
+  });
+
   it('rejects empty manufacturing post content before showing the schedule prompt', async () => {
     const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureButtonInteraction, teardownConfigureCommandForTests } = await setup();
     teardown = teardownConfigureCommandForTests;
@@ -616,6 +675,47 @@ describe('configure command', () => {
     expect(advancedModal.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/100 characters or fewer/i),
+      }),
+    );
+  });
+
+  it('keeps the manufacturing schedule summary visible when save validation fails', async () => {
+    const nonForumGuild = makeGuild(0);
+    const { handleConfigureCommand, handleConfigureModalSubmit, handleConfigureButtonInteraction, handleConfigureSelectMenuInteraction, teardownConfigureCommandForTests } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-mfg-error', feature: 'manufacturing' });
+    await handleConfigureCommand(slash as never);
+
+    const baseModal = makeModalInteraction('cfg-modal:cfg-mfg-error:manufacturing:base', {
+      'forum-channel-id': 'forum-1',
+      'staff-channel-id': 'staff-1',
+      'role-id': 'role-1',
+      'order-limit': '3',
+      'max-items': '7',
+    });
+    await handleConfigureModalSubmit(baseModal as never);
+
+    const continueButton = makeButtonInteraction('cfg-continue:cfg-mfg-error:manufacturing');
+    await handleConfigureButtonInteraction(continueButton as never);
+
+    const advancedModal = makeModalInteraction('cfg-modal:cfg-mfg-error:manufacturing:advanced', {
+      'rate-limit-5min': '2',
+      'rate-limit-hour': '6',
+      'post-title': 'Build Request',
+      'post-message': 'Use this thread to submit a build request.',
+    });
+    await handleConfigureModalSubmit(advancedModal as never);
+
+    await handleConfigureSelectMenuInteraction(makeSelectInteraction('cfg-freq:cfg-mfg-error:manufacturing', 'weekly') as never);
+    await handleConfigureSelectMenuInteraction(makeSelectInteraction('cfg-hour:cfg-mfg-error:manufacturing', '06') as never);
+
+    const saveButton = makeButtonInteraction('cfg-save:cfg-mfg-error:manufacturing', nonForumGuild);
+    await handleConfigureButtonInteraction(saveButton as never);
+
+    expect(saveButton.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/manufacturing forum channel id must point to a forum channel\..*finish configuring \*\*manufacturing\*\*.*weekly \(sunday utc\)/is),
       }),
     );
   });
