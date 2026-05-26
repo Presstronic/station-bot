@@ -127,6 +127,83 @@ async function setup(configState: Partial<ConfigState> = {}) {
   };
 }
 
+async function setupWithGuildConfigFailure(configState: Partial<ConfigState> = {}) {
+  const getGuildConfigOrNull = jest.fn(async () => {
+    throw new Error('db unavailable');
+  });
+  const upsertGuildConfig = jest.fn();
+  const addMissingDefaultRoles = jest.fn(async () => undefined);
+  const rescheduleGuildDigest = jest.fn();
+  const rescheduleGuildKeepalive = jest.fn();
+  const rescheduleGuildPurge = jest.fn();
+
+  const flags: ConfigState = {
+    verification: configState.verification ?? true,
+    nominationDigest: configState.nominationDigest ?? true,
+    manufacturing: configState.manufacturing ?? true,
+  };
+
+  jest.unstable_mockModule('../../utils/logger.js', () => ({
+    getLogger: () => ({
+      debug: jest.fn(),
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+    }),
+  }));
+
+  jest.unstable_mockModule('../../config/runtime-flags.js', () => ({
+    isVerificationEnabled: () => flags.verification,
+    isReadOnlyMode: () => false,
+  }));
+
+  jest.unstable_mockModule('../../config/nomination-digest.config.js', () => ({
+    isNominationDigestEnabled: () => flags.nominationDigest,
+  }));
+
+  jest.unstable_mockModule('../../config/manufacturing.config.js', () => ({
+    isManufacturingEnabled: () => flags.manufacturing,
+  }));
+
+  jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
+    getGuildConfigOrNull,
+    upsertGuildConfig,
+  }));
+
+  jest.unstable_mockModule('../../jobs/discord/nomination-digest.job.js', () => ({
+    rescheduleGuildDigest,
+  }));
+
+  jest.unstable_mockModule('../../jobs/discord/manufacturing-keepalive.job.js', () => ({
+    rescheduleGuildKeepalive,
+  }));
+
+  jest.unstable_mockModule('../../jobs/discord/purge-member.job.js', () => ({
+    rescheduleGuildPurge,
+  }));
+
+  jest.unstable_mockModule('../../services/nominations/db.js', () => ({
+    isDatabaseConfigured: () => true,
+  }));
+
+  jest.unstable_mockModule('../../services/role.services.js', () => ({
+    addMissingDefaultRoles,
+  }));
+
+  const mod = await import('../configure.command.js');
+  return {
+    ...mod,
+    mocks: {
+      getGuildConfigOrNull,
+      upsertGuildConfig,
+      addMissingDefaultRoles,
+      rescheduleGuildDigest,
+      rescheduleGuildKeepalive,
+      rescheduleGuildPurge,
+    },
+  };
+}
+
 function makeSlashInteraction({
   id = 'slash-1',
   feature = null as string | null,
@@ -171,6 +248,8 @@ function makeModalInteraction(customId: string, values: Record<string, string>, 
     fields: {
       getTextInputValue: jest.fn((key: string) => values[key]),
     },
+    deferReply: jest.fn(async () => undefined),
+    editReply: jest.fn(async () => undefined),
     reply: jest.fn(async () => undefined),
   };
 }
@@ -194,6 +273,8 @@ function makeButtonInteraction(customId: string, guild = makeGuild(), canManageG
     inGuild: () => true,
     memberPermissions: { has: jest.fn(() => canManageGuild) },
     client: {},
+    deferUpdate: jest.fn(async () => undefined),
+    editReply: jest.fn(async () => undefined),
     showModal: jest.fn(async () => undefined),
     update: jest.fn(async () => undefined),
     reply: jest.fn(async () => undefined),
@@ -265,7 +346,12 @@ describe('configure command', () => {
       orgMemberRoleId: 'role-123',
     }));
     expect(mocks.addMissingDefaultRoles).toHaveBeenCalled();
-    expect(modal.reply).toHaveBeenCalledWith(
+    expect(modal.deferReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        flags: expect.any(Number),
+      }),
+    );
+    expect(modal.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/verification saved/i),
       }),
@@ -301,7 +387,8 @@ describe('configure command', () => {
       nominationDigestCronSchedule: '0 9 * * 0',
     }));
     expect(mocks.rescheduleGuildDigest).toHaveBeenCalledWith(expect.anything(), 'guild-1', '0 9 * * 0');
-    expect(button.update).toHaveBeenCalledWith(
+    expect(button.deferUpdate).toHaveBeenCalled();
+    expect(button.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/nomination digest saved/i),
       }),
@@ -397,7 +484,8 @@ describe('configure command', () => {
       manufacturingKeepaliveCronSchedule: '0 6 * * 0',
     }));
     expect(mocks.rescheduleGuildKeepalive).toHaveBeenCalled();
-    expect(saveButton.update).toHaveBeenCalledWith(
+    expect(saveButton.deferUpdate).toHaveBeenCalled();
+    expect(saveButton.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/manufacturing saved/i),
       }),
@@ -444,6 +532,45 @@ describe('configure command', () => {
     expect(invalidFreq.update).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/unsupported schedule frequency/i),
+      }),
+    );
+  });
+
+  it('surfaces a friendly message when guild config cannot be loaded for a single-feature run', async () => {
+    const { handleConfigureCommand, teardownConfigureCommandForTests } = await setupWithGuildConfigFailure();
+    teardown = teardownConfigureCommandForTests;
+
+    const interaction = makeSlashInteraction({ feature: 'verification' });
+    await handleConfigureCommand(interaction as never);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/could not be loaded right now/i),
+      }),
+    );
+    expect(interaction.showModal).not.toHaveBeenCalled();
+  });
+
+  it('uses friendly lower-bound wording for unbounded integer validation errors', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-mfg-lower-bound', feature: 'manufacturing' });
+    await handleConfigureCommand(slash as never);
+
+    const baseModal = makeModalInteraction('cfg-modal:cfg-mfg-lower-bound:manufacturing:base', {
+      'forum-channel-id': 'forum-1',
+      'staff-channel-id': 'staff-1',
+      'role-id': 'role-1',
+      'order-limit': '0',
+      'max-items': '7',
+    });
+    await handleConfigureModalSubmit(baseModal as never);
+
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+    expect(baseModal.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/whole number of at least 1/i),
       }),
     );
   });

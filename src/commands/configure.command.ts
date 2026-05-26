@@ -282,6 +282,10 @@ function buildUnavailableMessage(): string {
   return 'Configuration is currently unavailable because the database is not configured.';
 }
 
+function buildConfigurationLoadFailedMessage(): string {
+  return 'Configuration settings could not be loaded right now. Please try again in a moment.';
+}
+
 function parseCronHour(value: string): number {
   return Number.parseInt(value, 10);
 }
@@ -322,7 +326,11 @@ function assertCronSupported(frequency: ScheduleFrequency, hour: string): string
 function parsePositiveInteger(raw: string, fieldName: string, minimum: number, maximum?: number): number {
   const parsed = Number.parseInt(raw.trim(), 10);
   if (!Number.isInteger(parsed) || parsed < minimum || (maximum !== undefined && parsed > maximum)) {
-    throw new Error(`${fieldName} must be a whole number between ${minimum} and ${maximum ?? 'infinity'}.`);
+    const boundsMessage =
+      maximum === undefined
+        ? `a whole number of at least ${minimum}`
+        : `a whole number between ${minimum} and ${maximum}`;
+    throw new Error(`${fieldName} must be ${boundsMessage}.`);
   }
   return parsed;
 }
@@ -403,16 +411,14 @@ async function finishOrAdvanceFromModal(
   const nextFeature = getCurrentFeature(session);
   if (session.mode === 'single' || nextFeature === null) {
     sessions.delete(sessionId);
-    await interaction.reply({
+    await interaction.editReply({
       content: session.mode === 'single' ? detail : buildWizardSummary(session),
-      flags: MessageFlags.Ephemeral,
     });
     return;
   }
 
-  await interaction.reply({
+  await interaction.editReply({
     ...buildFeaturePrompt(sessionId, nextFeature),
-    flags: MessageFlags.Ephemeral,
   });
 }
 
@@ -605,7 +611,12 @@ async function openFeatureModal(
   feature: ConfigureFeature,
 ): Promise<void> {
   const guildId = interaction.guildId ?? '';
-  const guildConfig = await loadGuildConfigSnapshot(guildId);
+  let guildConfig: GuildConfig;
+  try {
+    guildConfig = await loadGuildConfigSnapshot(guildId);
+  } catch {
+    throw new Error(buildConfigurationLoadFailedMessage());
+  }
 
   switch (feature) {
     case 'verification':
@@ -653,7 +664,15 @@ export async function handleConfigureCommand(interaction: ChatInputCommandIntera
     }
 
     createSession(interaction.id, guildId, [selectedFeature], 'single');
-    await openFeatureModal(interaction, interaction.id, selectedFeature);
+    try {
+      await openFeatureModal(interaction, interaction.id, selectedFeature);
+    } catch (error) {
+      sessions.delete(interaction.id);
+      await interaction.reply({
+        content: error instanceof Error ? error.message : buildConfigurationLoadFailedMessage(),
+        flags: MessageFlags.Ephemeral,
+      });
+    }
     return;
   }
 
@@ -706,6 +725,8 @@ async function handleVerificationModalSubmit(
   }
 
   try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
     if (orgMemberRoleId.length > 0) {
       await validateGuildRole(interaction.guild, orgMemberRoleId, 'Org member role ID');
     }
@@ -727,9 +748,8 @@ async function handleVerificationModalSubmit(
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Verification could not be saved.';
-    await interaction.reply({
+    await interaction.editReply({
       content: message,
-      flags: MessageFlags.Ephemeral,
     });
   }
 }
@@ -927,14 +947,14 @@ async function completeConfigurationFromMessage(
   const nextFeature = getCurrentFeature(session);
   if (session.mode === 'single' || nextFeature === null) {
     sessions.delete(sessionId);
-    await interaction.update({
+    await interaction.editReply({
       content: session.mode === 'single' ? detail : buildWizardSummary(session),
       components: [],
     });
     return;
   }
 
-  await interaction.update({
+  await interaction.editReply({
     ...buildFeaturePrompt(sessionId, nextFeature),
   });
 }
@@ -956,6 +976,7 @@ async function saveNominationDigest(
   const roleId = String(session.draft.values.roleId ?? '').trim();
 
   try {
+    await interaction.deferUpdate();
     const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
     const channel = await validateGuildChannel(interaction.guild, channelId, 'Digest channel ID');
     if (!isSendableTextChannel(channel)) {
@@ -978,7 +999,7 @@ async function saveNominationDigest(
       'Nomination digest saved and rescheduled.',
     );
   } catch (error) {
-    await interaction.update({
+    await interaction.editReply({
       ...buildSchedulePrompt(sessionId, 'nomination-digest', session.draft),
       content: error instanceof Error ? error.message : 'Nomination digest could not be saved.',
     });
@@ -1018,6 +1039,7 @@ async function saveManufacturing(
   };
 
   try {
+    await interaction.deferUpdate();
     const forumChannel = await validateGuildChannel(interaction.guild, forumChannelId, 'Manufacturing forum channel ID');
     if (forumChannel.type !== ChannelType.GuildForum) {
       throw new Error('Manufacturing forum channel ID must point to a forum channel.');
@@ -1040,7 +1062,7 @@ async function saveManufacturing(
       'Manufacturing saved and keep-alive rescheduled. Run `/manufacturing setup` to refresh the Create Order thread if needed.',
     );
   } catch (error) {
-    await interaction.update({
+    await interaction.editReply({
       ...buildSchedulePrompt(sessionId, 'manufacturing', session.draft),
       content: error instanceof Error ? error.message : 'Manufacturing could not be saved.',
     });
@@ -1061,6 +1083,7 @@ async function savePurgeJobs(
   }
 
   try {
+    await interaction.deferUpdate();
     const cronExpression = assertCronSupported(session.draft.frequency, session.draft.hour);
     const updatedConfig = await upsertGuildConfig(interaction.guildId ?? '', {
       purgeJobsEnabled: true,
@@ -1076,7 +1099,7 @@ async function savePurgeJobs(
       'Purge jobs saved and rescheduled.',
     );
   } catch (error) {
-    await interaction.update({
+    await interaction.editReply({
       ...buildSchedulePrompt(sessionId, 'purge-jobs', session.draft),
       content: error instanceof Error ? error.message : 'Purge jobs could not be saved.',
     });
@@ -1122,13 +1145,29 @@ export async function handleConfigureButtonInteraction(interaction: ButtonIntera
   }
 
   if (prefix === CONFIGURE_OPEN_PREFIX) {
-    await openFeatureModal(interaction, sessionId, feature);
+    try {
+      await openFeatureModal(interaction, sessionId, feature);
+    } catch (error) {
+      sessions.delete(sessionId);
+      await interaction.update({
+        content: error instanceof Error ? error.message : buildConfigurationLoadFailedMessage(),
+        components: [],
+      });
+    }
     return;
   }
 
   if (prefix === CONFIGURE_CONTINUE_PREFIX) {
-    const guildConfig = await loadGuildConfigSnapshot(interaction.guildId ?? '');
-    await interaction.showModal(buildManufacturingAdvancedModal(sessionId, guildConfig));
+    try {
+      const guildConfig = await loadGuildConfigSnapshot(interaction.guildId ?? '');
+      await interaction.showModal(buildManufacturingAdvancedModal(sessionId, guildConfig));
+    } catch {
+      sessions.delete(sessionId);
+      await interaction.update({
+        content: buildConfigurationLoadFailedMessage(),
+        components: [],
+      });
+    }
     return;
   }
 
