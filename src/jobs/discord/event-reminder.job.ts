@@ -41,12 +41,35 @@ function buildEventLink(guildId: string, eventId: string): string {
   return `https://discord.com/events/${guildId}/${eventId}`;
 }
 
-// Discord rejects message content longer than 2000 characters. Long event
-// descriptions can push us over; truncate the assembled message so the send
-// always succeeds rather than failing forever and re-claiming every tick.
-function truncateForDiscord(message: string): string {
-  if (message.length <= DISCORD_MAX_MESSAGE_LENGTH) return message;
-  return message.slice(0, DISCORD_MAX_MESSAGE_LENGTH - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
+// Discord rejects message content longer than 2000 characters. The variable
+// piece is the event description (eventBody); the prefix line and trailing
+// event link are short and predictable. We render the i18n template twice:
+// first with an empty body to measure the fixed overhead, then with a body
+// truncated to fit the remaining budget. This preserves the trailing event
+// link in all cases — both because we document that the link is always
+// appended, and because Discord's event-card auto-embed only fires when the
+// URL is present in the message content.
+function renderMessage(
+  phrase: string,
+  locale: string,
+  body: string,
+  // Other interpolation vars besides `eventBody` (eventTitle, startTime, etc.).
+  staticVars: Record<string, string>,
+): string {
+  const baseVars = { ...staticVars, eventBody: '' };
+  const baseLength = i18n.__mf({ phrase, locale }, baseVars).length;
+  const budget = DISCORD_MAX_MESSAGE_LENGTH - baseLength;
+
+  let finalBody: string;
+  if (budget <= 0) {
+    finalBody = '';
+  } else if (body.length <= budget) {
+    finalBody = body;
+  } else {
+    finalBody = body.slice(0, budget - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
+  }
+
+  return i18n.__mf({ phrase, locale }, { ...staticVars, eventBody: finalBody });
 }
 
 function pickChannelId(event: GuildScheduledEvent, defaultChannelId: string | null): string | null {
@@ -79,7 +102,7 @@ async function postReminder(
 
   try {
     await channel.send({
-      content: truncateForDiscord(message),
+      content: message,
       allowedMentions: { parse: ['everyone'] },
     });
     return true;
@@ -124,12 +147,13 @@ async function handleRescheduleNotice(
   if (!claimed) return;
 
   const locale = guild.preferredLocale?.substring(0, 2) || 'en';
-  const message = i18n.__mf(
-    { phrase: 'jobs.eventReminders.messageRescheduled', locale },
+  const message = renderMessage(
+    'jobs.eventReminders.messageRescheduled',
+    locale,
+    event.description ?? '',
     {
       eventTitle: event.name,
       startTime: formatStartTimeToken(startMs),
-      eventBody: event.description ?? '',
       eventLink: buildEventLink(guild.id, event.id),
     },
   );
@@ -170,13 +194,14 @@ async function handleReminderWindow(
     target.key === '24h'
       ? 'jobs.eventReminders.message24h'
       : 'jobs.eventReminders.message6h';
-  const message = i18n.__mf(
-    { phrase, locale },
+  const message = renderMessage(
+    phrase,
+    locale,
+    event.description ?? '',
     {
       hoursLabel: target.hoursLabel,
       eventTitle: event.name,
       startTime: formatStartTimeToken(startMs),
-      eventBody: event.description ?? '',
       eventLink: buildEventLink(guild.id, event.id),
     },
   );

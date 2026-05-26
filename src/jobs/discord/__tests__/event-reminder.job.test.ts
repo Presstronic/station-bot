@@ -400,9 +400,10 @@ describe('event reminder tick', () => {
     expect(sendCall.content).toContain('https://discord.com/events/guild-1/event-xyz');
   });
 
-  it('truncates messages that would exceed Discord 2000-char limit', async () => {
+  it('truncates the body so the message fits Discord 2000-char limit while preserving the event link', async () => {
     const now = Date.now();
     const event = makeEvent({
+      id: 'event-truncate',
       description: 'x'.repeat(3000),
       scheduledStartTimestamp: now + 24 * HOUR_MS,
     });
@@ -417,7 +418,10 @@ describe('event reminder tick', () => {
 
     const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
     expect(sendCall.content.length).toBeLessThanOrEqual(2000);
-    expect(sendCall.content.endsWith('…')).toBe(true);
+    // Body was truncated — ellipsis present somewhere in the message
+    expect(sendCall.content).toContain('…');
+    // Event link survived truncation (required for Discord's event-card embed)
+    expect(sendCall.content).toContain('https://discord.com/events/guild-1/event-truncate');
   });
 });
 
