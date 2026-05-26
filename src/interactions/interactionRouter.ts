@@ -54,6 +54,13 @@ import {
   MANUFACTURING_SETUP_COMMAND_NAME,
 } from '../commands/manufacturing-setup.command.js';
 import {
+  handleConfigureButtonInteraction,
+  handleConfigureCommand,
+  handleConfigureModalSubmit,
+  handleConfigureSelectMenuInteraction,
+  CONFIGURE_COMMAND_NAME,
+} from '../commands/configure.command.js';
+import {
   handleMfgCancelOrder,
   handleMfgStaffCancel,
   handleMfgAdvance,
@@ -115,7 +122,7 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
       if (
         readOnlyMode &&
         !isHealthcheckCommand &&
-        (interaction.isChatInputCommand() || interaction.isButton() || interaction.isModalSubmit())
+        (interaction.isChatInputCommand() || interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu())
       ) {
         const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
         const maintenanceMessage = i18n.__({
@@ -156,6 +163,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleOrderCommand(interaction);
         } else if (interaction.commandName === MANUFACTURING_SETUP_COMMAND_NAME) {
           await handleManufacturingSetupCommand(interaction);
+        } else if (interaction.commandName === CONFIGURE_COMMAND_NAME) {
+          await handleConfigureCommand(interaction);
         }
         return;
       }
@@ -163,6 +172,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
       if (interaction.isModalSubmit()) {
         if (interaction.customId.startsWith(`${ITEM_MODAL_PREFIX}:`)) {
           await handleOrderItemModal(interaction);
+        } else if (interaction.customId.startsWith('cfg-modal:')) {
+          await handleConfigureModalSubmit(interaction);
         } else {
           logger.debug(`[cid:${correlationId}] Unrecognized modal customId: ${interaction.customId}`);
           if (!interaction.replied && !interaction.deferred) {
@@ -194,9 +205,35 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           interaction.customId.startsWith(`${MFG_MARK_COMPLETE_PREFIX}:`)
         ) {
           await handleMfgAdvance(interaction);
+        } else if (
+          interaction.customId.startsWith('cfg-open:') ||
+          interaction.customId.startsWith('cfg-skip:') ||
+          interaction.customId.startsWith('cfg-save:') ||
+          interaction.customId.startsWith('cfg-continue:')
+        ) {
+          await handleConfigureButtonInteraction(interaction);
         } else {
           await handleVerifyButtonInteraction(interaction);
         }
+        return;
+      }
+
+      if (interaction.isStringSelectMenu()) {
+        if (
+          interaction.customId.startsWith('cfg-freq:') ||
+          interaction.customId.startsWith('cfg-hour:')
+        ) {
+          await handleConfigureSelectMenuInteraction(interaction);
+        } else {
+          logger.debug(`[cid:${correlationId}] Unrecognized string select menu customId: ${interaction.customId}`);
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: 'Sorry, something went wrong handling that selection. Please try again.',
+              flags: MessageFlags.Ephemeral,
+            });
+          }
+        }
+        return;
       }
     } catch (error) {
       // Interaction token expired — Discord will show "application did not respond".

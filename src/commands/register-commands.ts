@@ -13,6 +13,7 @@ import { verifyCommandBuilder } from './verify.command.js';
 import { healthcheckCommandBuilder } from './healthcheck.command.js';
 import { orderCommandBuilder } from './order-submit.command.js';
 import { manufacturingCommandBuilder } from './manufacturing-setup.command.js';
+import { configureCommandBuilder } from './configure.command.js';
 import {
   setRegisteredCommandNamesFallback,
   setRegisteredCommandNames,
@@ -33,6 +34,7 @@ const allCommands = [
   myNominationsCommandBuilder,
   orderCommandBuilder,
   manufacturingCommandBuilder,
+  configureCommandBuilder,
 ];
 
 setRegisteredCommandNamesFallback(allCommands.map((command) => command.toJSON().name));

@@ -281,7 +281,7 @@ describe('scheduleNominationDigests', () => {
     await runTaskByIndex(0);
 
     expect(channel.send).toHaveBeenCalledWith({
-      content: '<@&role-456> Daily nomination digest: **12** unprocessed nomination(s) are currently in the queue.',
+      content: '<@&role-456> Nomination digest: **12** unprocessed nomination(s) are currently in the queue.',
       allowedMentions: { roles: ['role-456'] },
     });
   });
