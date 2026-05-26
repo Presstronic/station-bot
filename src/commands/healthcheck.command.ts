@@ -4,12 +4,15 @@ import {
   MessageFlags,
   PermissionFlagsBits,
 } from 'discord.js';
+import { createRequire } from 'node:module';
 import i18n from '../utils/i18n-config.js';
 import { isReadOnlyMode } from '../config/runtime-flags.js';
 import { toDateString } from '../utils/date.js';
 import { getRegisteredCommandNamesState } from './registration-state.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
+const _require = createRequire(import.meta.url);
+const { version: appVersion } = _require('../../package.json') as { version: string };
 
 export const HEALTHCHECK_COMMAND_NAME = 'healthcheck';
 
@@ -52,6 +55,7 @@ export async function handleHealthcheckCommand(interaction: ChatInputCommandInte
       { phrase: 'commands.healthcheck.responses.status', locale },
       {
         botTag: botUsername,
+        appVersion,
         currentUtc,
         readOnlyStatus,
         activeCommands,

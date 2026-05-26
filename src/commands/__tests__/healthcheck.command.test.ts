@@ -1,4 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { createRequire } from 'node:module';
+
+const _require = createRequire(import.meta.url);
+const pkg = _require('../../../package.json') as { version: string };
 
 const originalReadOnlyMode = process.env.BOT_READ_ONLY_MODE;
 
@@ -92,6 +96,11 @@ describe('healthcheck command', () => {
       expect.objectContaining({
         content: expect.stringContaining('station-bot'),
         flags: 64,
+      })
+    );
+    expect(reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining(pkg.version),
       })
     );
     expect(reply).toHaveBeenCalledTimes(1);
