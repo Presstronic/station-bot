@@ -17,9 +17,26 @@ const activeTasks = new Map<string, cron.ScheduledTask>();
 
 const HOUR_MS = 60 * 60 * 1000;
 const TOLERANCE_MS = 15 * 60 * 1000;
-const RESCHEDULE_NOTICE_WINDOW_MS = 48 * HOUR_MS;
 const DISCORD_MAX_MESSAGE_LENGTH = 2000;
 const TRUNCATION_SUFFIX = '…';
+
+// Exported so tests can pin their boundary cases to the same value the
+// production code uses, rather than hardcoding "30h" / "72h" that would
+// silently drift if this window changes.
+export const RESCHEDULE_NOTICE_WINDOW_MS = 48 * HOUR_MS;
+
+// Single shared template for the 24h and 6h reminders. The wording is the
+// same — only the hoursLabel parameter differs — so collapsing avoids two
+// locale keys silently drifting apart.
+const REMINDER_PHRASE_KEY = 'jobs.eventReminders.message';
+
+// Pulls the primary language subtag from an IETF BCP-47 locale string.
+// Using split keeps three-letter language codes intact (e.g. 'arq-DZ' →
+// 'arq'), where a fixed substring would clip them to two characters.
+function parseLocale(preferredLocale: string | null | undefined): string {
+  if (!preferredLocale) return 'en';
+  return preferredLocale.split('-')[0] || 'en';
+}
 
 interface ReminderTarget {
   key: '24h' | '6h';
@@ -83,26 +100,55 @@ function pickChannelId(event: GuildScheduledEvent, defaultChannelId: string | nu
   return defaultChannelId;
 }
 
-async function postReminder(
+// Type guard for channels we can post a reminder into. Pulled into a helper
+// so it can be called before claiming the dedup row in event_reminders —
+// otherwise an unreachable channel would cause a claim/release loop every
+// tick and spam the log.
+interface SendableChannel {
+  send: (options: { content: string; allowedMentions: { parse: ['everyone'] } }) => Promise<unknown>;
+}
+
+async function resolveSendableChannel(
   guild: Guild,
   channelId: string,
-  message: string,
-): Promise<boolean> {
+): Promise<SendableChannel | null> {
   const channel = await guild.client.channels.fetch(channelId).catch((error: unknown) => {
     logger.warn('[event-reminder] Failed to fetch reminder channel', { guildId: guild.id, channelId, error });
     return null;
   });
 
-  if (!channel) return false;
+  if (!channel) return null;
 
   if (!channel.isTextBased() || !('send' in channel)) {
     logger.warn('[event-reminder] Configured reminder channel is not text-based', { guildId: guild.id, channelId });
-    return false;
+    return null;
+  }
+
+  return channel as unknown as SendableChannel;
+}
+
+async function postReminder(
+  guild: Guild,
+  channel: SendableChannel,
+  channelId: string,
+  message: string,
+): Promise<boolean> {
+  // Belt-and-suspenders: the two-pass renderMessage already keeps the message
+  // within 2000 chars, but a future template edit could break that invariant.
+  // A final length check here guarantees we never send oversize content.
+  let finalContent = message;
+  if (finalContent.length > DISCORD_MAX_MESSAGE_LENGTH) {
+    logger.warn('[event-reminder] Rendered message exceeded Discord limit; truncating', {
+      guildId: guild.id,
+      channelId,
+      renderedLength: finalContent.length,
+    });
+    finalContent = finalContent.slice(0, DISCORD_MAX_MESSAGE_LENGTH - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
   }
 
   try {
     await channel.send({
-      content: message,
+      content: finalContent,
       allowedMentions: { parse: ['everyone'] },
     });
     return true;
@@ -142,11 +188,16 @@ async function handleRescheduleNotice(
     return;
   }
 
+  // Validate the channel BEFORE claiming the ledger row so an unreachable
+  // channel cannot trigger a claim/release loop on every tick.
+  const sendable = await resolveSendableChannel(guild, channelId);
+  if (!sendable) return;
+
   const reminderKey = `reschedule-${Math.floor(startMs / 1000)}`;
   const claimed = await tryClaimReminder(guild.id, event.id, reminderKey, channelId);
   if (!claimed) return;
 
-  const locale = guild.preferredLocale?.substring(0, 2) || 'en';
+  const locale = parseLocale(guild.preferredLocale);
   const message = renderMessage(
     'jobs.eventReminders.messageRescheduled',
     locale,
@@ -158,7 +209,7 @@ async function handleRescheduleNotice(
     },
   );
 
-  const sent = await postReminder(guild, channelId, message);
+  const sent = await postReminder(guild, sendable, channelId, message);
   if (!sent) {
     await releaseReminderClaim(event.id, reminderKey);
   }
@@ -186,16 +237,17 @@ async function handleReminderWindow(
     return;
   }
 
+  // Validate the channel BEFORE claiming the ledger row so an unreachable
+  // channel cannot trigger a claim/release loop on every tick.
+  const sendable = await resolveSendableChannel(guild, channelId);
+  if (!sendable) return;
+
   const claimed = await tryClaimReminder(guild.id, event.id, target.key, channelId);
   if (!claimed) return;
 
-  const locale = guild.preferredLocale?.substring(0, 2) || 'en';
-  const phrase =
-    target.key === '24h'
-      ? 'jobs.eventReminders.message24h'
-      : 'jobs.eventReminders.message6h';
+  const locale = parseLocale(guild.preferredLocale);
   const message = renderMessage(
-    phrase,
+    REMINDER_PHRASE_KEY,
     locale,
     event.description ?? '',
     {
@@ -206,7 +258,7 @@ async function handleReminderWindow(
     },
   );
 
-  const sent = await postReminder(guild, channelId, message);
+  const sent = await postReminder(guild, sendable, channelId, message);
   if (!sent) {
     await releaseReminderClaim(event.id, target.key);
   }
@@ -240,10 +292,7 @@ async function runEventReminderTick(client: Client, guildId: string): Promise<vo
     const now = Date.now();
 
     for (const event of events.values()) {
-      if (
-        event.status !== GuildScheduledEventStatus.Scheduled &&
-        event.status !== GuildScheduledEventStatus.Active
-      ) {
+      if (event.status !== GuildScheduledEventStatus.Scheduled) {
         continue;
       }
       const startMs = event.scheduledStartTimestamp;
@@ -306,6 +355,14 @@ export function scheduleEventReminders(
   }
 
   return activeTasks;
+}
+
+// Exposed for tests so the module-level activeTasks map can be cleared
+// without relying on jest.resetModules() side effects. Tests can call this
+// in afterEach to prevent leaks between cases.
+export function resetEventRemindersForTests(): void {
+  for (const task of activeTasks.values()) task.stop();
+  activeTasks.clear();
 }
 
 export function rescheduleGuildEventReminders(

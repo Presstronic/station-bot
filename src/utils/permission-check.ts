@@ -27,7 +27,7 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
  */
 export function checkBotPermissions(
   guild: Guild,
-  flags: { verificationEnabled: boolean; purgeJobsEnabled: boolean; manufacturingEnabled: boolean; eventRemindersEnabled?: boolean },
+  flags: { verificationEnabled: boolean; purgeJobsEnabled: boolean; manufacturingEnabled: boolean; eventRemindersEnabled: boolean },
 ): PermissionKey[] {
   const required: PermissionKey[] = [];
 

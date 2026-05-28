@@ -14,6 +14,7 @@ const allFlags = {
   verificationEnabled: true,
   purgeJobsEnabled: true,
   manufacturingEnabled: true,
+  eventRemindersEnabled: false,
 };
 
 function makeMe(grantedKeys: Extract<keyof typeof PermissionFlagsBits, string>[]) {
@@ -108,6 +109,7 @@ describe('checkBotPermissions', () => {
         verificationEnabled: false,
         purgeJobsEnabled: false,
         manufacturingEnabled: false,
+        eventRemindersEnabled: false,
       }),
     ).toEqual([]);
   });

@@ -1,9 +1,23 @@
-import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { GuildScheduledEventEntityType, GuildScheduledEventStatus } from 'discord.js';
 import type { GuildConfig } from '../../../domain/guild-config/guild-config.service.js';
 
 beforeEach(() => {
   jest.resetModules();
+});
+
+// Tear down module-level scheduler state between cases so tests cannot
+// pick up tasks scheduled by a previous case. jest.resetModules() above
+// already accomplishes this by re-instantiating the module, but the
+// explicit reset documents the contract and lets us drop resetModules()
+// in the future without breaking isolation silently.
+afterEach(async () => {
+  try {
+    const mod = await import('../event-reminder.job.js');
+    mod.resetEventRemindersForTests();
+  } catch {
+    // module not imported by the test — ignore.
+  }
 });
 
 type CronCallback = () => Promise<void>;
@@ -298,7 +312,7 @@ describe('event reminder tick', () => {
     expect(setup.tryClaimReminder).toHaveBeenCalledWith('guild-1', 'event-1', '24h', 'default-channel');
     expect(setup.channelSend).toHaveBeenCalled();
     const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string; allowedMentions: unknown };
-    expect(sendCall.content).toContain('[jobs.eventReminders.message24h]');
+    expect(sendCall.content).toContain('[jobs.eventReminders.message]');
     expect(sendCall.allowedMentions).toEqual({ parse: ['everyone'] });
   });
 
@@ -422,6 +436,46 @@ describe('event reminder tick', () => {
     expect(sendCall.content).toContain('…');
     // Event link survived truncation (required for Discord's event-card embed)
     expect(sendCall.content).toContain('https://discord.com/events/guild-1/event-truncate');
+  });
+});
+
+describe('claim/release ordering', () => {
+  it('does not claim a reminder when the channel cannot be fetched', async () => {
+    const now = Date.now();
+    const event = makeEvent({ scheduledStartTimestamp: now + 24 * HOUR_MS });
+    const setup = await setupMocks({ events: [event], fetchChannelReturns: 'error' });
+    const { scheduleEventReminders } = await importJob();
+
+    scheduleEventReminders(
+      (setup as unknown as { _client: never })._client,
+      [makeGuildConfig()],
+    );
+    await setup.runTaskByIndex(0);
+
+    // The fix: the claim must NOT happen for an unreachable channel,
+    // otherwise we'd insert+delete a row on every tick.
+    expect(setup.tryClaimReminder).not.toHaveBeenCalled();
+    expect(setup.releaseReminderClaim).not.toHaveBeenCalled();
+    expect(setup.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to fetch reminder channel'),
+      expect.any(Object),
+    );
+  });
+
+  it('does not claim a reminder when the channel is not text-based', async () => {
+    const now = Date.now();
+    const event = makeEvent({ scheduledStartTimestamp: now + 24 * HOUR_MS });
+    const setup = await setupMocks({ events: [event], fetchChannelReturns: 'non-text' });
+    const { scheduleEventReminders } = await importJob();
+
+    scheduleEventReminders(
+      (setup as unknown as { _client: never })._client,
+      [makeGuildConfig()],
+    );
+    await setup.runTaskByIndex(0);
+
+    expect(setup.tryClaimReminder).not.toHaveBeenCalled();
+    expect(setup.releaseReminderClaim).not.toHaveBeenCalled();
   });
 });
 
@@ -554,18 +608,26 @@ describe('reschedule notice', () => {
     expect(setup.channelSend).not.toHaveBeenCalled();
   });
 
-  it('sends a reschedule notice when start time changes and new start is within 48h', async () => {
+  it('sends a reschedule notice when start time changes and new start is inside the reschedule window', async () => {
+    // Important: setupMocks() must run before importJob() so the mocked
+    // node-cron is registered before the module evaluates.
+    // We compute boundary values from the production constant after the
+    // first import so tests pin to the same window as the running code.
     const now = Date.now();
-    const oldStart = new Date(now + 60 * HOUR_MS).toISOString();
-    const newStartMs = now + 30 * HOUR_MS;
-    const event = makeEvent({ scheduledStartTimestamp: newStartMs });
+    // Placeholder times — recomputed once we know the actual window.
+    const event = makeEvent({ scheduledStartTimestamp: now + 12 * HOUR_MS });
     const setup = await setupMocks({
       events: [event],
       eventStateRows: {
-        'event-1': { eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart },
+        'event-1': { eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: new Date(now).toISOString() },
       },
     });
-    const { scheduleEventReminders } = await importJob();
+    const job = await importJob();
+    const { scheduleEventReminders, RESCHEDULE_NOTICE_WINDOW_MS } = job;
+    const oldStart = new Date(now + RESCHEDULE_NOTICE_WINDOW_MS + 12 * HOUR_MS).toISOString();
+    const newStartMs = now + Math.floor(RESCHEDULE_NOTICE_WINDOW_MS / 2);
+    event.scheduledStartTimestamp = newStartMs;
+    setup.getEventState.mockResolvedValueOnce({ eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart });
 
     scheduleEventReminders(
       (setup as unknown as { _client: never })._client,
@@ -582,18 +644,21 @@ describe('reschedule notice', () => {
     expect(sentReschedule).toBeDefined();
   });
 
-  it('updates state but does not send a notice when reschedule moves the event >48h out', async () => {
+  it('updates state but does not send a notice when reschedule moves the event beyond the reschedule window', async () => {
     const now = Date.now();
-    const oldStart = new Date(now + 60 * HOUR_MS).toISOString();
-    const newStartMs = now + 72 * HOUR_MS;
-    const event = makeEvent({ scheduledStartTimestamp: newStartMs });
+    const event = makeEvent({ scheduledStartTimestamp: now + 12 * HOUR_MS });
     const setup = await setupMocks({
       events: [event],
       eventStateRows: {
-        'event-1': { eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart },
+        'event-1': { eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: new Date(now).toISOString() },
       },
     });
-    const { scheduleEventReminders } = await importJob();
+    const job = await importJob();
+    const { scheduleEventReminders, RESCHEDULE_NOTICE_WINDOW_MS } = job;
+    const oldStart = new Date(now + RESCHEDULE_NOTICE_WINDOW_MS + 12 * HOUR_MS).toISOString();
+    const newStartMs = now + Math.floor(RESCHEDULE_NOTICE_WINDOW_MS * 1.5);
+    event.scheduledStartTimestamp = newStartMs;
+    setup.getEventState.mockResolvedValueOnce({ eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart });
 
     scheduleEventReminders(
       (setup as unknown as { _client: never })._client,

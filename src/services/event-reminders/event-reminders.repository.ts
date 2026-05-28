@@ -1,5 +1,48 @@
 import { withClient } from '../nominations/db.js';
 
+// Verifies the schema objects this feature depends on exist. Called at
+// startup so an incomplete migration fails fast instead of producing
+// confusing query errors at the first reminder tick.
+export async function ensureEventRemindersSchema(): Promise<void> {
+  await withClient(async (client) => {
+    const tables = await client.query(`
+      SELECT
+        to_regclass('public.event_reminders') AS event_reminders_table,
+        to_regclass('public.event_state') AS event_state_table
+    `);
+    const [tableRow] = tables.rows as { event_reminders_table: string | null; event_state_table: string | null }[];
+    const missingTables = [
+      tableRow?.event_reminders_table ? null : 'event_reminders',
+      tableRow?.event_state_table ? null : 'event_state',
+    ].filter((value): value is string => Boolean(value));
+    if (missingTables.length > 0) {
+      throw new Error(
+        `Missing event-reminders schema objects (${missingTables.join(', ')}). Run database migrations before starting the bot.`
+      );
+    }
+
+    const cols = await client.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'guild_configs'
+    `);
+    const guildConfigColumns = new Set<string>(
+      cols.rows.map((row) => String((row as { column_name: string }).column_name)),
+    );
+    const required = [
+      'event_reminders_enabled',
+      'event_reminders_default_channel_id',
+      'event_reminders_cron_schedule',
+    ];
+    const missingCols = required.filter((col) => !guildConfigColumns.has(col));
+    if (missingCols.length > 0) {
+      throw new Error(
+        `Missing guild_configs columns for event reminders (${missingCols.join(', ')}). Run database migrations before starting the bot.`
+      );
+    }
+  });
+}
+
 export interface EventStateRow {
   eventId: string;
   guildId: string;
@@ -69,5 +112,30 @@ export async function upsertEventState(
              updated_at = NOW()`,
       [eventId, guildId, startTime.toISOString()],
     );
+  });
+}
+
+// Deletes claim ledger rows older than the retention window. Returns the
+// number of rows removed so the caller can log the cleanup result.
+export async function deleteOldReminderClaims(retentionDays: number): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `DELETE FROM event_reminders WHERE sent_at < NOW() - ($1 || ' days')::interval`,
+      [String(retentionDays)],
+    );
+    return result.rowCount ?? 0;
+  });
+}
+
+// Deletes event_state rows whose tracked event start time is older than the
+// retention window (i.e. the event has already happened and is no longer
+// being polled). Orphaned rows from deleted events fall into this bucket.
+export async function deleteOldEventState(retentionDays: number): Promise<number> {
+  return withClient(async (client) => {
+    const result = await client.query(
+      `DELETE FROM event_state WHERE last_known_start_time < NOW() - ($1 || ' days')::interval`,
+      [String(retentionDays)],
+    );
+    return result.rowCount ?? 0;
   });
 }

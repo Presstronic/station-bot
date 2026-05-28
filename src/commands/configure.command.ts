@@ -22,6 +22,7 @@ import cron from 'node-cron';
 import { isVerificationEnabled } from '../config/runtime-flags.js';
 import { isNominationDigestEnabled } from '../config/nomination-digest.config.js';
 import { isManufacturingEnabled } from '../config/manufacturing.config.js';
+import { isEventRemindersEnabled } from '../config/event-reminders.config.js';
 import {
   getGuildConfigOrNull,
   upsertGuildConfig,
@@ -31,6 +32,7 @@ import {
 import { rescheduleGuildDigest } from '../jobs/discord/nomination-digest.job.js';
 import { rescheduleGuildKeepalive } from '../jobs/discord/manufacturing-keepalive.job.js';
 import { rescheduleGuildPurge } from '../jobs/discord/purge-member.job.js';
+import { rescheduleGuildEventReminders } from '../jobs/discord/event-reminder.job.js';
 import { isDatabaseConfigured } from '../services/nominations/db.js';
 import { addMissingDefaultRoles } from '../services/role.services.js';
 
@@ -46,7 +48,7 @@ const CONFIGURE_CONTINUE_PREFIX = 'cfg-continue';
 
 const SESSION_TTL_MS = 15 * 60 * 1000;
 
-type ConfigureFeature = 'verification' | 'nomination-digest' | 'manufacturing' | 'purge-jobs';
+type ConfigureFeature = 'verification' | 'nomination-digest' | 'manufacturing' | 'purge-jobs' | 'event-reminders';
 type ConfigureMode = 'single' | 'full';
 type ScheduleFrequency = 'daily' | 'weekly';
 
@@ -82,6 +84,7 @@ const CONFIGURE_FEATURES = [
   'nomination-digest',
   'manufacturing',
   'purge-jobs',
+  'event-reminders',
 ] as const;
 const MANUFACTURING_POST_TITLE_MAX_LENGTH = 100;
 const MANUFACTURING_POST_MESSAGE_MAX_LENGTH = 2_000;
@@ -115,6 +118,7 @@ const configureCommandBuilder = new SlashCommandBuilder()
         { name: 'Nomination Digest', value: 'nomination-digest' },
         { name: 'Manufacturing', value: 'manufacturing' },
         { name: 'Purge Jobs', value: 'purge-jobs' },
+        { name: 'Event Reminders', value: 'event-reminders' },
       ),
   );
 
@@ -184,6 +188,8 @@ function getFeatureLabel(feature: ConfigureFeature): string {
       return 'Manufacturing';
     case 'purge-jobs':
       return 'Purge Jobs';
+    case 'event-reminders':
+      return 'Event Reminders';
   }
 }
 
@@ -197,6 +203,8 @@ function isFeatureOperatorEnabled(feature: ConfigureFeature): boolean {
       return isManufacturingEnabled();
     case 'purge-jobs':
       return true;
+    case 'event-reminders':
+      return isEventRemindersEnabled();
   }
 }
 
@@ -655,6 +663,25 @@ function buildManufacturingAdvancedModal(sessionId: string, guildConfig: GuildCo
   return modal;
 }
 
+function buildEventRemindersModal(sessionId: string, guildConfig: GuildConfig): ModalBuilder {
+  const modal = new ModalBuilder()
+    .setCustomId(`${CONFIGURE_MODAL_PREFIX}:${sessionId}:event-reminders:base`)
+    .setTitle('Configure Event Reminders');
+
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(
+      new TextInputBuilder()
+        .setCustomId('default-channel-id')
+        .setLabel('Default reminder channel ID')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setValue(guildConfig.eventRemindersDefaultChannelId ?? ''),
+    ),
+  );
+
+  return modal;
+}
+
 function buildPurgeModal(sessionId: string, guildConfig: GuildConfig): ModalBuilder {
   const modal = new ModalBuilder()
     .setCustomId(`${CONFIGURE_MODAL_PREFIX}:${sessionId}:purge-jobs:base`)
@@ -698,6 +725,9 @@ async function openFeatureModal(
       return;
     case 'purge-jobs':
       await interaction.showModal(buildPurgeModal(sessionId, guildConfig));
+      return;
+    case 'event-reminders':
+      await interaction.showModal(buildEventRemindersModal(sessionId, guildConfig));
       return;
   }
 }
@@ -968,6 +998,59 @@ async function handleManufacturingAdvancedModalSubmit(
   }
 }
 
+async function handleEventRemindersModalSubmit(
+  interaction: ModalSubmitInteraction,
+  sessionId: string,
+  session: ConfigureSession,
+): Promise<void> {
+  if (!interaction.guild) {
+    await interaction.reply({
+      content: 'This form can only be used in a server.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const defaultChannelId = interaction.fields.getTextInputValue('default-channel-id').trim();
+  if (defaultChannelId.length === 0) {
+    await interaction.reply({
+      content: 'Default reminder channel ID is required.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  try {
+    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+    const channel = await validateGuildChannel(interaction.guild, defaultChannelId, 'Default reminder channel ID');
+    if (!isSendableTextChannel(channel)) {
+      throw new Error('Default reminder channel ID must point to a text-based channel.');
+    }
+
+    const updatedConfig = await upsertGuildConfig(interaction.guildId ?? '', {
+      eventRemindersEnabled: true,
+      eventRemindersDefaultChannelId: defaultChannelId,
+    });
+    session.guildConfig = updatedConfig;
+    rescheduleGuildEventReminders(
+      interaction.client,
+      updatedConfig.guildId,
+      updatedConfig.eventRemindersCronSchedule,
+    );
+    await finishOrAdvanceFromModal(
+      interaction,
+      sessionId,
+      session,
+      'event-reminders',
+      'Event reminders saved and rescheduled.',
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Event reminders could not be saved.';
+    await interaction.editReply({ content: message });
+  }
+}
+
 async function handlePurgeModalSubmit(
   interaction: ModalSubmitInteraction,
   session: ConfigureSession,
@@ -1046,6 +1129,11 @@ export async function handleConfigureModalSubmit(interaction: ModalSubmitInterac
 
   if (feature === 'purge-jobs' && step === 'base') {
     await handlePurgeModalSubmit(interaction, session);
+    return;
+  }
+
+  if (feature === 'event-reminders' && step === 'base') {
+    await handleEventRemindersModalSubmit(interaction, sessionId, session);
     return;
   }
 

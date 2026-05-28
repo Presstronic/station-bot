@@ -8,12 +8,18 @@ import { schedulePurgeJobs } from './jobs/discord/purge-member.job.js';
 import { scheduleManufacturingKeepalives } from './jobs/discord/manufacturing-keepalive.job.js';
 import { scheduleNominationDigests } from './jobs/discord/nomination-digest.job.js';
 import { scheduleEventReminders } from './jobs/discord/event-reminder.job.js';
+import { scheduleEventRemindersCleanup } from './jobs/discord/event-reminders-cleanup.job.js';
+import { ensureEventRemindersSchema } from './services/event-reminders/event-reminders.repository.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.js';
 import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
 import { isManufacturingEnabled } from './config/manufacturing.config.js';
-import { isEventRemindersEnabled } from './config/event-reminders.config.js';
+import {
+  isEventRemindersEnabled,
+  getEventRemindersCleanupCron,
+  getEventRemindersRetentionDays,
+} from './config/event-reminders.config.js';
 import {
   endDbPoolIfInitialized,
   ensureNominationsSchema,
@@ -78,6 +84,7 @@ let purgeCronTasks: Map<string, { stop: () => void }> = new Map();
 let keepAliveCronTasks: Map<string, { stop: () => void }> = new Map();
 let nominationDigestCronTasks: Map<string, { stop: () => void }> = new Map();
 let eventReminderCronTasks: Map<string, { stop: () => void }> = new Map();
+let eventRemindersCleanupTask: { stop: () => void } | null = null;
 let guildConfigsById = new Map<string, GuildConfig>();
 let shuttingDown = false;
 
@@ -98,6 +105,7 @@ const shutdown = () => {
   for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
   for (const task of eventReminderCronTasks.values()) task.stop();
+  eventRemindersCleanupTask?.stop();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -123,6 +131,9 @@ client.once('clientReady', async () => {
     try {
       await ensureNominationsSchema();
       await ensureGuildConfigsSchema();
+      if (eventRemindersEnabled) {
+        await ensureEventRemindersSchema();
+      }
     } catch (error) {
       logger.error('Failed to initialize database schema', error);
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
@@ -204,6 +215,10 @@ client.once('clientReady', async () => {
         if (eventReminderCronTasks.size > 0) {
           logger.info('[event-reminder] Scheduled event reminder jobs.', { guilds: eventReminderCronTasks.size });
         }
+        eventRemindersCleanupTask = scheduleEventRemindersCleanup(
+          getEventRemindersCleanupCron(),
+          getEventRemindersRetentionDays(),
+        );
       }
       if (manufacturingEnabled) {
         keepAliveCronTasks = scheduleManufacturingKeepalives(client, allGuildConfigs);
