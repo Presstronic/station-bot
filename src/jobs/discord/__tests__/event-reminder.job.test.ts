@@ -627,7 +627,7 @@ describe('reschedule notice', () => {
     const oldStart = new Date(now + RESCHEDULE_NOTICE_WINDOW_MS + 12 * HOUR_MS).toISOString();
     const newStartMs = now + Math.floor(RESCHEDULE_NOTICE_WINDOW_MS / 2);
     event.scheduledStartTimestamp = newStartMs;
-    setup.getEventState.mockResolvedValueOnce({ eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart });
+    (setup.getEventState as jest.Mock<() => Promise<unknown>>).mockResolvedValueOnce({ eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart });
 
     scheduleEventReminders(
       (setup as unknown as { _client: never })._client,
@@ -658,7 +658,7 @@ describe('reschedule notice', () => {
     const oldStart = new Date(now + RESCHEDULE_NOTICE_WINDOW_MS + 12 * HOUR_MS).toISOString();
     const newStartMs = now + Math.floor(RESCHEDULE_NOTICE_WINDOW_MS * 1.5);
     event.scheduledStartTimestamp = newStartMs;
-    setup.getEventState.mockResolvedValueOnce({ eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart });
+    (setup.getEventState as jest.Mock<() => Promise<unknown>>).mockResolvedValueOnce({ eventId: 'event-1', guildId: 'guild-1', lastKnownStartTime: oldStart });
 
     scheduleEventReminders(
       (setup as unknown as { _client: never })._client,
