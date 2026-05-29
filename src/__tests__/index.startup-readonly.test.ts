@@ -80,7 +80,15 @@ async function loadIndexAndRunReady(
   await jest.unstable_mockModule('../services/nominations/db.js', () => ({
     ensureNominationsSchema,
     isDatabaseConfigured,
+    withClient: jest.fn(),
     endDbPoolIfInitialized: jest.fn(async () => undefined),
+  }));
+  await jest.unstable_mockModule('../domain/station-timer/station-timer.repository.js', () => ({
+    ensureStationTimersSchema: jest.fn(async () => undefined),
+  }));
+  await jest.unstable_mockModule('../jobs/discord/station-timer.job.js', () => ({
+    scheduleStationTimerWorker: jest.fn(),
+    stopStationTimerWorker: jest.fn(),
   }));
   await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
     handleInteraction: jest.fn(async () => undefined),
@@ -352,7 +360,15 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/db.js', () => ({
       ensureNominationsSchema,
       isDatabaseConfigured,
+      withClient: jest.fn(),
       endDbPoolIfInitialized: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../domain/station-timer/station-timer.repository.js', () => ({
+      ensureStationTimersSchema: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/station-timer.job.js', () => ({
+      scheduleStationTimerWorker: jest.fn(),
+      stopStationTimerWorker: jest.fn(),
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),
@@ -471,7 +487,15 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/db.js', () => ({
       ensureNominationsSchema,
       isDatabaseConfigured,
+      withClient: jest.fn(),
       endDbPoolIfInitialized: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../domain/station-timer/station-timer.repository.js', () => ({
+      ensureStationTimersSchema: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/station-timer.job.js', () => ({
+      scheduleStationTimerWorker: jest.fn(),
+      stopStationTimerWorker: jest.fn(),
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),
@@ -578,7 +602,15 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/nominations/db.js', () => ({
       ensureNominationsSchema,
       isDatabaseConfigured,
+      withClient: jest.fn(),
       endDbPoolIfInitialized,
+    }));
+    await jest.unstable_mockModule('../domain/station-timer/station-timer.repository.js', () => ({
+      ensureStationTimersSchema: jest.fn(async () => undefined),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/station-timer.job.js', () => ({
+      scheduleStationTimerWorker: jest.fn(),
+      stopStationTimerWorker: jest.fn(),
     }));
     await jest.unstable_mockModule('../interactions/interactionRouter.js', () => ({
       handleInteraction: jest.fn(async () => undefined),

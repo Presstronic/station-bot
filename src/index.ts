@@ -31,6 +31,13 @@ import {
   checkBotPermissions,
   notifyOwnerOfMissingPermissions,
 } from './utils/permission-check.js';
+import {
+  isStationTimerEnabled,
+  stationTimerMaxActivePerGuild,
+  stationTimerMaxActivePerUser,
+} from './config/station-timer.config.js';
+import { ensureStationTimersSchema } from './domain/station-timer/station-timer.repository.js';
+import { scheduleStationTimerWorker, stopStationTimerWorker } from './jobs/discord/station-timer.job.js';
 
 const _require = createRequire(import.meta.url);
 const { version: appVersion } = _require('../package.json') as { version: string };
@@ -40,12 +47,14 @@ const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
+const stationTimerEnabled = isStationTimerEnabled();
 
 function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
   return {
     verificationEnabled: verificationEnabled && !readOnlyMode && guildConfig?.verificationEnabled === true,
     purgeJobsEnabled: !readOnlyMode && guildConfig?.purgeJobsEnabled === true,
     manufacturingEnabled: !readOnlyMode && manufacturingEnabled && guildConfig?.manufacturingEnabled === true,
+    stationTimerEnabled: !readOnlyMode && stationTimerEnabled,
   };
 }
 
@@ -92,6 +101,7 @@ const shutdown = () => {
   for (const task of purgeCronTasks.values()) task.stop();
   for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
+  stopStationTimerWorker();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -112,10 +122,14 @@ client.once('clientReady', async () => {
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
   logger.info(`MANUFACTURING_ENABLED=${manufacturingEnabled}`);
   logger.info(`NOMINATION_DIGEST_ENABLED=${nominationDigestEnabled}`);
+  logger.info(`STATION_TIMER_ENABLED=${stationTimerEnabled}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_GUILD=${stationTimerMaxActivePerGuild()}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_USER=${stationTimerMaxActivePerUser()}`);
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
       await ensureGuildConfigsSchema();
+      await ensureStationTimersSchema();
     } catch (error) {
       logger.error('Failed to initialize database schema', error);
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
@@ -202,6 +216,9 @@ client.once('clientReady', async () => {
       if (workerHandle) {
         logger.info('Started nomination check worker loop.');
       }
+      if (stationTimerEnabled) {
+        scheduleStationTimerWorker(client);
+      }
     } else {
       logger.info('DATABASE_URL is not configured — guild-config-driven jobs will not run.');
     }
@@ -233,6 +250,7 @@ client.once('clientReady', async () => {
       purgeJobsEnabled: purgeCronTasks.size > 0,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
+      stationTimerEnabled: !readOnlyMode && stationTimerEnabled,
       guildCount: client.guilds.cache.size,
       botTag: client.user?.tag ?? 'unknown',
       startedAt: new Date().toISOString(),

@@ -53,6 +53,50 @@
         "status": "Bot: {botTag}\nVersion: {appVersion}\nUTC Date: {currentUtc}\nRead-only mode: {readOnlyStatus}\nActive commands: {activeCommands}"
       }
     },
+    "stationTimer": {
+      "name": "station-timer",
+      "description": "Start, stop, or list your active station timers.",
+      "options": {
+        "action": {
+          "description": "Choose whether to start, stop, or list timers."
+        },
+        "type": {
+          "description": "Timer type to start. Defaults to CZ."
+        },
+        "time": {
+          "description": "Timer duration in minutes. Defaults to 30."
+        },
+        "id": {
+          "description": "Your active timer ID to stop."
+        }
+      },
+      "responses": {
+        "guildOnly": "This command can only be used in a server.",
+        "disabled": "Station timers are not enabled right now.",
+        "unavailable": "Station timers are temporarily unavailable because database-backed storage is not configured.",
+        "start": {
+          "invalidTime": "Please provide a whole number between 1 and {maxMinutes} minutes.",
+          "userCapReached": "You have already reached the maximum number of active station timers allowed for you in this server.",
+          "guildCapReached": "This server has already reached the maximum number of active station timers allowed right now.",
+          "success": "Started a {durationMinutes}-minute {timerType} timer.\nTimer ID: {timerId}\nI will DM you when it expires.\nIf you are in a voice channel when it expires, I will also try to notify that voice channel's text chat."
+        },
+        "list": {
+          "none": "You have no active station timers in this server.",
+          "header": "Your active station timers:\n{timers}",
+          "line": "ID {id} • {duration}-minute {type} • {remainingMinutes} min remaining"
+        },
+        "stop": {
+          "idRequired": "You must provide a timer ID when using `/station-timer action:stop`.",
+          "notFound": "I could not find an active station timer with that ID for you in this server.",
+          "success": "Stopped timer ID {timerId}: {durationMinutes}-minute {timerType}."
+        },
+        "expiry": {
+          "dm": "Your {durationMinutes}-minute {timerType} timer is up.",
+          "channel": "@here {displayName}'s {durationMinutes}-minute {timerType} timer is up.",
+          "channelFallback": "{displayName}'s {durationMinutes}-minute {timerType} timer is up."
+        }
+      }
+    },
     "nominationCommon": {
       "responses": {
         "guildOnly": "This command can only be used in a server.",
