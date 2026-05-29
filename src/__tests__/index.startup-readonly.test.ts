@@ -32,6 +32,7 @@ async function loadIndexAndRunReady(
   readOnlyMode: 'true' | 'false',
   options: {
     nominationDigestEnabled?: 'true' | 'false';
+    execHangarEnabled?: 'true' | 'false';
     dbConfigured?: boolean;
     purgeTaskCount?: number;
     digestTaskCount?: number;
@@ -44,6 +45,11 @@ async function loadIndexAndRunReady(
     process.env.NOMINATION_DIGEST_ENABLED = options.nominationDigestEnabled;
   } else {
     delete process.env.NOMINATION_DIGEST_ENABLED;
+  }
+  if (options.execHangarEnabled !== undefined) {
+    process.env.EXEC_HANGAR_ENABLED = options.execHangarEnabled;
+  } else {
+    delete process.env.EXEC_HANGAR_ENABLED;
   }
 
   const registerAllCommands = jest.fn(async () => ({ passed: [], failed: [] }));
@@ -64,6 +70,18 @@ async function loadIndexAndRunReady(
   const buildStartupBanner = jest.fn(() => '[startup banner]');
   const checkBotPermissions = jest.fn(() => []);
   const notifyOwnerOfMissingPermissions = jest.fn(async () => undefined);
+  const ensureExecHangarSchema = jest.fn(async () => undefined);
+  const performExecHangarStartupSync = jest.fn(async () => ({
+    success: true,
+    state: {
+      currentState: 'OPEN',
+      nextChangeAt: new Date().toISOString(),
+      nextChangeType: 'CLOSE',
+      openDurationMinutes: 60,
+      closedDurationMinutes: 120,
+      cycleOffsetMs: 0,
+    },
+  }));
   const logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -103,6 +121,9 @@ async function loadIndexAndRunReady(
   await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
     isNominationDigestEnabled: () => options.nominationDigestEnabled === 'true',
   }));
+  await jest.unstable_mockModule('../config/exec-hangar.config.js', () => ({
+    isExecHangarEnabled: () => options.execHangarEnabled === 'true',
+  }));
   await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
     startNominationCheckWorkerLoop,
   }));
@@ -112,6 +133,12 @@ async function loadIndexAndRunReady(
   await jest.unstable_mockModule('../utils/permission-check.js', () => ({
     checkBotPermissions,
     notifyOwnerOfMissingPermissions,
+  }));
+  await jest.unstable_mockModule('../domain/exec-hangar/exec-hangar.repository.js', () => ({
+    ensureExecHangarSchema,
+  }));
+  await jest.unstable_mockModule('../services/exec-hangar/exec-hangar-timer.service.js', () => ({
+    performExecHangarStartupSync,
   }));
   await jest.unstable_mockModule('../utils/logger.js', () => ({
     getLogger: () => logger,
@@ -201,6 +228,8 @@ async function loadIndexAndRunReady(
     buildStartupBanner,
     checkBotPermissions,
     notifyOwnerOfMissingPermissions,
+    ensureExecHangarSchema,
+    performExecHangarStartupSync,
     logger,
     seedGuildConfigsFromEnv,
   };

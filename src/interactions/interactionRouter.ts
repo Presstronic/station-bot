@@ -61,6 +61,10 @@ import {
   CONFIGURE_COMMAND_NAME,
 } from '../commands/configure.command.js';
 import {
+  handleExecHangarCommand,
+  EXEC_HANGAR_COMMAND_NAME,
+} from '../commands/exec-hangar.command.js';
+import {
   handleMfgCancelOrder,
   handleMfgStaffCancel,
   handleMfgAdvance,
@@ -165,6 +169,8 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleManufacturingSetupCommand(interaction);
         } else if (interaction.commandName === CONFIGURE_COMMAND_NAME) {
           await handleConfigureCommand(interaction);
+        } else if (interaction.commandName === EXEC_HANGAR_COMMAND_NAME) {
+          await handleExecHangarCommand(interaction);
         }
         return;
       }

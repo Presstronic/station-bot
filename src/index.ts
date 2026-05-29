@@ -12,6 +12,7 @@ import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.js';
 import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
 import { isManufacturingEnabled } from './config/manufacturing.config.js';
+import { isExecHangarEnabled } from './config/exec-hangar.config.js';
 import {
   endDbPoolIfInitialized,
   ensureNominationsSchema,
@@ -31,6 +32,8 @@ import {
   checkBotPermissions,
   notifyOwnerOfMissingPermissions,
 } from './utils/permission-check.js';
+import { ensureExecHangarSchema } from './domain/exec-hangar/exec-hangar.repository.js';
+import { performExecHangarStartupSync } from './services/exec-hangar/exec-hangar-timer.service.js';
 
 const _require = createRequire(import.meta.url);
 const { version: appVersion } = _require('../package.json') as { version: string };
@@ -40,6 +43,7 @@ const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
+const execHangarEnabled = isExecHangarEnabled();
 
 function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
   return {
@@ -112,10 +116,14 @@ client.once('clientReady', async () => {
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
   logger.info(`MANUFACTURING_ENABLED=${manufacturingEnabled}`);
   logger.info(`NOMINATION_DIGEST_ENABLED=${nominationDigestEnabled}`);
+  logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
       await ensureGuildConfigsSchema();
+      if (execHangarEnabled) {
+        await ensureExecHangarSchema();
+      }
     } catch (error) {
       logger.error('Failed to initialize database schema', error);
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
@@ -209,6 +217,34 @@ client.once('clientReady', async () => {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
   }
 
+  if (execHangarEnabled && !readOnlyMode) {
+    if (!isDatabaseConfigured()) {
+      logger.warn('[exec-hangar] DATABASE_URL is not configured. Feature will remain unavailable.');
+    } else {
+      const startupSync = await performExecHangarStartupSync();
+      if (startupSync.success) {
+        logger.info('[exec-hangar] Startup sync succeeded.', {
+          currentState: startupSync.state.currentState,
+          nextChangeAt: startupSync.state.nextChangeAt,
+          nextChangeType: startupSync.state.nextChangeType,
+          openDurationMinutes: startupSync.state.openDurationMinutes,
+          closedDurationMinutes: startupSync.state.closedDurationMinutes,
+          cycleOffsetMs: startupSync.state.cycleOffsetMs,
+        });
+      } else {
+        logger.warn('[exec-hangar] Startup sync failed; preserving existing local state.', {
+          error: startupSync.error,
+          hasBaseline: Boolean(startupSync.state.currentState && startupSync.state.nextChangeAt && startupSync.state.nextChangeType),
+          openDurationMinutes: startupSync.state.openDurationMinutes,
+          closedDurationMinutes: startupSync.state.closedDurationMinutes,
+          cycleOffsetMs: startupSync.state.cycleOffsetMs,
+        });
+      }
+    }
+  } else if (execHangarEnabled) {
+    logger.info('[exec-hangar] Read-only mode enabled; skipping startup sync.');
+  }
+
   void Promise.allSettled(
     [...client.guilds.cache.values()].map(async (guild) => {
       const missingPerms = checkBotPermissions(guild, getEffectiveAuditFlags(guildConfigsById.get(guild.id) ?? null));
@@ -233,6 +269,7 @@ client.once('clientReady', async () => {
       purgeJobsEnabled: purgeCronTasks.size > 0,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
+      execHangarEnabled: !readOnlyMode && execHangarEnabled && isDatabaseConfigured(),
       guildCount: client.guilds.cache.size,
       botTag: client.user?.tag ?? 'unknown',
       startedAt: new Date().toISOString(),
