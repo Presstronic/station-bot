@@ -226,16 +226,23 @@ export async function resyncExecHangarFromExternalSource(now = new Date()): Prom
 
 export async function performExecHangarStartupSync(now = new Date()): Promise<{
   success: boolean;
-  state: ExecHangarState;
+  state: ExecHangarState | null;
   error?: unknown;
 }> {
-  const existing = (await getExecHangarState()) ?? (await ensureExecHangarStateRow());
-
   try {
     const updated = await resyncExecHangarFromExternalSource(now);
     return { success: true, state: updated };
   } catch (error) {
-    return { success: false, state: existing, error };
+    try {
+      const existing = (await getExecHangarState()) ?? (await ensureExecHangarStateRow());
+      return { success: false, state: existing, error };
+    } catch (baselineError) {
+      return {
+        success: false,
+        state: null,
+        error: { syncError: error, baselineError },
+      };
+    }
   }
 }
 

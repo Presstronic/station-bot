@@ -34,6 +34,7 @@ async function loadIndexAndRunReady(
     nominationDigestEnabled?: 'true' | 'false';
     execHangarEnabled?: 'true' | 'false';
     dbConfigured?: boolean;
+    execHangarStartupSyncRejects?: boolean;
     purgeTaskCount?: number;
     digestTaskCount?: number;
     guildConfigThrows?: boolean;
@@ -71,17 +72,21 @@ async function loadIndexAndRunReady(
   const checkBotPermissions = jest.fn(() => []);
   const notifyOwnerOfMissingPermissions = jest.fn(async () => undefined);
   const ensureExecHangarSchema = jest.fn(async () => undefined);
-  const performExecHangarStartupSync = jest.fn(async () => ({
-    success: true,
-    state: {
-      currentState: 'OPEN',
-      nextChangeAt: new Date().toISOString(),
-      nextChangeType: 'CLOSE',
-      openDurationMinutes: 60,
-      closedDurationMinutes: 120,
-      cycleOffsetMs: 0,
-    },
-  }));
+  const performExecHangarStartupSync = options.execHangarStartupSyncRejects
+    ? jest.fn(async () => {
+        throw new Error('startup sync exploded');
+      })
+    : jest.fn(async () => ({
+        success: true,
+        state: {
+          currentState: 'OPEN',
+          nextChangeAt: new Date().toISOString(),
+          nextChangeType: 'CLOSE',
+          openDurationMinutes: 60,
+          closedDurationMinutes: 120,
+          cycleOffsetMs: 0,
+        },
+      }));
   const logger = {
     debug: jest.fn(),
     info: jest.fn(),
@@ -343,6 +348,31 @@ describe('startup wiring with read-only mode', () => {
     expect(performExecHangarStartupSync).not.toHaveBeenCalled();
     expect(buildStartupBanner).toHaveBeenCalledWith(
       expect.objectContaining({ execHangarEnabled: false }),
+    );
+  });
+
+  it('continues startup when exec hangar startup sync rejects unexpectedly', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const {
+      ensureExecHangarSchema,
+      performExecHangarStartupSync,
+      buildStartupBanner,
+      logger,
+    } = await loadIndexAndRunReady('false', {
+      execHangarEnabled: 'true',
+      dbConfigured: true,
+      execHangarStartupSyncRejects: true,
+    });
+
+    expect(ensureExecHangarSchema).toHaveBeenCalledTimes(1);
+    expect(performExecHangarStartupSync).toHaveBeenCalledTimes(1);
+    expect(logger.warn).toHaveBeenCalledWith(
+      '[exec-hangar] Startup sync aborted unexpectedly; feature will remain unavailable until a manual sync succeeds.',
+      expect.objectContaining({ error: expect.any(Error) }),
+    );
+    expect(buildStartupBanner).toHaveBeenCalledWith(
+      expect.objectContaining({ execHangarEnabled: true }),
     );
   });
 

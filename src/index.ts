@@ -238,23 +238,33 @@ client.once('clientReady', async () => {
     if (!isDatabaseConfigured()) {
       logger.warn('[exec-hangar] DATABASE_URL is not configured. Feature will remain unavailable.');
     } else {
-      const startupSync = await performExecHangarStartupSync();
-      if (startupSync.success) {
-        logger.info('[exec-hangar] Startup sync succeeded.', {
-          currentState: startupSync.state.currentState,
-          nextChangeAt: startupSync.state.nextChangeAt,
-          nextChangeType: startupSync.state.nextChangeType,
-          openDurationMinutes: startupSync.state.openDurationMinutes,
-          closedDurationMinutes: startupSync.state.closedDurationMinutes,
-          cycleOffsetMs: startupSync.state.cycleOffsetMs,
-        });
-      } else {
-        logger.warn('[exec-hangar] Startup sync failed; preserving existing local state.', {
-          error: startupSync.error,
-          hasBaseline: Boolean(startupSync.state.currentState && startupSync.state.nextChangeAt && startupSync.state.nextChangeType),
-          openDurationMinutes: startupSync.state.openDurationMinutes,
-          closedDurationMinutes: startupSync.state.closedDurationMinutes,
-          cycleOffsetMs: startupSync.state.cycleOffsetMs,
+      try {
+        const startupSync = await performExecHangarStartupSync();
+        if (startupSync.success && startupSync.state) {
+          logger.info('[exec-hangar] Startup sync succeeded.', {
+            currentState: startupSync.state.currentState,
+            nextChangeAt: startupSync.state.nextChangeAt,
+            nextChangeType: startupSync.state.nextChangeType,
+            openDurationMinutes: startupSync.state.openDurationMinutes,
+            closedDurationMinutes: startupSync.state.closedDurationMinutes,
+            cycleOffsetMs: startupSync.state.cycleOffsetMs,
+          });
+        } else {
+          logger.warn('[exec-hangar] Startup sync failed; preserving existing local state when available.', {
+            error: startupSync.error,
+            hasBaseline: Boolean(
+              startupSync.state?.currentState &&
+                startupSync.state?.nextChangeAt &&
+                startupSync.state?.nextChangeType,
+            ),
+            openDurationMinutes: startupSync.state?.openDurationMinutes ?? null,
+            closedDurationMinutes: startupSync.state?.closedDurationMinutes ?? null,
+            cycleOffsetMs: startupSync.state?.cycleOffsetMs ?? null,
+          });
+        }
+      } catch (error) {
+        logger.warn('[exec-hangar] Startup sync aborted unexpectedly; feature will remain unavailable until a manual sync succeeds.', {
+          error,
         });
       }
     }

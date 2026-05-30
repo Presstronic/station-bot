@@ -140,4 +140,36 @@ describe('exec hangar timer service', () => {
       }),
     );
   });
+
+  it('returns a failure result instead of throwing when startup sync and baseline load both fail', async () => {
+    const getExecHangarState = jest.fn(async () => {
+      throw new Error('baseline read failed');
+    });
+    const ensureExecHangarStateRow = jest.fn(async () => {
+      throw new Error('baseline init failed');
+    });
+
+    jest.unstable_mockModule('../../../domain/exec-hangar/exec-hangar.repository.js', () => ({
+      ensureExecHangarStateRow,
+      getExecHangarState,
+      updateExecHangarState: jest.fn(),
+    }));
+    jest.unstable_mockModule('../exec-hangar-sync-source.js', () => ({
+      fetchExecHangarSyncAnchor: jest.fn(async () => {
+        throw new Error('remote unavailable');
+      }),
+    }));
+
+    const { performExecHangarStartupSync } = await import('../exec-hangar-timer.service.js');
+    const result = await performExecHangarStartupSync(new Date('2026-05-29T17:00:00.000Z'));
+
+    expect(result.success).toBe(false);
+    expect(result.state).toBeNull();
+    expect(result.error).toEqual({
+      syncError: expect.any(Error),
+      baselineError: expect.any(Error),
+    });
+    expect(getExecHangarState).toHaveBeenCalledTimes(1);
+    expect(ensureExecHangarStateRow).not.toHaveBeenCalled();
+  });
 });
