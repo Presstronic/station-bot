@@ -187,6 +187,15 @@ export async function processDueStationTimers(client: Client, limit = 25): Promi
           guildId: timer.guildId,
           error,
         });
+        try {
+          await resetStationTimerToActive(timer.id);
+        } catch (resetError) {
+          logger.error('[station-timer] Failed to reset timer to active after completion persistence failure', {
+            timerId: timer.id,
+            guildId: timer.guildId,
+            error: resetError,
+          });
+        }
       }
     } catch (error) {
       logger.error('[station-timer] Unexpected due timer processing failure', {
