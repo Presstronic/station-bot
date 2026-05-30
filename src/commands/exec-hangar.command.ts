@@ -18,6 +18,8 @@ import i18n from '../utils/i18n-config.js';
 
 const defaultLocale = process.env.DEFAULT_LOCALE || 'en';
 const logger = getLogger();
+const POSTGRES_INT_MAX = 2_147_483_647;
+const POSTGRES_INT_MIN = -2_147_483_648;
 
 export const EXEC_HANGAR_COMMAND_NAME = 'exec-hangar';
 
@@ -26,15 +28,15 @@ function isAdmin(interaction: ChatInputCommandInteraction): boolean {
 }
 
 function parsePositiveWholeNumber(value: number, fieldName: string): number {
-  if (!Number.isInteger(value) || value <= 0) {
-    throw new Error(`${fieldName} must be a whole number greater than 0.`);
+  if (!Number.isInteger(value) || value <= 0 || value > POSTGRES_INT_MAX) {
+    throw new Error(`${fieldName} must be a whole number between 1 and ${POSTGRES_INT_MAX}.`);
   }
   return value;
 }
 
 function parseWholeNumber(value: number, fieldName: string): number {
-  if (!Number.isInteger(value)) {
-    throw new Error(`${fieldName} must be a whole number.`);
+  if (!Number.isInteger(value) || value < POSTGRES_INT_MIN || value > POSTGRES_INT_MAX) {
+    throw new Error(`${fieldName} must be a whole number between ${POSTGRES_INT_MIN} and ${POSTGRES_INT_MAX}.`);
   }
   return value;
 }

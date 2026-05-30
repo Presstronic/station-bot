@@ -215,6 +215,36 @@ describe('exec-hangar command', () => {
     );
   });
 
+  it('rejects manual sync minute values above the PostgreSQL integer limit', async () => {
+    jest.unstable_mockModule('../../config/exec-hangar.config.js', () => ({
+      isExecHangarEnabled: jest.fn(() => true),
+    }));
+    jest.unstable_mockModule('../../services/exec-hangar/exec-hangar-timer.service.js', () => ({
+      getExecHangarStatus: jest.fn(),
+      manualSyncExecHangar: jest.fn(),
+      resyncExecHangarFromExternalSource: jest.fn(),
+      updateExecHangarConfig: jest.fn(),
+      validateExecHangarCycleOffsetMs: jest.fn(),
+    }));
+
+    const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
+    const interaction = makeInteraction({
+      options: {
+        getSubcommand: () => 'sync',
+        getInteger: (name: string) => (name === 'opens-in' ? 2_147_483_648 : null),
+      },
+    });
+
+    await handleExecHangarCommand(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('opens-in must be a whole number between 1 and 2147483647.'),
+        flags: 64,
+      }),
+    );
+  });
+
   it('rejects cycle offsets that collapse the cycle duration', async () => {
     jest.unstable_mockModule('../../config/exec-hangar.config.js', () => ({
       isExecHangarEnabled: jest.fn(() => true),
@@ -247,6 +277,44 @@ describe('exec-hangar command', () => {
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('cycle-offset-ms must keep the total cycle duration above 0 milliseconds.'),
+        flags: 64,
+      }),
+    );
+  });
+
+  it('rejects cycle offsets above the PostgreSQL integer limit before config persistence', async () => {
+    const updateExecHangarConfig = jest.fn();
+
+    jest.unstable_mockModule('../../config/exec-hangar.config.js', () => ({
+      isExecHangarEnabled: jest.fn(() => true),
+    }));
+    jest.unstable_mockModule('../../services/exec-hangar/exec-hangar-timer.service.js', () => ({
+      getExecHangarStatus: jest.fn(),
+      manualSyncExecHangar: jest.fn(),
+      resyncExecHangarFromExternalSource: jest.fn(),
+      updateExecHangarConfig,
+      validateExecHangarCycleOffsetMs: jest.fn(),
+    }));
+
+    const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
+    const interaction = makeInteraction({
+      options: {
+        getSubcommand: () => 'config',
+        getInteger: (name: string) => {
+          if (name === 'open-duration-minutes') return 60;
+          if (name === 'closed-duration-minutes') return 120;
+          if (name === 'cycle-offset-ms') return 2_147_483_648;
+          return null;
+        },
+      },
+    });
+
+    await handleExecHangarCommand(interaction);
+
+    expect(updateExecHangarConfig).not.toHaveBeenCalled();
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('cycle-offset-ms must be a whole number between -2147483648 and 2147483647.'),
         flags: 64,
       }),
     );

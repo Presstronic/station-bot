@@ -65,6 +65,10 @@ import {
   EXEC_HANGAR_COMMAND_NAME,
 } from '../commands/exec-hangar.command.js';
 import {
+  handleStationTimerCommand,
+  STATION_TIMER_COMMAND_NAME,
+} from '../commands/station-timer.command.js';
+import {
   handleMfgCancelOrder,
   handleMfgStaffCancel,
   handleMfgAdvance,
@@ -169,6 +173,10 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleManufacturingSetupCommand(interaction);
         } else if (interaction.commandName === CONFIGURE_COMMAND_NAME) {
           await handleConfigureCommand(interaction);
+        } else if (interaction.commandName === EXEC_HANGAR_COMMAND_NAME) {
+          await handleExecHangarCommand(interaction);
+        } else if (interaction.commandName === STATION_TIMER_COMMAND_NAME) {
+          await handleStationTimerCommand(interaction);
         } else if (interaction.commandName === EXEC_HANGAR_COMMAND_NAME) {
           await handleExecHangarCommand(interaction);
         }

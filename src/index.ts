@@ -34,6 +34,13 @@ import {
 } from './utils/permission-check.js';
 import { ensureExecHangarSchema } from './domain/exec-hangar/exec-hangar.repository.js';
 import { performExecHangarStartupSync } from './services/exec-hangar/exec-hangar-timer.service.js';
+import {
+  isStationTimerEnabled,
+  stationTimerMaxActivePerGuild,
+  stationTimerMaxActivePerUser,
+} from './config/station-timer.config.js';
+import { ensureStationTimersSchema } from './domain/station-timer/station-timer.repository.js';
+import { scheduleStationTimerWorker, stopStationTimerWorker } from './jobs/discord/station-timer.job.js';
 
 const _require = createRequire(import.meta.url);
 const { version: appVersion } = _require('../package.json') as { version: string };
@@ -44,12 +51,14 @@ const verificationEnabled = isVerificationEnabled();
 const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
 const execHangarEnabled = isExecHangarEnabled();
+const stationTimerEnabled = isStationTimerEnabled();
 
 function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
   return {
     verificationEnabled: verificationEnabled && !readOnlyMode && guildConfig?.verificationEnabled === true,
     purgeJobsEnabled: !readOnlyMode && guildConfig?.purgeJobsEnabled === true,
     manufacturingEnabled: !readOnlyMode && manufacturingEnabled && guildConfig?.manufacturingEnabled === true,
+    stationTimerEnabled: !readOnlyMode && stationTimerEnabled,
   };
 }
 
@@ -96,6 +105,7 @@ const shutdown = () => {
   for (const task of purgeCronTasks.values()) task.stop();
   for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
+  stopStationTimerWorker();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -117,10 +127,18 @@ client.once('clientReady', async () => {
   logger.info(`MANUFACTURING_ENABLED=${manufacturingEnabled}`);
   logger.info(`NOMINATION_DIGEST_ENABLED=${nominationDigestEnabled}`);
   logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
+  logger.info(`STATION_TIMER_ENABLED=${stationTimerEnabled}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_GUILD=${stationTimerMaxActivePerGuild()}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_USER=${stationTimerMaxActivePerUser()}`);
+  logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
       await ensureGuildConfigsSchema();
+      if (execHangarEnabled) {
+        await ensureExecHangarSchema();
+      }
+      await ensureStationTimersSchema();
       if (execHangarEnabled) {
         await ensureExecHangarSchema();
       }
@@ -210,6 +228,9 @@ client.once('clientReady', async () => {
       if (workerHandle) {
         logger.info('Started nomination check worker loop.');
       }
+      if (stationTimerEnabled) {
+        scheduleStationTimerWorker(client);
+      }
     } else {
       logger.info('DATABASE_URL is not configured — guild-config-driven jobs will not run.');
     }
@@ -270,6 +291,7 @@ client.once('clientReady', async () => {
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
       execHangarEnabled: !readOnlyMode && execHangarEnabled && isDatabaseConfigured(),
+      stationTimerEnabled: !readOnlyMode && stationTimerEnabled,
       guildCount: client.guilds.cache.size,
       botTag: client.user?.tag ?? 'unknown',
       startedAt: new Date().toISOString(),
