@@ -70,4 +70,40 @@ describe('exec hangar sync source', () => {
     );
     expect(anchor.source).toBe('exec.xyxyll.com');
   });
+
+  it('rejects zero open duration from the remote script', async () => {
+    const { parseExecHangarSourceScript } = await import('../exec-hangar-sync-source.js');
+    const script = `
+      const CYCLE_DRIFT_MS = 129;
+      const DESIGN_ONLINE_MIN = 0;
+      const DESIGN_OFFLINE_MIN = 120;
+      const INITIAL_OPEN_TIME = new Date('2026-05-23T09:17:10.315-04:00');
+    `;
+
+    expect(() => parseExecHangarSourceScript(script)).toThrow(/Invalid open duration value/);
+  });
+
+  it('rejects zero closed duration from the remote script', async () => {
+    const { parseExecHangarSourceScript } = await import('../exec-hangar-sync-source.js');
+    const script = `
+      const CYCLE_DRIFT_MS = 129;
+      const DESIGN_ONLINE_MIN = 65;
+      const DESIGN_OFFLINE_MIN = 0;
+      const INITIAL_OPEN_TIME = new Date('2026-05-23T09:17:10.315-04:00');
+    `;
+
+    expect(() => parseExecHangarSourceScript(script)).toThrow(/Invalid closed duration value/);
+  });
+
+  it('rejects remote cycle drift that collapses the adjusted cycle length', async () => {
+    const { parseExecHangarSourceScript } = await import('../exec-hangar-sync-source.js');
+    const script = `
+      const CYCLE_DRIFT_MS = -11100000;
+      const DESIGN_ONLINE_MIN = 65;
+      const DESIGN_OFFLINE_MIN = 120;
+      const INITIAL_OPEN_TIME = new Date('2026-05-23T09:17:10.315-04:00');
+    `;
+
+    expect(() => parseExecHangarSourceScript(script)).toThrow(/Invalid cycle drift value/);
+  });
 });

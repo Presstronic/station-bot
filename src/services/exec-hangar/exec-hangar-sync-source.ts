@@ -21,6 +21,7 @@ interface ParsedSourceConfig {
 
 const SOURCE_URL = 'https://exec.xyxyll.com/';
 const SOURCE_SCRIPT_URL = 'https://exec.xyxyll.com/app.js';
+const MINUTES_TO_MS = 60_000;
 
 function parseRequiredNumber(script: string, pattern: RegExp, fieldName: string): number {
   const match = script.match(pattern);
@@ -58,6 +59,8 @@ export function parseExecHangarSourceScript(script: string): ParsedSourceConfig 
     throw new Error('Invalid initial open time in exec hangar source');
   }
 
+  validateSourceCycleConfig(openDurationMinutes, closedDurationMinutes, cycleDriftMs);
+
   return {
     initialOpenTime,
     openDurationMinutes,
@@ -71,8 +74,8 @@ function computeEffectiveDurationsMs(
   closedDurationMinutes: number,
   cycleOffsetMs: number,
 ): { openMs: number; closedMs: number; totalMs: number } {
-  const baseOpenMs = openDurationMinutes * 60_000;
-  const baseClosedMs = closedDurationMinutes * 60_000;
+  const baseOpenMs = openDurationMinutes * MINUTES_TO_MS;
+  const baseClosedMs = closedDurationMinutes * MINUTES_TO_MS;
   const baseTotalMs = baseOpenMs + baseClosedMs;
   const adjustedTotalMs = baseTotalMs + cycleOffsetMs;
   const openMs = Math.round((adjustedTotalMs * baseOpenMs) / baseTotalMs);
@@ -83,6 +86,29 @@ function computeEffectiveDurationsMs(
     closedMs,
     totalMs: adjustedTotalMs,
   };
+}
+
+function validateSourceCycleConfig(
+  openDurationMinutes: number,
+  closedDurationMinutes: number,
+  cycleOffsetMs: number,
+): void {
+  if (!Number.isInteger(openDurationMinutes) || openDurationMinutes <= 0) {
+    throw new Error('Invalid open duration value from exec hangar source');
+  }
+
+  if (!Number.isInteger(closedDurationMinutes) || closedDurationMinutes <= 0) {
+    throw new Error('Invalid closed duration value from exec hangar source');
+  }
+
+  if (!Number.isInteger(cycleOffsetMs)) {
+    throw new Error('Invalid cycle drift value from exec hangar source');
+  }
+
+  const baseCycleMs = (openDurationMinutes + closedDurationMinutes) * MINUTES_TO_MS;
+  if (cycleOffsetMs <= -baseCycleMs) {
+    throw new Error('Invalid cycle drift value from exec hangar source');
+  }
 }
 
 export function deriveAnchorFromSourceConfig(
