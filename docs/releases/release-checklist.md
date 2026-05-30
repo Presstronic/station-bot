@@ -122,8 +122,11 @@ It is expected to:
 - validate the tag against `package.json`
 - run `npm run quality`
 - build and push the production Docker image
-- deploy production
 - create the GitHub Release entry
+
+It does not deploy production yet.
+Production deployment remains manual and must follow:
+- [manual-deployment-checklist.md](./manual-deployment-checklist.md)
 
 ## Migration Risk Check
 
@@ -137,14 +140,18 @@ If a release contains a risky migration, do not proceed casually. Make the rollb
 
 ## Backup Verification
 
-The release workflow already performs a pre-deploy database backup.
+The release workflow does not perform production database backup or deployment.
 
-Human checklist item:
-- Verify the release workflow completed the backup step successfully before considering the release complete.
+Human checklist items before manual deploy:
+- run the database backup step from the manual deployment checklist
+- verify the backup uploaded successfully
+
+For manual deployment and manual rollback, use:
+- [manual-deployment-checklist.md](./manual-deployment-checklist.md)
 
 ## Production Smoke Test
 
-After deployment, perform a short smoke test:
+After manual deployment, perform a short smoke test:
 - bot container is running
 - startup completed cleanly
 - bot responds in Discord
@@ -189,6 +196,8 @@ Minimum rollback procedure:
 Important:
 - Do not assume application rollback automatically implies database rollback.
 - Add release-specific rollback notes to the release notes when needed.
+- For the exact manual restore procedure, use:
+  - [manual-deployment-checklist.md](./manual-deployment-checklist.md)
 
 ## Completion Criteria
 
@@ -196,7 +205,7 @@ A release is only considered complete when all of the following are true:
 - release PR merged
 - release tag pushed
 - release workflow passed
-- production deploy succeeded
+- manual production deploy succeeded
 - GitHub Release entry created
 - smoke test passed
 - observation window completed without unacceptable issues

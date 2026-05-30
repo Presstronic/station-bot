@@ -39,7 +39,13 @@ Required sections for each release file:
 
 Supporting files in this directory:
 - [release-checklist.md](./release-checklist.md) — operational release checklist
+- [manual-deployment-checklist.md](./manual-deployment-checklist.md) — manual deploy + rollback runbook
 - [_template.md](./_template.md) — starter template for each release note
+
+Current deployment model:
+- tag-triggered GitHub Actions builds and pushes release images to GHCR
+- production deployment is manual
+- database backup, migration execution, restart, smoke test, and rollback follow the manual deployment checklist
 
 Suggested starter template:
 

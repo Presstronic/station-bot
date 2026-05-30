@@ -231,7 +231,8 @@ High-level release flow:
 3. On the `release/v{x.y.z}` branch, create a permanent Markdown release-notes file in [docs/releases](docs/releases/README.md) for the target version
 4. Open a PR titled `release: v{x.y.z}`; squash-merge into `main`
 5. Tag the merge commit: `git tag v{x.y.z} && git push origin v{x.y.z}`
-6. Verify `Build & Publish Docker Image` workflow success
+6. Verify the tag-triggered release workflow successfully builds and pushes the GHCR image and creates the GitHub Release
+7. Perform the manual production deployment using [docs/releases/manual-deployment-checklist.md](docs/releases/manual-deployment-checklist.md)
 
 The release-notes file must include:
 - a brief professional summary of the main changes
@@ -243,6 +244,7 @@ Do not create the release-notes file on feature branches. It should be introduce
 
 Operational release guidance now lives in:
 - [docs/releases/release-checklist.md](docs/releases/release-checklist.md)
+- [docs/releases/manual-deployment-checklist.md](docs/releases/manual-deployment-checklist.md)
 - [docs/releases/_template.md](docs/releases/_template.md)
 
 ---
