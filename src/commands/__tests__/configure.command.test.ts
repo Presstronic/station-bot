@@ -36,6 +36,9 @@ function makeGuildConfig(overrides: Partial<GuildConfig> = {}): GuildConfig {
     birthdayEnabled: false,
     birthdayChannelId: null,
     birthdayCronSchedule: '0 12 * * *',
+    eventRemindersEnabled: false,
+    eventRemindersDefaultChannelId: null,
+    eventRemindersCronSchedule: '*/15 * * * *',
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
     ...overrides,
@@ -46,6 +49,7 @@ type ConfigState = {
   verification: boolean;
   nominationDigest: boolean;
   manufacturing: boolean;
+  eventReminders: boolean;
 };
 
 async function setup(configState: Partial<ConfigState> = {}) {
@@ -58,11 +62,13 @@ async function setup(configState: Partial<ConfigState> = {}) {
   const rescheduleGuildDigest = jest.fn();
   const rescheduleGuildKeepalive = jest.fn();
   const rescheduleGuildPurge = jest.fn();
+  const rescheduleGuildEventReminders = jest.fn();
 
   const flags: ConfigState = {
     verification: configState.verification ?? true,
     nominationDigest: configState.nominationDigest ?? true,
     manufacturing: configState.manufacturing ?? true,
+    eventReminders: configState.eventReminders ?? true,
   };
 
   jest.unstable_mockModule('../../utils/logger.js', () => ({
@@ -87,6 +93,12 @@ async function setup(configState: Partial<ConfigState> = {}) {
     isManufacturingEnabled: () => flags.manufacturing,
   }));
 
+  jest.unstable_mockModule('../../config/event-reminders.config.js', () => ({
+    isEventRemindersEnabled: () => flags.eventReminders,
+    getEventRemindersCleanupCron: () => '0 4 * * *',
+    getEventRemindersRetentionDays: () => 30,
+  }));
+
   jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
     getGuildConfigOrNull,
     upsertGuildConfig,
@@ -102,6 +114,10 @@ async function setup(configState: Partial<ConfigState> = {}) {
 
   jest.unstable_mockModule('../../jobs/discord/purge-member.job.js', () => ({
     rescheduleGuildPurge,
+  }));
+
+  jest.unstable_mockModule('../../jobs/discord/event-reminder.job.js', () => ({
+    rescheduleGuildEventReminders,
   }));
 
   jest.unstable_mockModule('../../services/nominations/db.js', () => ({
@@ -123,6 +139,7 @@ async function setup(configState: Partial<ConfigState> = {}) {
       rescheduleGuildDigest,
       rescheduleGuildKeepalive,
       rescheduleGuildPurge,
+      rescheduleGuildEventReminders,
     },
   };
 }
@@ -136,11 +153,13 @@ async function setupWithGuildConfigFailure(configState: Partial<ConfigState> = {
   const rescheduleGuildDigest = jest.fn();
   const rescheduleGuildKeepalive = jest.fn();
   const rescheduleGuildPurge = jest.fn();
+  const rescheduleGuildEventReminders = jest.fn();
 
   const flags: ConfigState = {
     verification: configState.verification ?? true,
     nominationDigest: configState.nominationDigest ?? true,
     manufacturing: configState.manufacturing ?? true,
+    eventReminders: configState.eventReminders ?? true,
   };
 
   jest.unstable_mockModule('../../utils/logger.js', () => ({
@@ -165,6 +184,12 @@ async function setupWithGuildConfigFailure(configState: Partial<ConfigState> = {
     isManufacturingEnabled: () => flags.manufacturing,
   }));
 
+  jest.unstable_mockModule('../../config/event-reminders.config.js', () => ({
+    isEventRemindersEnabled: () => flags.eventReminders,
+    getEventRemindersCleanupCron: () => '0 4 * * *',
+    getEventRemindersRetentionDays: () => 30,
+  }));
+
   jest.unstable_mockModule('../../domain/guild-config/guild-config.service.js', () => ({
     getGuildConfigOrNull,
     upsertGuildConfig,
@@ -180,6 +205,10 @@ async function setupWithGuildConfigFailure(configState: Partial<ConfigState> = {
 
   jest.unstable_mockModule('../../jobs/discord/purge-member.job.js', () => ({
     rescheduleGuildPurge,
+  }));
+
+  jest.unstable_mockModule('../../jobs/discord/event-reminder.job.js', () => ({
+    rescheduleGuildEventReminders,
   }));
 
   jest.unstable_mockModule('../../services/nominations/db.js', () => ({
@@ -200,6 +229,7 @@ async function setupWithGuildConfigFailure(configState: Partial<ConfigState> = {
       rescheduleGuildDigest,
       rescheduleGuildKeepalive,
       rescheduleGuildPurge,
+      rescheduleGuildEventReminders,
     },
   };
 }
@@ -392,6 +422,53 @@ describe('configure command', () => {
     expect(modal).toBeDefined();
     const modalJson = modal!.toJSON();
     expect(modalJson.components[0].components[0].value).toBe('Existing Verified');
+  });
+
+  it('saves event reminder settings and reschedules the job after modal submit', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-events', feature: 'event-reminders' });
+    await handleConfigureCommand(slash as never);
+
+    expect(slash.showModal).toHaveBeenCalledTimes(1);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-events:event-reminders:base', {
+      'default-channel-id': 'channel-789',
+    });
+
+    await handleConfigureModalSubmit(modal as never);
+
+    expect(mocks.upsertGuildConfig).toHaveBeenCalledWith('guild-1', expect.objectContaining({
+      eventRemindersEnabled: true,
+      eventRemindersDefaultChannelId: 'channel-789',
+    }));
+    expect(mocks.rescheduleGuildEventReminders).toHaveBeenCalledWith(expect.anything(), 'guild-1', expect.any(String));
+    expect(modal.editReply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/event reminders saved/i),
+      }),
+    );
+  });
+
+  it('rejects empty default channel id in event reminders modal', async () => {
+    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-events-empty', feature: 'event-reminders' });
+    await handleConfigureCommand(slash as never);
+
+    const modal = makeModalInteraction('cfg-modal:cfg-events-empty:event-reminders:base', {
+      'default-channel-id': '',
+    });
+    await handleConfigureModalSubmit(modal as never);
+
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+    expect(modal.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/required/i),
+      }),
+    );
   });
 
   it('persists nomination digest settings after schedule selection', async () => {

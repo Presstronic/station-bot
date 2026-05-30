@@ -7,12 +7,20 @@ import { handleInteraction, attemptFallbackReply } from './interactions/interact
 import { schedulePurgeJobs } from './jobs/discord/purge-member.job.js';
 import { scheduleManufacturingKeepalives } from './jobs/discord/manufacturing-keepalive.job.js';
 import { scheduleNominationDigests } from './jobs/discord/nomination-digest.job.js';
+import { scheduleEventReminders } from './jobs/discord/event-reminder.job.js';
+import { scheduleEventRemindersCleanup } from './jobs/discord/event-reminders-cleanup.job.js';
+import { ensureEventRemindersSchema } from './services/event-reminders/event-reminders.repository.js';
 import { addMissingDefaultRoles } from './services/role.services.js';
 import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.js';
 import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
 import { isManufacturingEnabled } from './config/manufacturing.config.js';
 import { isExecHangarEnabled } from './config/exec-hangar.config.js';
+import {
+  isEventRemindersEnabled,
+  getEventRemindersCleanupCron,
+  getEventRemindersRetentionDays,
+} from './config/event-reminders.config.js';
 import {
   endDbPoolIfInitialized,
   ensureNominationsSchema,
@@ -50,6 +58,7 @@ const readOnlyMode = isReadOnlyMode();
 const verificationEnabled = isVerificationEnabled();
 const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
+const eventRemindersEnabled = isEventRemindersEnabled();
 const execHangarEnabled = isExecHangarEnabled();
 const stationTimerEnabled = isStationTimerEnabled();
 
@@ -58,6 +67,7 @@ function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
     verificationEnabled: verificationEnabled && !readOnlyMode && guildConfig?.verificationEnabled === true,
     purgeJobsEnabled: !readOnlyMode && guildConfig?.purgeJobsEnabled === true,
     manufacturingEnabled: !readOnlyMode && manufacturingEnabled && guildConfig?.manufacturingEnabled === true,
+    eventRemindersEnabled: !readOnlyMode && eventRemindersEnabled && guildConfig?.eventRemindersEnabled === true,
     stationTimerEnabled: !readOnlyMode && stationTimerEnabled,
   };
 }
@@ -86,6 +96,8 @@ let loopMonitorHandle: NodeJS.Timeout | null = null;
 let purgeCronTasks: Map<string, { stop: () => void }> = new Map();
 let keepAliveCronTasks: Map<string, { stop: () => void }> = new Map();
 let nominationDigestCronTasks: Map<string, { stop: () => void }> = new Map();
+let eventReminderCronTasks: Map<string, { stop: () => void }> = new Map();
+let eventRemindersCleanupTask: { stop: () => void } | null = null;
 let guildConfigsById = new Map<string, GuildConfig>();
 let shuttingDown = false;
 
@@ -105,6 +117,11 @@ const shutdown = () => {
   for (const task of purgeCronTasks.values()) task.stop();
   for (const task of keepAliveCronTasks.values()) task.stop();
   for (const task of nominationDigestCronTasks.values()) task.stop();
+  for (const task of eventReminderCronTasks.values()) task.stop();
+  eventRemindersCleanupTask?.stop();
+  stopStationTimerWorker();
+  for (const task of eventReminderCronTasks.values()) task.stop();
+  eventRemindersCleanupTask?.stop();
   stopStationTimerWorker();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
@@ -126,6 +143,12 @@ client.once('clientReady', async () => {
   logger.info(`BOT_READ_ONLY_MODE=${readOnlyMode}`);
   logger.info(`MANUFACTURING_ENABLED=${manufacturingEnabled}`);
   logger.info(`NOMINATION_DIGEST_ENABLED=${nominationDigestEnabled}`);
+  logger.info(`EVENT_REMINDERS_ENABLED=${eventRemindersEnabled}`);
+  logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
+  logger.info(`STATION_TIMER_ENABLED=${stationTimerEnabled}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_GUILD=${stationTimerMaxActivePerGuild()}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_USER=${stationTimerMaxActivePerUser()}`);
+  logger.info(`EVENT_REMINDERS_ENABLED=${eventRemindersEnabled}`);
   logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
   logger.info(`STATION_TIMER_ENABLED=${stationTimerEnabled}`);
   logger.info(`STATION_TIMER_MAX_ACTIVE_PER_GUILD=${stationTimerMaxActivePerGuild()}`);
@@ -134,6 +157,9 @@ client.once('clientReady', async () => {
     try {
       await ensureNominationsSchema();
       await ensureGuildConfigsSchema();
+      if (eventRemindersEnabled) {
+        await ensureEventRemindersSchema();
+      }
       if (execHangarEnabled) {
         await ensureExecHangarSchema();
       }
@@ -214,6 +240,16 @@ client.once('clientReady', async () => {
           logger.info('[nomination-digest] Scheduled digest jobs.', { guilds: nominationDigestCronTasks.size });
         }
       }
+      if (eventRemindersEnabled) {
+        eventReminderCronTasks = scheduleEventReminders(client, allGuildConfigs);
+        if (eventReminderCronTasks.size > 0) {
+          logger.info('[event-reminder] Scheduled event reminder jobs.', { guilds: eventReminderCronTasks.size });
+        }
+        eventRemindersCleanupTask = scheduleEventRemindersCleanup(
+          getEventRemindersCleanupCron(),
+          getEventRemindersRetentionDays(),
+        );
+      }
       if (manufacturingEnabled) {
         keepAliveCronTasks = scheduleManufacturingKeepalives(client, allGuildConfigs);
         if (keepAliveCronTasks.size > 0) {
@@ -293,6 +329,7 @@ client.once('clientReady', async () => {
       dbConfigured: isDatabaseConfigured(),
       nominationWorkerActive: workerHandle !== null,
       nominationDigestJobActive: nominationDigestCronTasks.size > 0,
+      eventRemindersActive: eventReminderCronTasks.size > 0,
       purgeJobsEnabled: purgeCronTasks.size > 0,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,

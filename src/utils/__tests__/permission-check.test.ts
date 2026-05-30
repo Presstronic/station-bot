@@ -14,7 +14,8 @@ const allFlags = {
   verificationEnabled: true,
   purgeJobsEnabled: true,
   manufacturingEnabled: true,
-  stationTimerEnabled: true,
+  eventRemindersEnabled: false,
+  stationTimerEnabled: false,
 };
 
 function makeMe(grantedKeys: Extract<keyof typeof PermissionFlagsBits, string>[]) {
@@ -79,9 +80,26 @@ describe('checkBotPermissions', () => {
     expect(missing).not.toContain('ManageChannels');
   });
 
+  it('returns missing MentionEveryone when eventRemindersEnabled and perm absent', async () => {
+    const { checkBotPermissions } = await loadModule();
+    const guild = makeGuild({ me: makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers', 'ManageChannels']) });
+    const missing = checkBotPermissions(asGuild(guild), { ...allFlags, eventRemindersEnabled: true });
+    expect(missing).toContain('MentionEveryone');
+  });
+
+  it('does not include MentionEveryone when eventRemindersEnabled is false', async () => {
+    const { checkBotPermissions } = await loadModule();
+    const guild = makeGuild({ me: makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers', 'ManageChannels']) });
+    const missing = checkBotPermissions(asGuild(guild), { ...allFlags, eventRemindersEnabled: false });
+    expect(missing).not.toContain('MentionEveryone');
+  });
+
   it('returns all required permissions as missing when guild.members.me is null', async () => {
     const { checkBotPermissions } = await loadModule();
-    const missing = checkBotPermissions(asGuild(makeGuild({ me: null })), allFlags);
+    const missing = checkBotPermissions(
+      asGuild(makeGuild({ me: null })),
+      { ...allFlags, eventRemindersEnabled: true },
+    );
     expect(missing).toContain('ManageRoles');
     expect(missing).toContain('ManageNicknames');
     expect(missing).toContain('KickMembers');
@@ -96,6 +114,7 @@ describe('checkBotPermissions', () => {
         verificationEnabled: false,
         purgeJobsEnabled: false,
         manufacturingEnabled: false,
+        eventRemindersEnabled: false,
         stationTimerEnabled: false,
       }),
     ).toEqual([]);
@@ -155,6 +174,18 @@ describe('notifyOwnerOfMissingPermissions', () => {
 
     const [message] = (send as jest.Mock).mock.calls[0] as [string];
     expect(message).toContain('station timers');
+  });
+
+  it('includes the event reminder description for MentionEveryone', async () => {
+    const { notifyOwnerOfMissingPermissions } = await loadModule();
+    const send = jest.fn(async () => {});
+    const stub = makeGuild();
+    stub.fetchOwner.mockResolvedValue({ createDM: jest.fn(async () => ({ send })) });
+
+    await notifyOwnerOfMissingPermissions(asGuild(stub), ['MentionEveryone']);
+
+    const [message] = (send as jest.Mock).mock.calls[0] as [string];
+    expect(message).toContain('automatic event reminders');
   });
 
   it('logs warn and does not throw when DM sending fails', async () => {

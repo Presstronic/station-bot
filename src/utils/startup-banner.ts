@@ -7,6 +7,7 @@ export interface StartupBannerOptions {
   dbConfigured: boolean;
   nominationWorkerActive: boolean;
   nominationDigestJobActive: boolean;
+  eventRemindersActive: boolean;
   purgeJobsEnabled: boolean;
   rsiVerificationEnabled: boolean;
   manufacturingOrdersEnabled: boolean;
@@ -56,6 +57,7 @@ export function buildStartupBanner(options: StartupBannerOptions): string {
     dbConfigured,
     nominationWorkerActive,
     nominationDigestJobActive,
+    eventRemindersActive,
     purgeJobsEnabled,
     rsiVerificationEnabled,
     manufacturingOrdersEnabled,
@@ -80,6 +82,7 @@ export function buildStartupBanner(options: StartupBannerOptions): string {
     row('DB configured', String(dbConfigured)),
     row('Nom. worker', nominationWorkerActive ? 'enabled' : 'disabled'),
     row('Nom. digest', nominationDigestJobActive ? 'enabled' : 'disabled'),
+    row('Event reminders', eventRemindersActive ? 'enabled' : 'disabled'),
     row('Purge jobs', purgeJobsEnabled ? 'enabled' : 'disabled'),
     row('RSI Verification', rsiVerificationEnabled ? 'enabled' : 'disabled'),
     row('Mfg. Orders', manufacturingOrdersEnabled ? 'enabled' : 'disabled'),

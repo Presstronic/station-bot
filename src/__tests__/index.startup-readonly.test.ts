@@ -32,11 +32,13 @@ async function loadIndexAndRunReady(
   readOnlyMode: 'true' | 'false',
   options: {
     nominationDigestEnabled?: 'true' | 'false';
+    eventRemindersEnabled?: 'true' | 'false';
     execHangarEnabled?: 'true' | 'false';
     dbConfigured?: boolean;
     execHangarStartupSyncRejects?: boolean;
     purgeTaskCount?: number;
     digestTaskCount?: number;
+    eventReminderTaskCount?: number;
     guildConfigThrows?: boolean;
     guildConfigs?: Array<{ guildId: string; verificationEnabled: boolean; purgeJobsEnabled: boolean; manufacturingEnabled: boolean }>;
   } = {},
@@ -46,6 +48,11 @@ async function loadIndexAndRunReady(
     process.env.NOMINATION_DIGEST_ENABLED = options.nominationDigestEnabled;
   } else {
     delete process.env.NOMINATION_DIGEST_ENABLED;
+  }
+  if (options.eventRemindersEnabled !== undefined) {
+    process.env.EVENT_REMINDERS_ENABLED = options.eventRemindersEnabled;
+  } else {
+    delete process.env.EVENT_REMINDERS_ENABLED;
   }
   if (options.execHangarEnabled !== undefined) {
     process.env.EXEC_HANGAR_ENABLED = options.execHangarEnabled;
@@ -67,6 +74,11 @@ async function loadIndexAndRunReady(
     Array.from({ length: digestTaskCount }, (_, i) => [`guild-${i}`, { stop: jest.fn() }]),
   );
   const scheduleNominationDigests = jest.fn(() => digestTasks);
+  const eventReminderTaskCount = options.eventReminderTaskCount ?? 0;
+  const eventReminderTasks = new Map(
+    Array.from({ length: eventReminderTaskCount }, (_, i) => [`guild-${i}`, { stop: jest.fn() }]),
+  );
+  const scheduleEventReminders = jest.fn(() => eventReminderTasks);
   const startNominationCheckWorkerLoop = jest.fn();
   const buildStartupBanner = jest.fn(() => '[startup banner]');
   const checkBotPermissions = jest.fn(() => []);
@@ -124,6 +136,23 @@ async function loadIndexAndRunReady(
     scheduleNominationDigests,
     rescheduleGuildDigest: jest.fn(),
   }));
+  await jest.unstable_mockModule('../jobs/discord/event-reminder.job.js', () => ({
+    scheduleEventReminders,
+    rescheduleGuildEventReminders: jest.fn(),
+  }));
+  await jest.unstable_mockModule('../jobs/discord/event-reminders-cleanup.job.js', () => ({
+    scheduleEventRemindersCleanup: jest.fn(() => ({ stop: jest.fn() })),
+    resetEventRemindersCleanupForTests: jest.fn(),
+  }));
+  await jest.unstable_mockModule('../services/event-reminders/event-reminders.repository.js', () => ({
+    ensureEventRemindersSchema: jest.fn(async () => undefined),
+    tryClaimReminder: jest.fn(),
+    releaseReminderClaim: jest.fn(),
+    getEventState: jest.fn(),
+    upsertEventState: jest.fn(),
+    deleteOldReminderClaims: jest.fn(async () => 0),
+    deleteOldEventState: jest.fn(async () => 0),
+  }));
   await jest.unstable_mockModule('../jobs/discord/manufacturing-keepalive.job.js', () => ({
     scheduleManufacturingKeepalives: jest.fn(() => new Map()),
     rescheduleGuildKeepalive: jest.fn(),
@@ -133,6 +162,11 @@ async function loadIndexAndRunReady(
   }));
   await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
     isNominationDigestEnabled: () => options.nominationDigestEnabled === 'true',
+  }));
+  await jest.unstable_mockModule('../config/event-reminders.config.js', () => ({
+    isEventRemindersEnabled: () => options.eventRemindersEnabled === 'true',
+    getEventRemindersCleanupCron: () => '0 4 * * *',
+    getEventRemindersRetentionDays: () => 30,
   }));
   await jest.unstable_mockModule('../config/exec-hangar.config.js', () => ({
     isExecHangarEnabled: () => options.execHangarEnabled === 'true',
@@ -237,6 +271,7 @@ async function loadIndexAndRunReady(
     addMissingDefaultRoles,
     schedulePurgeJobs,
     scheduleNominationDigests,
+    scheduleEventReminders,
     startNominationCheckWorkerLoop,
     buildStartupBanner,
     checkBotPermissions,
@@ -495,6 +530,23 @@ describe('startup wiring with read-only mode', () => {
       scheduleNominationDigests: jest.fn(() => new Map()),
       rescheduleGuildDigest: jest.fn(),
     }));
+    await jest.unstable_mockModule('../jobs/discord/event-reminder.job.js', () => ({
+      scheduleEventReminders: jest.fn(() => new Map()),
+      rescheduleGuildEventReminders: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/event-reminders-cleanup.job.js', () => ({
+      scheduleEventRemindersCleanup: jest.fn(() => ({ stop: jest.fn() })),
+      resetEventRemindersCleanupForTests: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../services/event-reminders/event-reminders.repository.js', () => ({
+      ensureEventRemindersSchema: jest.fn(async () => undefined),
+      tryClaimReminder: jest.fn(),
+      releaseReminderClaim: jest.fn(),
+      getEventState: jest.fn(),
+      upsertEventState: jest.fn(),
+      deleteOldReminderClaims: jest.fn(async () => 0),
+      deleteOldEventState: jest.fn(async () => 0),
+    }));
     await jest.unstable_mockModule('../jobs/discord/manufacturing-keepalive.job.js', () => ({
       scheduleManufacturingKeepalives: jest.fn(() => new Map()),
       rescheduleGuildKeepalive: jest.fn(),
@@ -504,6 +556,11 @@ describe('startup wiring with read-only mode', () => {
     }));
     await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
       isNominationDigestEnabled: () => false,
+    }));
+    await jest.unstable_mockModule('../config/event-reminders.config.js', () => ({
+      isEventRemindersEnabled: () => false,
+      getEventRemindersCleanupCron: () => '0 4 * * *',
+      getEventRemindersRetentionDays: () => 30,
     }));
     await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
@@ -622,6 +679,23 @@ describe('startup wiring with read-only mode', () => {
       scheduleNominationDigests: jest.fn(() => new Map()),
       rescheduleGuildDigest: jest.fn(),
     }));
+    await jest.unstable_mockModule('../jobs/discord/event-reminder.job.js', () => ({
+      scheduleEventReminders: jest.fn(() => new Map()),
+      rescheduleGuildEventReminders: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/event-reminders-cleanup.job.js', () => ({
+      scheduleEventRemindersCleanup: jest.fn(() => ({ stop: jest.fn() })),
+      resetEventRemindersCleanupForTests: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../services/event-reminders/event-reminders.repository.js', () => ({
+      ensureEventRemindersSchema: jest.fn(async () => undefined),
+      tryClaimReminder: jest.fn(),
+      releaseReminderClaim: jest.fn(),
+      getEventState: jest.fn(),
+      upsertEventState: jest.fn(),
+      deleteOldReminderClaims: jest.fn(async () => 0),
+      deleteOldEventState: jest.fn(async () => 0),
+    }));
     await jest.unstable_mockModule('../services/role.services.js', () => ({
       addMissingDefaultRoles: jest.fn(async () => undefined),
     }));
@@ -629,6 +703,11 @@ describe('startup wiring with read-only mode', () => {
       isNominationDigestEnabled: () => false,
       validateNominationDigestConfig: () => [],
       getNominationDigestConfig: () => ({ channelId: 'c', roleId: 'r', cronSchedule: '0 9 * * *' }),
+    }));
+    await jest.unstable_mockModule('../config/event-reminders.config.js', () => ({
+      isEventRemindersEnabled: () => false,
+      getEventRemindersCleanupCron: () => '0 4 * * *',
+      getEventRemindersRetentionDays: () => 30,
     }));
     await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
@@ -737,6 +816,23 @@ describe('startup wiring with read-only mode', () => {
       scheduleNominationDigests: jest.fn(() => new Map()),
       rescheduleGuildDigest: jest.fn(),
     }));
+    await jest.unstable_mockModule('../jobs/discord/event-reminder.job.js', () => ({
+      scheduleEventReminders: jest.fn(() => new Map()),
+      rescheduleGuildEventReminders: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../jobs/discord/event-reminders-cleanup.job.js', () => ({
+      scheduleEventRemindersCleanup: jest.fn(() => ({ stop: jest.fn() })),
+      resetEventRemindersCleanupForTests: jest.fn(),
+    }));
+    await jest.unstable_mockModule('../services/event-reminders/event-reminders.repository.js', () => ({
+      ensureEventRemindersSchema: jest.fn(async () => undefined),
+      tryClaimReminder: jest.fn(),
+      releaseReminderClaim: jest.fn(),
+      getEventState: jest.fn(),
+      upsertEventState: jest.fn(),
+      deleteOldReminderClaims: jest.fn(async () => 0),
+      deleteOldEventState: jest.fn(async () => 0),
+    }));
     await jest.unstable_mockModule('../jobs/discord/manufacturing-keepalive.job.js', () => ({
       scheduleManufacturingKeepalives: jest.fn(() => new Map()),
       rescheduleGuildKeepalive: jest.fn(),
@@ -744,6 +840,11 @@ describe('startup wiring with read-only mode', () => {
     await jest.unstable_mockModule('../services/role.services.js', () => ({ addMissingDefaultRoles }));
     await jest.unstable_mockModule('../config/nomination-digest.config.js', () => ({
       isNominationDigestEnabled: () => false,
+    }));
+    await jest.unstable_mockModule('../config/event-reminders.config.js', () => ({
+      isEventRemindersEnabled: () => false,
+      getEventRemindersCleanupCron: () => '0 4 * * *',
+      getEventRemindersRetentionDays: () => 30,
     }));
     await jest.unstable_mockModule('../services/nominations/job-worker.service.js', () => ({
       startNominationCheckWorkerLoop,
