@@ -14,6 +14,8 @@ const BASE_OPTIONS = {
   purgeJobsEnabled: true,
   rsiVerificationEnabled: true,
   manufacturingOrdersEnabled: true,
+  execHangarEnabled: true,
+  stationTimerEnabled: true,
   guildCount: 3,
   botTag: 'station-bot#0001',
   startedAt: '2026-03-25T04:00:00.000Z',
@@ -53,6 +55,8 @@ describe('buildStartupBanner', () => {
     expect(banner).toMatch(/Purge jobs\s+: enabled/); // purgeJobsEnabled
     expect(banner).toMatch(/RSI Verification\s+: enabled/); // rsiVerificationEnabled
     expect(banner).toMatch(/Mfg\. Orders\s+: enabled/); // manufacturingOrdersEnabled
+    expect(banner).toMatch(/Exec\. Hangar\s+: enabled/); // execHangarEnabled
+    expect(banner).toMatch(/Station Timer\s+: enabled/); // stationTimerEnabled
     expect(banner).toMatch(/Guilds\s+: 3/); // guildCount — unambiguous, not matched by '1.2.3'
     expect(banner).toContain('station-bot#0001');
     expect(banner).toContain('2026-03-25T04:00:00.000Z');
@@ -86,6 +90,16 @@ describe('buildStartupBanner', () => {
   it('shows "disabled" when manufacturing orders are off', () => {
     const banner = buildStartupBanner({ ...BASE_OPTIONS, manufacturingOrdersEnabled: false });
     expect(banner).toMatch(/Mfg\. Orders\s+: disabled/);
+  });
+
+  it('shows "disabled" when exec hangar is off', () => {
+    const banner = buildStartupBanner({ ...BASE_OPTIONS, execHangarEnabled: false });
+    expect(banner).toMatch(/Exec\. Hangar\s+: disabled/);
+  });
+
+  it('shows "disabled" when station timer is off', () => {
+    const banner = buildStartupBanner({ ...BASE_OPTIONS, stationTimerEnabled: false });
+    expect(banner).toMatch(/Station Timer\s+: disabled/);
   });
 
   it('all lines have the same length', () => {

@@ -1,0 +1,175 @@
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+
+beforeEach(() => {
+  jest.resetModules();
+});
+
+describe('exec hangar timer service', () => {
+  it('derives status before the stored next change', async () => {
+    const { deriveExecHangarStatus, markExecHangarSyncSucceededForTests } = await import('../exec-hangar-timer.service.js');
+    markExecHangarSyncSucceededForTests();
+
+    const status = deriveExecHangarStatus(
+      {
+        id: 'id-1',
+        singletonKey: 'global',
+        currentState: 'CLOSED',
+        nextChangeAt: '2026-05-29T17:30:00.000Z',
+        nextChangeType: 'OPEN',
+        lastSyncedAt: '2026-05-29T17:00:00.000Z',
+        syncSource: 'exec.xyxyll.com',
+        openDurationMinutes: 60,
+        closedDurationMinutes: 120,
+        cycleOffsetMs: 0,
+        createdAt: '2026-05-29T17:00:00.000Z',
+        updatedAt: '2026-05-29T17:00:00.000Z',
+      },
+      new Date('2026-05-29T17:05:00.000Z'),
+    );
+
+    expect(status.initialized).toBe(true);
+    expect(status.currentState).toBe('CLOSED');
+    expect(status.nextChangeType).toBe('OPEN');
+    expect(status.minutesUntilNextChange).toBe(25);
+    expect(status.confidence).toBe('good');
+  });
+
+  it('derives status after the first transition using local cycle math', async () => {
+    const { deriveExecHangarStatus, markExecHangarSyncSucceededForTests } = await import('../exec-hangar-timer.service.js');
+    markExecHangarSyncSucceededForTests();
+
+    const status = deriveExecHangarStatus(
+      {
+        id: 'id-1',
+        singletonKey: 'global',
+        currentState: 'CLOSED',
+        nextChangeAt: '2026-05-29T17:30:00.000Z',
+        nextChangeType: 'OPEN',
+        lastSyncedAt: '2026-05-29T17:00:00.000Z',
+        syncSource: 'manual-admin',
+        openDurationMinutes: 60,
+        closedDurationMinutes: 120,
+        cycleOffsetMs: 0,
+        createdAt: '2026-05-29T17:00:00.000Z',
+        updatedAt: '2026-05-29T17:00:00.000Z',
+      },
+      new Date('2026-05-29T18:00:00.000Z'),
+    );
+
+    expect(status.currentState).toBe('OPEN');
+    expect(status.nextChangeType).toBe('CLOSE');
+    expect(status.minutesUntilNextChange).toBe(30);
+  });
+
+  it('marks state as stale when no successful sync has happened this startup', async () => {
+    const { deriveExecHangarStatus, resetExecHangarServiceForTests } = await import('../exec-hangar-timer.service.js');
+    resetExecHangarServiceForTests();
+
+    const status = deriveExecHangarStatus(
+      {
+        id: 'id-1',
+        singletonKey: 'global',
+        currentState: 'CLOSED',
+        nextChangeAt: '2026-05-29T17:30:00.000Z',
+        nextChangeType: 'OPEN',
+        lastSyncedAt: '2026-05-29T17:00:00.000Z',
+        syncSource: 'exec.xyxyll.com',
+        openDurationMinutes: 60,
+        closedDurationMinutes: 120,
+        cycleOffsetMs: 0,
+        createdAt: '2026-05-29T17:00:00.000Z',
+        updatedAt: '2026-05-29T17:00:00.000Z',
+      },
+      new Date('2026-05-29T17:05:00.000Z'),
+    );
+
+    expect(status.confidence).toBe('stale');
+    expect(status.warningKey).toBe('startupStale');
+  });
+
+  it('validates cycle offset so total cycle duration stays positive', async () => {
+    const { validateExecHangarCycleOffsetMs } = await import('../exec-hangar-timer.service.js');
+
+    expect(() => validateExecHangarCycleOffsetMs(60, 120, -10_800_000)).toThrow(
+      'cycle-offset-ms must keep the total cycle duration above 0 milliseconds.',
+    );
+    expect(() => validateExecHangarCycleOffsetMs(60, 120, -10_799_999)).not.toThrow();
+  });
+
+  it('persists source-derived durations and offset during external resync', async () => {
+    const updateExecHangarState = jest.fn(async () => ({
+      id: 'id-1',
+      singletonKey: 'global',
+      currentState: 'OPEN',
+      nextChangeAt: '2026-05-29T17:30:00.000Z',
+      nextChangeType: 'CLOSE',
+      lastSyncedAt: '2026-05-29T17:00:00.000Z',
+      syncSource: 'exec.xyxyll.com',
+      openDurationMinutes: 65,
+      closedDurationMinutes: 120,
+      cycleOffsetMs: 129,
+      createdAt: '2026-05-29T17:00:00.000Z',
+      updatedAt: '2026-05-29T17:00:00.000Z',
+    }));
+
+    jest.unstable_mockModule('../../../domain/exec-hangar/exec-hangar.repository.js', () => ({
+      ensureExecHangarStateRow: jest.fn(),
+      getExecHangarState: jest.fn(),
+      updateExecHangarState,
+    }));
+    jest.unstable_mockModule('../exec-hangar-sync-source.js', () => ({
+      fetchExecHangarSyncAnchor: jest.fn(async () => ({
+        currentState: 'OPEN',
+        remainingMs: 600_000,
+        observedAt: '2026-05-29T17:00:00.000Z',
+        source: 'exec.xyxyll.com',
+        openDurationMinutes: 65,
+        closedDurationMinutes: 120,
+        cycleOffsetMs: 129,
+      })),
+    }));
+
+    const { resyncExecHangarFromExternalSource } = await import('../exec-hangar-timer.service.js');
+    await resyncExecHangarFromExternalSource(new Date('2026-05-29T17:00:00.000Z'));
+
+    expect(updateExecHangarState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        openDurationMinutes: 65,
+        closedDurationMinutes: 120,
+        cycleOffsetMs: 129,
+      }),
+    );
+  });
+
+  it('returns a failure result instead of throwing when startup sync and baseline load both fail', async () => {
+    const getExecHangarState = jest.fn(async () => {
+      throw new Error('baseline read failed');
+    });
+    const ensureExecHangarStateRow = jest.fn(async () => {
+      throw new Error('baseline init failed');
+    });
+
+    jest.unstable_mockModule('../../../domain/exec-hangar/exec-hangar.repository.js', () => ({
+      ensureExecHangarStateRow,
+      getExecHangarState,
+      updateExecHangarState: jest.fn(),
+    }));
+    jest.unstable_mockModule('../exec-hangar-sync-source.js', () => ({
+      fetchExecHangarSyncAnchor: jest.fn(async () => {
+        throw new Error('remote unavailable');
+      }),
+    }));
+
+    const { performExecHangarStartupSync } = await import('../exec-hangar-timer.service.js');
+    const result = await performExecHangarStartupSync(new Date('2026-05-29T17:00:00.000Z'));
+
+    expect(result.success).toBe(false);
+    expect(result.state).toBeNull();
+    expect(result.error).toEqual({
+      syncError: expect.any(Error),
+      baselineError: expect.any(Error),
+    });
+    expect(getExecHangarState).toHaveBeenCalledTimes(1);
+    expect(ensureExecHangarStateRow).not.toHaveBeenCalled();
+  });
+});

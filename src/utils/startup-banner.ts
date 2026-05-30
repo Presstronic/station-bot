@@ -11,6 +11,8 @@ export interface StartupBannerOptions {
   purgeJobsEnabled: boolean;
   rsiVerificationEnabled: boolean;
   manufacturingOrdersEnabled: boolean;
+  execHangarEnabled: boolean;
+  stationTimerEnabled: boolean;
   guildCount: number;
   botTag: string;
   startedAt: string;
@@ -59,6 +61,8 @@ export function buildStartupBanner(options: StartupBannerOptions): string {
     purgeJobsEnabled,
     rsiVerificationEnabled,
     manufacturingOrdersEnabled,
+    execHangarEnabled,
+    stationTimerEnabled,
     guildCount,
     botTag,
     startedAt,
@@ -82,6 +86,8 @@ export function buildStartupBanner(options: StartupBannerOptions): string {
     row('Purge jobs', purgeJobsEnabled ? 'enabled' : 'disabled'),
     row('RSI Verification', rsiVerificationEnabled ? 'enabled' : 'disabled'),
     row('Mfg. Orders', manufacturingOrdersEnabled ? 'enabled' : 'disabled'),
+    row('Exec. Hangar', execHangarEnabled ? 'enabled' : 'disabled'),
+    row('Station Timer', stationTimerEnabled ? 'enabled' : 'disabled'),
     row('Guilds', String(guildCount)),
     row('Logged in as', botTag),
     row('Started at', startedAt),

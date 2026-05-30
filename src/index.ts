@@ -15,6 +15,7 @@ import { getLogger } from './utils/logger.js';
 import { isReadOnlyMode, isVerificationEnabled } from './config/runtime-flags.js';
 import { isNominationDigestEnabled } from './config/nomination-digest.config.js';
 import { isManufacturingEnabled } from './config/manufacturing.config.js';
+import { isExecHangarEnabled } from './config/exec-hangar.config.js';
 import {
   isEventRemindersEnabled,
   getEventRemindersCleanupCron,
@@ -39,6 +40,15 @@ import {
   checkBotPermissions,
   notifyOwnerOfMissingPermissions,
 } from './utils/permission-check.js';
+import { ensureExecHangarSchema } from './domain/exec-hangar/exec-hangar.repository.js';
+import { performExecHangarStartupSync } from './services/exec-hangar/exec-hangar-timer.service.js';
+import {
+  isStationTimerEnabled,
+  stationTimerMaxActivePerGuild,
+  stationTimerMaxActivePerUser,
+} from './config/station-timer.config.js';
+import { ensureStationTimersSchema } from './domain/station-timer/station-timer.repository.js';
+import { scheduleStationTimerWorker, stopStationTimerWorker } from './jobs/discord/station-timer.job.js';
 
 const _require = createRequire(import.meta.url);
 const { version: appVersion } = _require('../package.json') as { version: string };
@@ -49,6 +59,8 @@ const verificationEnabled = isVerificationEnabled();
 const manufacturingEnabled = isManufacturingEnabled();
 const nominationDigestEnabled = isNominationDigestEnabled();
 const eventRemindersEnabled = isEventRemindersEnabled();
+const execHangarEnabled = isExecHangarEnabled();
+const stationTimerEnabled = isStationTimerEnabled();
 
 function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
   return {
@@ -56,6 +68,7 @@ function getEffectiveAuditFlags(guildConfig: GuildConfig | null) {
     purgeJobsEnabled: !readOnlyMode && guildConfig?.purgeJobsEnabled === true,
     manufacturingEnabled: !readOnlyMode && manufacturingEnabled && guildConfig?.manufacturingEnabled === true,
     eventRemindersEnabled: !readOnlyMode && eventRemindersEnabled && guildConfig?.eventRemindersEnabled === true,
+    stationTimerEnabled: !readOnlyMode && stationTimerEnabled,
   };
 }
 
@@ -106,6 +119,10 @@ const shutdown = () => {
   for (const task of nominationDigestCronTasks.values()) task.stop();
   for (const task of eventReminderCronTasks.values()) task.stop();
   eventRemindersCleanupTask?.stop();
+  stopStationTimerWorker();
+  for (const task of eventReminderCronTasks.values()) task.stop();
+  eventRemindersCleanupTask?.stop();
+  stopStationTimerWorker();
   client.destroy();
   endDbPoolIfInitialized().catch((err: unknown) => {
     const message = err instanceof Error ? err.message : String(err);
@@ -127,6 +144,15 @@ client.once('clientReady', async () => {
   logger.info(`MANUFACTURING_ENABLED=${manufacturingEnabled}`);
   logger.info(`NOMINATION_DIGEST_ENABLED=${nominationDigestEnabled}`);
   logger.info(`EVENT_REMINDERS_ENABLED=${eventRemindersEnabled}`);
+  logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
+  logger.info(`STATION_TIMER_ENABLED=${stationTimerEnabled}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_GUILD=${stationTimerMaxActivePerGuild()}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_USER=${stationTimerMaxActivePerUser()}`);
+  logger.info(`EVENT_REMINDERS_ENABLED=${eventRemindersEnabled}`);
+  logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
+  logger.info(`STATION_TIMER_ENABLED=${stationTimerEnabled}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_GUILD=${stationTimerMaxActivePerGuild()}`);
+  logger.info(`STATION_TIMER_MAX_ACTIVE_PER_USER=${stationTimerMaxActivePerUser()}`);
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
@@ -134,6 +160,10 @@ client.once('clientReady', async () => {
       if (eventRemindersEnabled) {
         await ensureEventRemindersSchema();
       }
+      if (execHangarEnabled) {
+        await ensureExecHangarSchema();
+      }
+      await ensureStationTimersSchema();
     } catch (error) {
       logger.error('Failed to initialize database schema', error);
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');
@@ -230,11 +260,52 @@ client.once('clientReady', async () => {
       if (workerHandle) {
         logger.info('Started nomination check worker loop.');
       }
+      if (stationTimerEnabled) {
+        scheduleStationTimerWorker(client);
+      }
     } else {
       logger.info('DATABASE_URL is not configured — guild-config-driven jobs will not run.');
     }
   } else {
     logger.warn('Read-only mode is enabled. Skipping default role creation and cleanup job scheduling.');
+  }
+
+  if (execHangarEnabled && !readOnlyMode) {
+    if (!isDatabaseConfigured()) {
+      logger.warn('[exec-hangar] DATABASE_URL is not configured. Feature will remain unavailable.');
+    } else {
+      try {
+        const startupSync = await performExecHangarStartupSync();
+        if (startupSync.success && startupSync.state) {
+          logger.info('[exec-hangar] Startup sync succeeded.', {
+            currentState: startupSync.state.currentState,
+            nextChangeAt: startupSync.state.nextChangeAt,
+            nextChangeType: startupSync.state.nextChangeType,
+            openDurationMinutes: startupSync.state.openDurationMinutes,
+            closedDurationMinutes: startupSync.state.closedDurationMinutes,
+            cycleOffsetMs: startupSync.state.cycleOffsetMs,
+          });
+        } else {
+          logger.warn('[exec-hangar] Startup sync failed; preserving existing local state when available.', {
+            error: startupSync.error,
+            hasBaseline: Boolean(
+              startupSync.state?.currentState &&
+                startupSync.state?.nextChangeAt &&
+                startupSync.state?.nextChangeType,
+            ),
+            openDurationMinutes: startupSync.state?.openDurationMinutes ?? null,
+            closedDurationMinutes: startupSync.state?.closedDurationMinutes ?? null,
+            cycleOffsetMs: startupSync.state?.cycleOffsetMs ?? null,
+          });
+        }
+      } catch (error) {
+        logger.warn('[exec-hangar] Startup sync aborted unexpectedly; feature will remain unavailable until a manual sync succeeds.', {
+          error,
+        });
+      }
+    }
+  } else if (execHangarEnabled) {
+    logger.info('[exec-hangar] Read-only mode enabled; skipping startup sync.');
   }
 
   void Promise.allSettled(
@@ -262,6 +333,8 @@ client.once('clientReady', async () => {
       purgeJobsEnabled: purgeCronTasks.size > 0,
       rsiVerificationEnabled: !readOnlyMode && verificationEnabled,
       manufacturingOrdersEnabled: !readOnlyMode && manufacturingEnabled,
+      execHangarEnabled: !readOnlyMode && execHangarEnabled && isDatabaseConfigured(),
+      stationTimerEnabled: !readOnlyMode && stationTimerEnabled,
       guildCount: client.guilds.cache.size,
       botTag: client.user?.tag ?? 'unknown',
       startedAt: new Date().toISOString(),
