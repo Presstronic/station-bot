@@ -228,9 +228,22 @@ High-level release flow:
 
 1. Cut a `release/v{x.y.z}` branch from `main`
 2. Bump version in `package.json` and run `npm install --package-lock-only`
-3. Open a PR titled `release: v{x.y.z}`; squash-merge into `main`
-4. Tag the merge commit: `git tag v{x.y.z} && git push origin v{x.y.z}`
-5. Verify `Build & Publish Docker Image` workflow success
+3. On the `release/v{x.y.z}` branch, create a permanent Markdown release-notes file in [docs/releases](docs/releases/README.md) for the target version
+4. Open a PR titled `release: v{x.y.z}`; squash-merge into `main`
+5. Tag the merge commit: `git tag v{x.y.z} && git push origin v{x.y.z}`
+6. Verify `Build & Publish Docker Image` workflow success
+
+The release-notes file must include:
+- a brief professional summary of the main changes
+- a listing of all issues addressed with a brief summary of each
+- a summary of the release
+- the human people involved with the changes for that release
+
+Do not create the release-notes file on feature branches. It should be introduced on the release branch and merged into `main` with the release PR.
+
+Operational release guidance now lives in:
+- [docs/releases/release-checklist.md](docs/releases/release-checklist.md)
+- [docs/releases/_template.md](docs/releases/_template.md)
 
 ---
 
