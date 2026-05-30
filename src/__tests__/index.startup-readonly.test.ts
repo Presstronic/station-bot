@@ -291,6 +291,61 @@ describe('startup wiring with read-only mode', () => {
     );
   });
 
+  it('runs exec hangar schema validation and startup sync when enabled and the database is configured', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const {
+      ensureExecHangarSchema,
+      performExecHangarStartupSync,
+      buildStartupBanner,
+    } = await loadIndexAndRunReady('false', {
+      execHangarEnabled: 'true',
+      dbConfigured: true,
+    });
+
+    expect(ensureExecHangarSchema).toHaveBeenCalledTimes(1);
+    expect(performExecHangarStartupSync).toHaveBeenCalledTimes(1);
+    expect(buildStartupBanner).toHaveBeenCalledWith(
+      expect.objectContaining({ execHangarEnabled: true }),
+    );
+  });
+
+  it('does not run exec hangar startup sync when the database is not configured', async () => {
+    const {
+      ensureExecHangarSchema,
+      performExecHangarStartupSync,
+      buildStartupBanner,
+    } = await loadIndexAndRunReady('false', {
+      execHangarEnabled: 'true',
+      dbConfigured: false,
+    });
+
+    expect(ensureExecHangarSchema).not.toHaveBeenCalled();
+    expect(performExecHangarStartupSync).not.toHaveBeenCalled();
+    expect(buildStartupBanner).toHaveBeenCalledWith(
+      expect.objectContaining({ execHangarEnabled: false }),
+    );
+  });
+
+  it('does not run exec hangar startup sync in read-only mode', async () => {
+    process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
+
+    const {
+      ensureExecHangarSchema,
+      performExecHangarStartupSync,
+      buildStartupBanner,
+    } = await loadIndexAndRunReady('true', {
+      execHangarEnabled: 'true',
+      dbConfigured: true,
+    });
+
+    expect(ensureExecHangarSchema).toHaveBeenCalledTimes(1);
+    expect(performExecHangarStartupSync).not.toHaveBeenCalled();
+    expect(buildStartupBanner).toHaveBeenCalledWith(
+      expect.objectContaining({ execHangarEnabled: false }),
+    );
+  });
+
   it('reports nominationDigestJobActive=false when scheduling returns an empty map', async () => {
     process.env.DATABASE_URL = 'postgresql://station_bot:change_me@postgres:5432/station_bot';
 
