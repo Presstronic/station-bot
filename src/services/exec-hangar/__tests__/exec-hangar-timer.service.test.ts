@@ -86,4 +86,58 @@ describe('exec hangar timer service', () => {
     expect(status.confidence).toBe('stale');
     expect(status.warningKey).toBe('startupStale');
   });
+
+  it('validates cycle offset so total cycle duration stays positive', async () => {
+    const { validateExecHangarCycleOffsetMs } = await import('../exec-hangar-timer.service.js');
+
+    expect(() => validateExecHangarCycleOffsetMs(60, 120, -10_800_000)).toThrow(
+      'cycle-offset-ms must keep the total cycle duration above 0 milliseconds.',
+    );
+    expect(() => validateExecHangarCycleOffsetMs(60, 120, -10_799_999)).not.toThrow();
+  });
+
+  it('persists source-derived durations and offset during external resync', async () => {
+    const updateExecHangarState = jest.fn(async () => ({
+      id: 'id-1',
+      singletonKey: 'global',
+      currentState: 'OPEN',
+      nextChangeAt: '2026-05-29T17:30:00.000Z',
+      nextChangeType: 'CLOSE',
+      lastSyncedAt: '2026-05-29T17:00:00.000Z',
+      syncSource: 'exec.xyxyll.com',
+      openDurationMinutes: 65,
+      closedDurationMinutes: 120,
+      cycleOffsetMs: 129,
+      createdAt: '2026-05-29T17:00:00.000Z',
+      updatedAt: '2026-05-29T17:00:00.000Z',
+    }));
+
+    jest.unstable_mockModule('../../../domain/exec-hangar/exec-hangar.repository.js', () => ({
+      ensureExecHangarStateRow: jest.fn(),
+      getExecHangarState: jest.fn(),
+      updateExecHangarState,
+    }));
+    jest.unstable_mockModule('../exec-hangar-sync-source.js', () => ({
+      fetchExecHangarSyncAnchor: jest.fn(async () => ({
+        currentState: 'OPEN',
+        remainingMs: 600_000,
+        observedAt: '2026-05-29T17:00:00.000Z',
+        source: 'exec.xyxyll.com',
+        openDurationMinutes: 65,
+        closedDurationMinutes: 120,
+        cycleOffsetMs: 129,
+      })),
+    }));
+
+    const { resyncExecHangarFromExternalSource } = await import('../exec-hangar-timer.service.js');
+    await resyncExecHangarFromExternalSource(new Date('2026-05-29T17:00:00.000Z'));
+
+    expect(updateExecHangarState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        openDurationMinutes: 65,
+        closedDurationMinutes: 120,
+        cycleOffsetMs: 129,
+      }),
+    );
+  });
 });

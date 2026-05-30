@@ -22,6 +22,9 @@ describe('exec hangar sync source', () => {
     expect(parsed.cycleDriftMs).toBe(129);
     expect(anchor.currentState).toBe('OPEN');
     expect(anchor.remainingMs).toBeGreaterThan(0);
+    expect(anchor.openDurationMinutes).toBe(65);
+    expect(anchor.closedDurationMinutes).toBe(120);
+    expect(anchor.cycleOffsetMs).toBe(129);
   });
 
   it('derives a CLOSED anchor later in the cycle', async () => {

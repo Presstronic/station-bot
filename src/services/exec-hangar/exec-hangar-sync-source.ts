@@ -7,6 +7,9 @@ export interface ExecHangarSyncAnchor {
   remainingMs: number;
   observedAt: string;
   source: 'exec.xyxyll.com';
+  openDurationMinutes: number;
+  closedDurationMinutes: number;
+  cycleOffsetMs: number;
 }
 
 interface ParsedSourceConfig {
@@ -101,6 +104,9 @@ export function deriveAnchorFromSourceConfig(
       remainingMs: Math.max(0, openMs - normalizedMs),
       observedAt: now.toISOString(),
       source: 'exec.xyxyll.com',
+      openDurationMinutes: parsed.openDurationMinutes,
+      closedDurationMinutes: parsed.closedDurationMinutes,
+      cycleOffsetMs: parsed.cycleDriftMs,
     };
   }
 
@@ -110,6 +116,9 @@ export function deriveAnchorFromSourceConfig(
     remainingMs: Math.max(0, closedMs - closeElapsedMs),
     observedAt: now.toISOString(),
     source: 'exec.xyxyll.com',
+    openDurationMinutes: parsed.openDurationMinutes,
+    closedDurationMinutes: parsed.closedDurationMinutes,
+    cycleOffsetMs: parsed.cycleDriftMs,
   };
 }
 

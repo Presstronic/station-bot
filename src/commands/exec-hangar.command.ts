@@ -11,6 +11,7 @@ import {
   manualSyncExecHangar,
   resyncExecHangarFromExternalSource,
   updateExecHangarConfig,
+  validateExecHangarCycleOffsetMs,
 } from '../services/exec-hangar/exec-hangar-timer.service.js';
 import { getLogger } from '../utils/logger.js';
 import i18n from '../utils/i18n-config.js';
@@ -232,11 +233,24 @@ export async function handleExecHangarCommand(interaction: ChatInputCommandInter
       return;
     }
 
+    let minutes: number;
     try {
-      const minutes = opensIn !== null
+      minutes = opensIn !== null
         ? parsePositiveWholeNumber(opensIn, 'opens-in')
         : parsePositiveWholeNumber(closesIn ?? 0, 'closes-in');
-      const nextChangeType = opensIn !== null ? 'OPEN' : 'CLOSE';
+    } catch (error) {
+      await interaction.reply({
+        content: error instanceof Error
+          ? error.message
+          : i18n.__({ phrase: 'commands.execHangar.responses.invalidMinutes', locale }),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
+
+    const nextChangeType = opensIn !== null ? 'OPEN' : 'CLOSE';
+
+    try {
       await manualSyncExecHangar(nextChangeType, minutes);
       await interaction.reply({
         content: i18n.__mf(
@@ -246,8 +260,9 @@ export async function handleExecHangarCommand(interaction: ChatInputCommandInter
         flags: MessageFlags.Ephemeral,
       });
     } catch (error) {
+      logger.warn('[exec-hangar] Manual sync failed', { error, nextChangeType, minutes });
       await interaction.reply({
-        content: i18n.__({ phrase: 'commands.execHangar.responses.invalidMinutes', locale }),
+        content: i18n.__({ phrase: 'commands.execHangar.responses.temporarilyUnavailable', locale }),
         flags: MessageFlags.Ephemeral,
       });
     }
@@ -255,20 +270,34 @@ export async function handleExecHangarCommand(interaction: ChatInputCommandInter
   }
 
   if (subcommand === 'config') {
+    let openDurationMinutes: number;
+    let closedDurationMinutes: number;
+    let cycleOffsetMs: number;
     try {
-      const openDurationMinutes = parsePositiveWholeNumber(
+      openDurationMinutes = parsePositiveWholeNumber(
         interaction.options.getInteger('open-duration-minutes', true),
         'open-duration-minutes',
       );
-      const closedDurationMinutes = parsePositiveWholeNumber(
+      closedDurationMinutes = parsePositiveWholeNumber(
         interaction.options.getInteger('closed-duration-minutes', true),
         'closed-duration-minutes',
       );
-      const cycleOffsetMs = parseWholeNumber(
+      cycleOffsetMs = parseWholeNumber(
         interaction.options.getInteger('cycle-offset-ms', true),
         'cycle-offset-ms',
       );
+      validateExecHangarCycleOffsetMs(openDurationMinutes, closedDurationMinutes, cycleOffsetMs);
+    } catch (error) {
+      await interaction.reply({
+        content: error instanceof Error
+          ? error.message
+          : i18n.__({ phrase: 'commands.execHangar.responses.configFailed', locale }),
+        flags: MessageFlags.Ephemeral,
+      });
+      return;
+    }
 
+    try {
       await updateExecHangarConfig({
         openDurationMinutes,
         closedDurationMinutes,

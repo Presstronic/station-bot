@@ -69,6 +69,7 @@ describe('exec-hangar command', () => {
       manualSyncExecHangar: jest.fn(),
       resyncExecHangarFromExternalSource: jest.fn(),
       updateExecHangarConfig: jest.fn(),
+      validateExecHangarCycleOffsetMs: jest.fn(),
     }));
 
     const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
@@ -103,6 +104,7 @@ describe('exec-hangar command', () => {
       manualSyncExecHangar: jest.fn(),
       resyncExecHangarFromExternalSource: jest.fn(),
       updateExecHangarConfig: jest.fn(),
+      validateExecHangarCycleOffsetMs: jest.fn(),
     }));
 
     const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
@@ -127,6 +129,13 @@ describe('exec-hangar command', () => {
     jest.unstable_mockModule('../../config/exec-hangar.config.js', () => ({
       isExecHangarEnabled: jest.fn(() => true),
     }));
+    jest.unstable_mockModule('../../services/exec-hangar/exec-hangar-timer.service.js', () => ({
+      getExecHangarStatus: jest.fn(),
+      manualSyncExecHangar: jest.fn(),
+      resyncExecHangarFromExternalSource: jest.fn(),
+      updateExecHangarConfig: jest.fn(),
+      validateExecHangarCycleOffsetMs: jest.fn(),
+    }));
 
     const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
     const interaction = makeInteraction({
@@ -148,6 +157,13 @@ describe('exec-hangar command', () => {
     jest.unstable_mockModule('../../config/exec-hangar.config.js', () => ({
       isExecHangarEnabled: jest.fn(() => true),
     }));
+    jest.unstable_mockModule('../../services/exec-hangar/exec-hangar-timer.service.js', () => ({
+      getExecHangarStatus: jest.fn(),
+      manualSyncExecHangar: jest.fn(),
+      resyncExecHangarFromExternalSource: jest.fn(),
+      updateExecHangarConfig: jest.fn(),
+      validateExecHangarCycleOffsetMs: jest.fn(),
+    }));
 
     const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
     const interaction = makeInteraction({
@@ -162,6 +178,75 @@ describe('exec-hangar command', () => {
     expect(interaction.reply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringContaining('Provide exactly one'),
+        flags: 64,
+      }),
+    );
+  });
+
+  it('returns temporary unavailable when manual sync persistence fails', async () => {
+    jest.unstable_mockModule('../../config/exec-hangar.config.js', () => ({
+      isExecHangarEnabled: jest.fn(() => true),
+    }));
+    jest.unstable_mockModule('../../services/exec-hangar/exec-hangar-timer.service.js', () => ({
+      getExecHangarStatus: jest.fn(),
+      manualSyncExecHangar: jest.fn(async () => {
+        throw new Error('db down');
+      }),
+      resyncExecHangarFromExternalSource: jest.fn(),
+      updateExecHangarConfig: jest.fn(),
+      validateExecHangarCycleOffsetMs: jest.fn(),
+    }));
+
+    const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
+    const interaction = makeInteraction({
+      options: {
+        getSubcommand: () => 'sync',
+        getInteger: (name: string) => (name === 'opens-in' ? 5 : null),
+      },
+    });
+
+    await handleExecHangarCommand(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('temporarily unavailable'),
+        flags: 64,
+      }),
+    );
+  });
+
+  it('rejects cycle offsets that collapse the cycle duration', async () => {
+    jest.unstable_mockModule('../../config/exec-hangar.config.js', () => ({
+      isExecHangarEnabled: jest.fn(() => true),
+    }));
+    jest.unstable_mockModule('../../services/exec-hangar/exec-hangar-timer.service.js', () => ({
+      getExecHangarStatus: jest.fn(),
+      manualSyncExecHangar: jest.fn(),
+      resyncExecHangarFromExternalSource: jest.fn(),
+      updateExecHangarConfig: jest.fn(),
+      validateExecHangarCycleOffsetMs: jest.fn(() => {
+        throw new Error('cycle-offset-ms must keep the total cycle duration above 0 milliseconds.');
+      }),
+    }));
+
+    const { handleExecHangarCommand } = await import('../exec-hangar.command.js');
+    const interaction = makeInteraction({
+      options: {
+        getSubcommand: () => 'config',
+        getInteger: (name: string) => {
+          if (name === 'open-duration-minutes') return 60;
+          if (name === 'closed-duration-minutes') return 120;
+          if (name === 'cycle-offset-ms') return -10_800_000;
+          return null;
+        },
+      },
+    });
+
+    await handleExecHangarCommand(interaction);
+
+    expect(interaction.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringContaining('cycle-offset-ms must keep the total cycle duration above 0 milliseconds.'),
         flags: 64,
       }),
     );

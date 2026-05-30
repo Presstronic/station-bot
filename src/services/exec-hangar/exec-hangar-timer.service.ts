@@ -22,6 +22,17 @@ export interface ExecHangarDerivedStatus {
 
 let hasSuccessfulSyncSinceStartup = false;
 
+export function validateExecHangarCycleOffsetMs(
+  openDurationMinutes: number,
+  closedDurationMinutes: number,
+  cycleOffsetMs: number,
+): void {
+  const baseCycleMs = (openDurationMinutes + closedDurationMinutes) * 60_000;
+  if (cycleOffsetMs <= -baseCycleMs) {
+    throw new Error('cycle-offset-ms must keep the total cycle duration above 0 milliseconds.');
+  }
+}
+
 function getOppositeState(state: ExecHangarStateName): ExecHangarStateName {
   return state === 'OPEN' ? 'CLOSED' : 'OPEN';
 }
@@ -166,6 +177,11 @@ export async function updateExecHangarConfig(input: {
   closedDurationMinutes: number;
   cycleOffsetMs: number;
 }): Promise<ExecHangarState> {
+  validateExecHangarCycleOffsetMs(
+    input.openDurationMinutes,
+    input.closedDurationMinutes,
+    input.cycleOffsetMs,
+  );
   return updateExecHangarState({
     openDurationMinutes: input.openDurationMinutes,
     closedDurationMinutes: input.closedDurationMinutes,
@@ -200,6 +216,9 @@ export async function resyncExecHangarFromExternalSource(now = new Date()): Prom
     nextChangeType: getChangeTypeForState(nextState),
     lastSyncedAt: now.toISOString(),
     syncSource: anchor.source,
+    openDurationMinutes: anchor.openDurationMinutes,
+    closedDurationMinutes: anchor.closedDurationMinutes,
+    cycleOffsetMs: anchor.cycleOffsetMs,
   });
   hasSuccessfulSyncSinceStartup = true;
   return updated;
