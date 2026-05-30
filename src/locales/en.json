@@ -97,6 +97,53 @@
         }
       }
     },
+    "execHangar": {
+      "name": "exec-hangar",
+      "description": "Check or manage the Executive Hangar timer.",
+      "options": {
+        "status": {
+          "description": "Show the current Executive Hangar state."
+        },
+        "resync": {
+          "description": "Re-sync the timer from exec.xyxyll.com."
+        },
+        "sync": {
+          "description": "Manually set when the next Executive Hangar change will happen.",
+          "opensIn": "Minutes until the hangars open.",
+          "closesIn": "Minutes until the hangars close."
+        },
+        "config": {
+          "description": "Configure the local Executive Hangar timer cycle.",
+          "openDurationMinutes": "Configured open duration in minutes.",
+          "closedDurationMinutes": "Configured closed duration in minutes.",
+          "cycleOffsetMs": "Configured cycle offset in milliseconds."
+        }
+      },
+      "labels": {
+        "opensIn": "Opens in",
+        "closesIn": "Closes in",
+        "unknown": "unknown",
+        "confidenceGood": "Good",
+        "confidenceStale": "Stale"
+      },
+      "responses": {
+        "disabled": "Executive Hangar tracking is not currently enabled.",
+        "guildOnly": "This command can only be used in a server.",
+        "adminOnly": "Only server administrators can run this command.",
+        "temporarilyUnavailable": "Executive Hangar tracking is temporarily unavailable. Please try again later or contact a server administrator.",
+        "invalidAction": "This command payload is out of date. Please run `/exec-hangar` again.",
+        "uninitialized": "Executive Hangar timing is not initialized yet. An administrator can run `/exec-hangar resync` or `/exec-hangar sync`.",
+        "status": "Executive Hangars: {currentState}\n{nextChangeLabel}: {minutesUntilNextChange} min\nNext change: {nextChangeType}\n\nLast synced: {lastSynced}\nSync source: {syncSource}\nConfidence: {confidence}{warning}",
+        "startupStale": "Warning: Timer has not been re-synced since bot startup.\nAn admin can run `/exec-hangar resync`.",
+        "resynced": "Executive Hangar timer re-synced from exec.xyxyll.com.\nCurrent state: {currentState}\nNext change: {nextChangeType}",
+        "resyncFailed": "Executive Hangar re-sync failed. Previous timer state was preserved.",
+        "syncChoiceRequired": "Provide exactly one of `opens-in` or `closes-in` when using `/exec-hangar sync`.",
+        "invalidMinutes": "Minutes must be a whole number greater than 0.",
+        "manualSyncSuccess": "Executive Hangar timer manually synced.\nNext change: {nextChangeType}\nIn: {minutes} min",
+        "configUpdated": "Executive Hangar configuration updated.\nOpen duration: {openDurationMinutes} min\nClosed duration: {closedDurationMinutes} min\nCycle offset: {cycleOffsetMs} ms",
+        "configFailed": "Executive Hangar configuration could not be updated."
+      }
+    },
     "nominationCommon": {
       "responses": {
         "guildOnly": "This command can only be used in a server.",

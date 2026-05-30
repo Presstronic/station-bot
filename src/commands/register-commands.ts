@@ -14,6 +14,7 @@ import { healthcheckCommandBuilder } from './healthcheck.command.js';
 import { orderCommandBuilder } from './order-submit.command.js';
 import { manufacturingCommandBuilder } from './manufacturing-setup.command.js';
 import { configureCommandBuilder } from './configure.command.js';
+import { execHangarCommandBuilder } from './exec-hangar.command.js';
 import { stationTimerCommandBuilder } from './station-timer.command.js';
 import {
   setRegisteredCommandNamesFallback,
@@ -36,6 +37,7 @@ const allCommands = [
   orderCommandBuilder,
   manufacturingCommandBuilder,
   configureCommandBuilder,
+  execHangarCommandBuilder,
   stationTimerCommandBuilder,
 ];
 
