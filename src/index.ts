@@ -130,7 +130,6 @@ client.once('clientReady', async () => {
   logger.info(`STATION_TIMER_ENABLED=${stationTimerEnabled}`);
   logger.info(`STATION_TIMER_MAX_ACTIVE_PER_GUILD=${stationTimerMaxActivePerGuild()}`);
   logger.info(`STATION_TIMER_MAX_ACTIVE_PER_USER=${stationTimerMaxActivePerUser()}`);
-  logger.info(`EXEC_HANGAR_ENABLED=${execHangarEnabled}`);
   if (isDatabaseConfigured()) {
     try {
       await ensureNominationsSchema();
@@ -139,9 +138,6 @@ client.once('clientReady', async () => {
         await ensureExecHangarSchema();
       }
       await ensureStationTimersSchema();
-      if (execHangarEnabled) {
-        await ensureExecHangarSchema();
-      }
     } catch (error) {
       logger.error('Failed to initialize database schema', error);
       logger.error('DATABASE_URL is set but schema is not healthy. Aborting startup.');

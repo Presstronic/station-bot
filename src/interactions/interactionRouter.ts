@@ -177,8 +177,6 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleExecHangarCommand(interaction);
         } else if (interaction.commandName === STATION_TIMER_COMMAND_NAME) {
           await handleStationTimerCommand(interaction);
-        } else if (interaction.commandName === EXEC_HANGAR_COMMAND_NAME) {
-          await handleExecHangarCommand(interaction);
         }
         return;
       }
