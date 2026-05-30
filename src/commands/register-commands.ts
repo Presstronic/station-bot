@@ -14,6 +14,7 @@ import { healthcheckCommandBuilder } from './healthcheck.command.js';
 import { orderCommandBuilder } from './order-submit.command.js';
 import { manufacturingCommandBuilder } from './manufacturing-setup.command.js';
 import { configureCommandBuilder } from './configure.command.js';
+import { stationTimerCommandBuilder } from './station-timer.command.js';
 import {
   setRegisteredCommandNamesFallback,
   setRegisteredCommandNames,
@@ -35,6 +36,7 @@ const allCommands = [
   orderCommandBuilder,
   manufacturingCommandBuilder,
   configureCommandBuilder,
+  stationTimerCommandBuilder,
 ];
 
 setRegisteredCommandNamesFallback(allCommands.map((command) => command.toJSON().name));

@@ -19,6 +19,7 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
   ManageNicknames: 'Manage Nicknames — required to set member nicknames on verification',
   KickMembers: 'Kick Members — required by the member purge jobs',
   ManageChannels: 'Manage Channels — required by the manufacturing feature',
+  MentionEveryone: 'Mention Everyone — required to @here ping voice text chat for station timers',
 };
 
 /**
@@ -26,7 +27,7 @@ const PERMISSION_LABELS: Partial<Record<PermissionKey, string>> = {
  */
 export function checkBotPermissions(
   guild: Guild,
-  flags: { verificationEnabled: boolean; purgeJobsEnabled: boolean; manufacturingEnabled: boolean },
+  flags: { verificationEnabled: boolean; purgeJobsEnabled: boolean; manufacturingEnabled: boolean; stationTimerEnabled: boolean },
 ): PermissionKey[] {
   const required: PermissionKey[] = [];
 
@@ -38,6 +39,9 @@ export function checkBotPermissions(
   }
   if (flags.manufacturingEnabled) {
     required.push('ManageChannels');
+  }
+  if (flags.stationTimerEnabled) {
+    required.push('MentionEveryone');
   }
 
   if (!guild.members.me) {

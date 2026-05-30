@@ -14,6 +14,7 @@ const allFlags = {
   verificationEnabled: true,
   purgeJobsEnabled: true,
   manufacturingEnabled: true,
+  stationTimerEnabled: true,
 };
 
 function makeMe(grantedKeys: Extract<keyof typeof PermissionFlagsBits, string>[]) {
@@ -22,7 +23,7 @@ function makeMe(grantedKeys: Extract<keyof typeof PermissionFlagsBits, string>[]
 }
 
 function makeGuild({
-  me = makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers', 'ManageChannels']),
+  me = makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers', 'ManageChannels', 'MentionEveryone']),
   name = 'Test Guild',
   id = 'guild-1',
 }: { me?: ReturnType<typeof makeMe> | null; name?: string; id?: string } = {}) {
@@ -85,6 +86,7 @@ describe('checkBotPermissions', () => {
     expect(missing).toContain('ManageNicknames');
     expect(missing).toContain('KickMembers');
     expect(missing).toContain('ManageChannels');
+    expect(missing).toContain('MentionEveryone');
   });
 
   it('returns [] when no features are enabled', async () => {
@@ -94,8 +96,16 @@ describe('checkBotPermissions', () => {
         verificationEnabled: false,
         purgeJobsEnabled: false,
         manufacturingEnabled: false,
+        stationTimerEnabled: false,
       }),
     ).toEqual([]);
+  });
+
+  it('does not include MentionEveryone when stationTimerEnabled is false', async () => {
+    const { checkBotPermissions } = await loadModule();
+    const guild = makeGuild({ me: makeMe(['ManageRoles', 'ManageNicknames', 'KickMembers', 'ManageChannels']) });
+    const missing = checkBotPermissions(asGuild(guild), { ...allFlags, stationTimerEnabled: false });
+    expect(missing).not.toContain('MentionEveryone');
   });
 });
 
@@ -133,6 +143,18 @@ describe('notifyOwnerOfMissingPermissions', () => {
     const [message] = (send as jest.Mock).mock.calls[0] as [string];
     expect(message).toContain('required by the member purge jobs');
     expect(message).toContain('required by the manufacturing feature');
+  });
+
+  it('includes the station timer description for MentionEveryone', async () => {
+    const { notifyOwnerOfMissingPermissions } = await loadModule();
+    const send = jest.fn(async () => {});
+    const stub = makeGuild();
+    stub.fetchOwner.mockResolvedValue({ createDM: jest.fn(async () => ({ send })) });
+
+    await notifyOwnerOfMissingPermissions(asGuild(stub), ['MentionEveryone']);
+
+    const [message] = (send as jest.Mock).mock.calls[0] as [string];
+    expect(message).toContain('station timers');
   });
 
   it('logs warn and does not throw when DM sending fails', async () => {
