@@ -3,6 +3,8 @@ import {
   ButtonBuilder,
   ButtonInteraction,
   ButtonStyle,
+  ChannelSelectMenuBuilder,
+  ChannelSelectMenuInteraction,
   ChannelType,
   ChatInputCommandInteraction,
   MessageFlags,
@@ -45,6 +47,7 @@ const CONFIGURE_SAVE_PREFIX = 'cfg-save';
 const CONFIGURE_SELECT_FREQ_PREFIX = 'cfg-freq';
 const CONFIGURE_SELECT_HOUR_PREFIX = 'cfg-hour';
 const CONFIGURE_CONTINUE_PREFIX = 'cfg-continue';
+export const CONFIGURE_SELECT_CHANNEL_PREFIX = 'cfg-channel';
 
 const SESSION_TTL_MS = 15 * 60 * 1000;
 
@@ -459,7 +462,9 @@ async function loadGuildConfigSnapshot(guildId: string): Promise<GuildConfig> {
   }
 }
 
-async function replySessionExpired(interaction: ButtonInteraction | StringSelectMenuInteraction | ModalSubmitInteraction): Promise<void> {
+async function replySessionExpired(
+  interaction: ButtonInteraction | StringSelectMenuInteraction | ChannelSelectMenuInteraction | ModalSubmitInteraction,
+): Promise<void> {
   if (interaction.replied || interaction.deferred) {
     await interaction.followUp({
       content: 'Your configure session has expired. Run `/configure` again to restart.',
@@ -663,23 +668,29 @@ function buildManufacturingAdvancedModal(sessionId: string, guildConfig: GuildCo
   return modal;
 }
 
-function buildEventRemindersModal(sessionId: string, guildConfig: GuildConfig): ModalBuilder {
-  const modal = new ModalBuilder()
-    .setCustomId(`${CONFIGURE_MODAL_PREFIX}:${sessionId}:event-reminders:base`)
-    .setTitle('Configure Event Reminders');
+// Discord modals do not support ChannelSelectMenuBuilder (channel selects are
+// message-only components). For the event-reminders step we therefore replace
+// the usual modal with a message-component prompt containing a channel picker.
+function buildEventRemindersChannelPrompt(sessionId: string, guildConfig: GuildConfig): {
+  content: string;
+  components: ActionRowBuilder<ChannelSelectMenuBuilder>[];
+} {
+  const select = new ChannelSelectMenuBuilder()
+    .setCustomId(`${CONFIGURE_SELECT_CHANNEL_PREFIX}:${sessionId}:event-reminders`)
+    .setPlaceholder('Choose default reminder channel')
+    .setChannelTypes(ChannelType.GuildText)
+    .setMinValues(1)
+    .setMaxValues(1);
 
-  modal.addComponents(
-    new ActionRowBuilder<TextInputBuilder>().addComponents(
-      new TextInputBuilder()
-        .setCustomId('default-channel-id')
-        .setLabel('Default reminder channel ID')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setValue(guildConfig.eventRemindersDefaultChannelId ?? ''),
-    ),
-  );
+  if (guildConfig.eventRemindersDefaultChannelId) {
+    select.setDefaultChannels([guildConfig.eventRemindersDefaultChannelId]);
+  }
 
-  return modal;
+  return {
+    content:
+      'Choose the default reminder channel. This channel is used for events without a voice channel — voice/stage event reminders are routed automatically based on the voice channel name.',
+    components: [new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(select)],
+  };
 }
 
 function buildPurgeModal(sessionId: string, guildConfig: GuildConfig): ModalBuilder {
@@ -701,7 +712,7 @@ function buildPurgeModal(sessionId: string, guildConfig: GuildConfig): ModalBuil
   return modal;
 }
 
-async function openFeatureModal(
+async function openFeatureStep(
   interaction: ChatInputCommandInteraction | ButtonInteraction,
   sessionId: string,
   session: ConfigureSession,
@@ -726,9 +737,19 @@ async function openFeatureModal(
     case 'purge-jobs':
       await interaction.showModal(buildPurgeModal(sessionId, guildConfig));
       return;
-    case 'event-reminders':
-      await interaction.showModal(buildEventRemindersModal(sessionId, guildConfig));
+    case 'event-reminders': {
+      // Event-reminders uses a ChannelSelectMenu, which Discord modals do not
+      // support. Render an ephemeral message instead — `update` when we have a
+      // wizard message to replace (button path), `reply` when starting fresh
+      // (slash-command path).
+      const prompt = buildEventRemindersChannelPrompt(sessionId, guildConfig);
+      if (interaction.isButton()) {
+        await interaction.update(prompt);
+      } else {
+        await interaction.reply({ ...prompt, flags: MessageFlags.Ephemeral });
+      }
       return;
+    }
   }
 }
 
@@ -783,7 +804,7 @@ export async function handleConfigureCommand(interaction: ChatInputCommandIntera
 
     const session = createSession(interaction.id, guildId, [selectedFeature], 'single');
     session.guildConfig = guildConfig;
-    await openFeatureModal(interaction, interaction.id, session);
+    await openFeatureStep(interaction, interaction.id, session);
     return;
   }
 
@@ -998,34 +1019,34 @@ async function handleManufacturingAdvancedModalSubmit(
   }
 }
 
-async function handleEventRemindersModalSubmit(
-  interaction: ModalSubmitInteraction,
+async function handleEventRemindersChannelSelect(
+  interaction: ChannelSelectMenuInteraction,
   sessionId: string,
   session: ConfigureSession,
 ): Promise<void> {
   if (!interaction.guild) {
-    await interaction.reply({
-      content: 'This form can only be used in a server.',
-      flags: MessageFlags.Ephemeral,
+    await interaction.update({
+      content: 'This action can only be used in a server.',
+      components: [],
     });
     return;
   }
 
-  const defaultChannelId = interaction.fields.getTextInputValue('default-channel-id').trim();
-  if (defaultChannelId.length === 0) {
-    await interaction.reply({
-      content: 'Default reminder channel ID is required.',
-      flags: MessageFlags.Ephemeral,
+  const defaultChannelId = interaction.values[0];
+  if (!defaultChannelId) {
+    await interaction.update({
+      ...buildEventRemindersChannelPrompt(sessionId, session.guildConfig),
+      content: 'Please select a channel.',
     });
     return;
   }
 
   try {
-    await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+    await interaction.deferUpdate();
 
-    const channel = await validateGuildChannel(interaction.guild, defaultChannelId, 'Default reminder channel ID');
-    if (!isSendableTextChannel(channel)) {
-      throw new Error('Default reminder channel ID must point to a text-based channel.');
+    const channel = await validateGuildChannel(interaction.guild, defaultChannelId, 'Default reminder channel');
+    if (!isSendableTextChannel(channel) || channel.type !== ChannelType.GuildText) {
+      throw new Error('Default reminder channel must be a text channel.');
     }
 
     const updatedConfig = await upsertGuildConfig(interaction.guildId ?? '', {
@@ -1038,16 +1059,34 @@ async function handleEventRemindersModalSubmit(
       updatedConfig.guildId,
       updatedConfig.eventRemindersCronSchedule,
     );
-    await finishOrAdvanceFromModal(
-      interaction,
-      sessionId,
-      session,
-      'event-reminders',
-      'Event reminders saved and rescheduled.',
-    );
+
+    session.results.push({
+      feature: 'event-reminders',
+      status: 'configured',
+      detail: 'Event reminders saved and rescheduled.',
+    });
+    session.index += 1;
+    session.draft = null;
+
+    const nextFeature = getCurrentFeature(session);
+    if (session.mode === 'single' || nextFeature === null) {
+      sessions.delete(sessionId);
+      await interaction.editReply({
+        content: session.mode === 'single' ? 'Event reminders saved and rescheduled.' : buildWizardSummary(session),
+        components: [],
+      });
+      return;
+    }
+
+    await interaction.editReply({
+      ...buildFeaturePrompt(sessionId, nextFeature),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Event reminders could not be saved.';
-    await interaction.editReply({ content: message });
+    await interaction.editReply({
+      ...buildEventRemindersChannelPrompt(sessionId, session.guildConfig),
+      content: message,
+    });
   }
 }
 
@@ -1129,11 +1168,6 @@ export async function handleConfigureModalSubmit(interaction: ModalSubmitInterac
 
   if (feature === 'purge-jobs' && step === 'base') {
     await handlePurgeModalSubmit(interaction, session);
-    return;
-  }
-
-  if (feature === 'event-reminders' && step === 'base') {
-    await handleEventRemindersModalSubmit(interaction, sessionId, session);
     return;
   }
 
@@ -1384,7 +1418,7 @@ export async function handleConfigureButtonInteraction(interaction: ButtonIntera
   }
 
   if (prefix === CONFIGURE_OPEN_PREFIX) {
-    await openFeatureModal(interaction, sessionId, session);
+    await openFeatureStep(interaction, sessionId, session);
     return;
   }
 
@@ -1481,4 +1515,63 @@ export async function handleConfigureSelectMenuInteraction(interaction: StringSe
   }
 
   await interaction.update(buildSchedulePrompt(sessionId, feature, session.draft));
+}
+
+export async function handleConfigureChannelSelectMenuInteraction(
+  interaction: ChannelSelectMenuInteraction,
+): Promise<void> {
+  const [prefix, sessionId, feature] = interaction.customId.split(':') as [string, string, ConfigureFeature];
+
+  if (prefix !== CONFIGURE_SELECT_CHANNEL_PREFIX) {
+    return;
+  }
+
+  const session = getCurrentSession(sessionId);
+  if (!session) {
+    await replySessionExpired(interaction);
+    return;
+  }
+
+  if ((interaction.guildId ?? '') !== session.guildId) {
+    await interaction.update({
+      content: 'This configure session does not belong to this server. Run `/configure` again to restart.',
+      components: [],
+    });
+    return;
+  }
+
+  if (!interaction.inGuild() || !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+    await interaction.reply({
+      content: 'This action requires Manage Server permission.',
+      flags: MessageFlags.Ephemeral,
+    });
+    return;
+  }
+
+  const currentFeature = getCurrentFeature(session);
+  if (!currentFeature || currentFeature !== feature) {
+    await interaction.update({
+      content: 'This configure step is no longer active. Run `/configure` again if you need to restart.',
+      components: [],
+    });
+    return;
+  }
+
+  if (!isFeatureOperatorEnabled(feature)) {
+    await interaction.update({
+      content: buildContactOperatorMessage(feature),
+      components: [],
+    });
+    return;
+  }
+
+  if (feature === 'event-reminders') {
+    await handleEventRemindersChannelSelect(interaction, sessionId, session);
+    return;
+  }
+
+  await interaction.update({
+    content: 'This configure step is not handled by a channel selector.',
+    components: [],
+  });
 }

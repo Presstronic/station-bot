@@ -1,6 +1,6 @@
 import cron from 'node-cron';
-import type { Client, Guild, GuildScheduledEvent } from 'discord.js';
-import { GuildScheduledEventEntityType, GuildScheduledEventStatus } from 'discord.js';
+import type { Client, Guild, GuildBasedChannel, GuildScheduledEvent } from 'discord.js';
+import { ChannelType, GuildScheduledEventEntityType, GuildScheduledEventStatus } from 'discord.js';
 import i18n from '../../utils/i18n-config.js';
 import type { GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 import { getGuildConfigOrNull } from '../../domain/guild-config/guild-config.service.js';
@@ -89,15 +89,181 @@ function renderMessage(
   return i18n.__mf({ phrase, locale }, { ...staticVars, eventBody: finalBody });
 }
 
-function pickChannelId(event: GuildScheduledEvent, defaultChannelId: string | null): string | null {
+// Voice/Stage events must NOT post into the event's own voice channel (its
+// in-voice text chat is hidden from anyone not in the call). Instead, derive
+// a regular text channel from the voice channel's name using a single
+// guild-wide naming convention:
+//   {prefix} Voice (or "{prefix} XYZ Voice") → first whitespace-delimited
+//   token of the voice channel name, lowercased.
+//   Target text channel name: starts with `{prefix}-` AND contains `general`.
+// We require exactly one match; zero or multiple matches return null so the
+// reminder is skipped (with a warning) rather than guessing — a wrong guess
+// could leak org-only events into public channels.
+export function matchTextChannelByVoiceName(
+  voiceChannelName: string,
+  textChannels: ReadonlyArray<{ id: string; name: string }>,
+): { channelId: string } | { error: 'no-match' | 'ambiguous'; candidateIds: string[] } {
+  const token = firstTokenOf(voiceChannelName);
+  if (token.length === 0) {
+    return { error: 'no-match', candidateIds: [] };
+  }
+
+  const prefix = `${token}-`;
+  const candidates = textChannels.filter((channel) => {
+    const lower = channel.name.toLowerCase();
+    return lower.startsWith(prefix) && lower.includes('general');
+  });
+
+  if (candidates.length === 1) {
+    return { channelId: candidates[0].id };
+  }
+  return {
+    error: candidates.length === 0 ? 'no-match' : 'ambiguous',
+    candidateIds: candidates.map((channel) => channel.id),
+  };
+}
+
+function firstTokenOf(voiceChannelName: string): string {
+  return voiceChannelName.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+}
+
+// Public-tier voice channels start with this token (per the guild's naming
+// convention — "SC Game Voice #1", "SC Testing Voice", etc.). Hardcoded
+// because this bot is a single-guild deployment; revisit if we ever
+// support a second guild with a different public prefix.
+const PUBLIC_VOICE_TOKEN = 'sc';
+const ORG_VOICE_TOKEN = 'org';
+
+// allowedMentions shape Discord accepts on .send(). `everyone` covers both
+// `@everyone` and `@here` (Discord treats them as the same parse permission).
+// Role pings use an explicit allowlist by role id with no `parse: ['everyone']`.
+export type ReminderAllowedMentions =
+  | { parse: ['everyone'] }
+  | { parse: []; roles: string[] };
+
+export interface ResolvedMention {
+  mention: string;
+  allowedMentions: ReminderAllowedMentions;
+}
+
+// Resolve who to ping based on the voice channel's first token. Pure so it
+// can be unit-tested without a discord.js Guild. The caller passes the set
+// of guild roles (id + name) — the tier mention is:
+//   - public token (`sc`): @everyone
+//   - org token (`org`): the configured org member role (if any), else @here
+//   - any other token: the guild role whose name equals the token
+//     (case-insensitive), else @here as a graceful degradation.
+export function resolveMentionForVoiceToken(
+  token: string,
+  orgMemberRoleId: string | null,
+  guildRoles: ReadonlyArray<{ id: string; name: string }>,
+): ResolvedMention {
+  if (token === PUBLIC_VOICE_TOKEN) {
+    return { mention: '@everyone', allowedMentions: { parse: ['everyone'] } };
+  }
+  if (token === ORG_VOICE_TOKEN) {
+    if (orgMemberRoleId) {
+      return { mention: `<@&${orgMemberRoleId}>`, allowedMentions: { parse: [], roles: [orgMemberRoleId] } };
+    }
+    return { mention: '@here', allowedMentions: { parse: ['everyone'] } };
+  }
+  const role = guildRoles.find((candidate) => candidate.name.toLowerCase() === token);
+  if (role) {
+    return { mention: `<@&${role.id}>`, allowedMentions: { parse: [], roles: [role.id] } };
+  }
+  return { mention: '@here', allowedMentions: { parse: ['everyone'] } };
+}
+
+interface ResolvedReminderTarget {
+  channelId: string;
+  mention: string;
+  allowedMentions: ReminderAllowedMentions;
+}
+
+async function resolveVoiceEventTarget(
+  guild: Guild,
+  event: GuildScheduledEvent,
+  orgMemberRoleId: string | null,
+): Promise<ResolvedReminderTarget | null> {
+  if (!event.channelId) {
+    logger.warn('[event-reminder] Voice/stage event has no voice channel set; cannot resolve text channel', {
+      guildId: guild.id,
+      eventId: event.id,
+    });
+    return null;
+  }
+
+  const voiceChannel = await guild.client.channels.fetch(event.channelId).catch((error: unknown) => {
+    logger.warn('[event-reminder] Failed to fetch voice channel for event', {
+      guildId: guild.id,
+      eventId: event.id,
+      voiceChannelId: event.channelId,
+      error,
+    });
+    return null;
+  });
+
+  if (!voiceChannel || !('name' in voiceChannel) || typeof voiceChannel.name !== 'string') {
+    return null;
+  }
+
+  const textChannels: { id: string; name: string }[] = [];
+  for (const channel of guild.channels.cache.values() as IterableIterator<GuildBasedChannel>) {
+    if (channel.type === ChannelType.GuildText) {
+      textChannels.push({ id: channel.id, name: channel.name });
+    }
+  }
+
+  // Single token computation drives both channel and mention resolution to
+  // ensure the two rules cannot disagree about which tier this event is in.
+  const token = firstTokenOf(voiceChannel.name);
+
+  const channelResult = matchTextChannelByVoiceName(voiceChannel.name, textChannels);
+  if (!('channelId' in channelResult)) {
+    logger.warn('[event-reminder] Could not resolve text channel from voice channel name', {
+      guildId: guild.id,
+      eventId: event.id,
+      voiceChannelName: voiceChannel.name,
+      reason: channelResult.error,
+      candidateIds: channelResult.candidateIds,
+    });
+    return null;
+  }
+
+  const guildRoles: { id: string; name: string }[] = [];
+  for (const role of guild.roles.cache.values()) {
+    guildRoles.push({ id: role.id, name: role.name });
+  }
+  const mention = resolveMentionForVoiceToken(token, orgMemberRoleId, guildRoles);
+
+  return {
+    channelId: channelResult.channelId,
+    mention: mention.mention,
+    allowedMentions: mention.allowedMentions,
+  };
+}
+
+async function resolveReminderTarget(
+  guild: Guild,
+  event: GuildScheduledEvent,
+  guildConfig: GuildConfig,
+): Promise<ResolvedReminderTarget | null> {
   const usesVoiceChannel =
     event.entityType === GuildScheduledEventEntityType.Voice ||
     event.entityType === GuildScheduledEventEntityType.StageInstance;
 
-  if (usesVoiceChannel && event.channelId) {
-    return event.channelId;
+  if (usesVoiceChannel) {
+    return resolveVoiceEventTarget(guild, event, guildConfig.orgMemberRoleId);
   }
-  return defaultChannelId;
+
+  // External events: post to the configured default channel and ping
+  // @everyone (the public-tier mention).
+  if (!guildConfig.eventRemindersDefaultChannelId) return null;
+  return {
+    channelId: guildConfig.eventRemindersDefaultChannelId,
+    mention: '@everyone',
+    allowedMentions: { parse: ['everyone'] },
+  };
 }
 
 // Type guard for channels we can post a reminder into. Pulled into a helper
@@ -105,7 +271,7 @@ function pickChannelId(event: GuildScheduledEvent, defaultChannelId: string | nu
 // otherwise an unreachable channel would cause a claim/release loop every
 // tick and spam the log.
 interface SendableChannel {
-  send: (options: { content: string; allowedMentions: { parse: ['everyone'] } }) => Promise<unknown>;
+  send: (options: { content: string; allowedMentions: ReminderAllowedMentions }) => Promise<unknown>;
 }
 
 async function resolveSendableChannel(
@@ -132,6 +298,7 @@ async function postReminder(
   channel: SendableChannel,
   channelId: string,
   message: string,
+  allowedMentions: ReminderAllowedMentions,
 ): Promise<boolean> {
   // Belt-and-suspenders: the two-pass renderMessage already keeps the message
   // within 2000 chars, but a future template edit could break that invariant.
@@ -149,7 +316,7 @@ async function postReminder(
   try {
     await channel.send({
       content: finalContent,
-      allowedMentions: { parse: ['everyone'] },
+      allowedMentions,
     });
     return true;
   } catch (error) {
@@ -161,7 +328,7 @@ async function postReminder(
 async function handleRescheduleNotice(
   guild: Guild,
   event: GuildScheduledEvent,
-  defaultChannelId: string | null,
+  guildConfig: GuildConfig,
   startMs: number,
   now: number,
 ): Promise<void> {
@@ -179,8 +346,8 @@ async function handleRescheduleNotice(
 
   if (startMs - now > RESCHEDULE_NOTICE_WINDOW_MS) return;
 
-  const channelId = pickChannelId(event, defaultChannelId);
-  if (!channelId) {
+  const target = await resolveReminderTarget(guild, event, guildConfig);
+  if (!target) {
     logger.warn('[event-reminder] Reschedule notice skipped — no channel available', {
       guildId: guild.id,
       eventId: event.id,
@@ -190,11 +357,11 @@ async function handleRescheduleNotice(
 
   // Validate the channel BEFORE claiming the ledger row so an unreachable
   // channel cannot trigger a claim/release loop on every tick.
-  const sendable = await resolveSendableChannel(guild, channelId);
+  const sendable = await resolveSendableChannel(guild, target.channelId);
   if (!sendable) return;
 
   const reminderKey = `reschedule-${Math.floor(startMs / 1000)}`;
-  const claimed = await tryClaimReminder(guild.id, event.id, reminderKey, channelId);
+  const claimed = await tryClaimReminder(guild.id, event.id, reminderKey, target.channelId);
   if (!claimed) return;
 
   const locale = parseLocale(guild.preferredLocale);
@@ -203,13 +370,14 @@ async function handleRescheduleNotice(
     locale,
     event.description ?? '',
     {
+      mention: target.mention,
       eventTitle: event.name,
       startTime: formatStartTimeToken(startMs),
       eventLink: buildEventLink(guild.id, event.id),
     },
   );
 
-  const sent = await postReminder(guild, sendable, channelId, message);
+  const sent = await postReminder(guild, sendable, target.channelId, message, target.allowedMentions);
   if (!sent) {
     await releaseReminderClaim(event.id, reminderKey);
   }
@@ -218,31 +386,31 @@ async function handleRescheduleNotice(
 async function handleReminderWindow(
   guild: Guild,
   event: GuildScheduledEvent,
-  defaultChannelId: string | null,
-  target: ReminderTarget,
+  guildConfig: GuildConfig,
+  windowTarget: ReminderTarget,
   startMs: number,
   now: number,
 ): Promise<void> {
   const timeUntilStart = startMs - now;
-  const drift = Math.abs(timeUntilStart - target.offsetMs);
+  const drift = Math.abs(timeUntilStart - windowTarget.offsetMs);
   if (drift > TOLERANCE_MS) return;
 
-  const channelId = pickChannelId(event, defaultChannelId);
-  if (!channelId) {
+  const target = await resolveReminderTarget(guild, event, guildConfig);
+  if (!target) {
     logger.warn('[event-reminder] Reminder skipped — no channel available', {
       guildId: guild.id,
       eventId: event.id,
-      reminderKey: target.key,
+      reminderKey: windowTarget.key,
     });
     return;
   }
 
   // Validate the channel BEFORE claiming the ledger row so an unreachable
   // channel cannot trigger a claim/release loop on every tick.
-  const sendable = await resolveSendableChannel(guild, channelId);
+  const sendable = await resolveSendableChannel(guild, target.channelId);
   if (!sendable) return;
 
-  const claimed = await tryClaimReminder(guild.id, event.id, target.key, channelId);
+  const claimed = await tryClaimReminder(guild.id, event.id, windowTarget.key, target.channelId);
   if (!claimed) return;
 
   const locale = parseLocale(guild.preferredLocale);
@@ -251,16 +419,17 @@ async function handleReminderWindow(
     locale,
     event.description ?? '',
     {
-      hoursLabel: target.hoursLabel,
+      mention: target.mention,
+      hoursLabel: windowTarget.hoursLabel,
       eventTitle: event.name,
       startTime: formatStartTimeToken(startMs),
       eventLink: buildEventLink(guild.id, event.id),
     },
   );
 
-  const sent = await postReminder(guild, sendable, channelId, message);
+  const sent = await postReminder(guild, sendable, target.channelId, message, target.allowedMentions);
   if (!sent) {
-    await releaseReminderClaim(event.id, target.key);
+    await releaseReminderClaim(event.id, windowTarget.key);
   }
 }
 
@@ -288,7 +457,6 @@ async function runEventReminderTick(client: Client, guildId: string): Promise<vo
     });
     if (!events) return;
 
-    const defaultChannelId = guildConfig.eventRemindersDefaultChannelId;
     const now = Date.now();
 
     for (const event of events.values()) {
@@ -299,14 +467,14 @@ async function runEventReminderTick(client: Client, guildId: string): Promise<vo
       if (startMs === null || startMs <= now) continue;
 
       try {
-        await handleRescheduleNotice(guild, event, defaultChannelId, startMs, now);
+        await handleRescheduleNotice(guild, event, guildConfig, startMs, now);
       } catch (error) {
         logger.warn('[event-reminder] Reschedule notice handler failed', { guildId, eventId: event.id, error });
       }
 
       for (const target of REMINDER_TARGETS) {
         try {
-          await handleReminderWindow(guild, event, defaultChannelId, target, startMs, now);
+          await handleReminderWindow(guild, event, guildConfig, target, startMs, now);
         } catch (error) {
           logger.warn('[event-reminder] Reminder window handler failed', {
             guildId,

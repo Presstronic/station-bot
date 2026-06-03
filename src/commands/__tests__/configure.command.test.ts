@@ -245,6 +245,7 @@ function makeSlashInteraction({
     guildId: 'guild-1',
     locale: 'en-US',
     inGuild: () => inGuild,
+    isButton: () => false,
     memberPermissions: { has: jest.fn(() => canManageGuild) },
     options: { getString: jest.fn(() => feature) },
     reply: jest.fn(async () => undefined),
@@ -298,12 +299,39 @@ function makeSelectInteraction(customId: string, value: string) {
   };
 }
 
+function makeChannelSelectInteraction(
+  customId: string,
+  value: string,
+  {
+    guild = makeGuild(),
+    canManageGuild = true,
+    guildId = 'guild-1',
+  }: { guild?: ReturnType<typeof makeGuild>; canManageGuild?: boolean; guildId?: string } = {},
+) {
+  return {
+    customId,
+    guildId,
+    guild,
+    client: { user: { username: 'station-bot' } },
+    inGuild: () => true,
+    memberPermissions: { has: jest.fn(() => canManageGuild) },
+    values: [value],
+    deferUpdate: jest.fn(async () => undefined),
+    editReply: jest.fn(async () => undefined),
+    update: jest.fn(async () => undefined),
+    reply: jest.fn(async () => undefined),
+    deferred: false,
+    replied: false,
+  };
+}
+
 function makeButtonInteraction(customId: string, guild = makeGuild(), canManageGuild = true) {
   return {
     customId,
     guildId: 'guild-1',
     guild,
     inGuild: () => true,
+    isButton: () => true,
     memberPermissions: { has: jest.fn(() => canManageGuild) },
     client: {},
     deferUpdate: jest.fn(async () => undefined),
@@ -424,49 +452,135 @@ describe('configure command', () => {
     expect(modalJson.components[0].components[0].value).toBe('Existing Verified');
   });
 
-  it('saves event reminder settings and reschedules the job after modal submit', async () => {
-    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+  it('opens the event reminders step with a channel-select message instead of a modal', async () => {
+    const { handleConfigureCommand, teardownConfigureCommandForTests } = await setup();
     teardown = teardownConfigureCommandForTests;
 
     const slash = makeSlashInteraction({ id: 'cfg-events', feature: 'event-reminders' });
     await handleConfigureCommand(slash as never);
 
-    expect(slash.showModal).toHaveBeenCalledTimes(1);
+    expect(slash.showModal).not.toHaveBeenCalled();
+    expect(slash.reply).toHaveBeenCalledTimes(1);
+    const replyArg = (slash.reply as jest.Mock).mock.calls.at(0)?.[0] as {
+      content: string;
+      components: Array<{ toJSON: () => unknown }>;
+    };
+    expect(replyArg.content).toMatch(/choose the default reminder channel/i);
+    expect(replyArg.components).toHaveLength(1);
+  });
 
-    const modal = makeModalInteraction('cfg-modal:cfg-events:event-reminders:base', {
-      'default-channel-id': 'channel-789',
-    });
+  it('saves event reminder settings and reschedules the job after channel-select submit', async () => {
+    const {
+      handleConfigureCommand,
+      handleConfigureChannelSelectMenuInteraction,
+      teardownConfigureCommandForTests,
+      mocks,
+    } = await setup();
+    teardown = teardownConfigureCommandForTests;
 
-    await handleConfigureModalSubmit(modal as never);
+    const slash = makeSlashInteraction({ id: 'cfg-events', feature: 'event-reminders' });
+    await handleConfigureCommand(slash as never);
+
+    const channelSelect = makeChannelSelectInteraction(
+      'cfg-channel:cfg-events:event-reminders',
+      'channel-789',
+    );
+    await handleConfigureChannelSelectMenuInteraction(channelSelect as never);
 
     expect(mocks.upsertGuildConfig).toHaveBeenCalledWith('guild-1', expect.objectContaining({
       eventRemindersEnabled: true,
       eventRemindersDefaultChannelId: 'channel-789',
     }));
     expect(mocks.rescheduleGuildEventReminders).toHaveBeenCalledWith(expect.anything(), 'guild-1', expect.any(String));
-    expect(modal.editReply).toHaveBeenCalledWith(
+    expect(channelSelect.deferUpdate).toHaveBeenCalled();
+    expect(channelSelect.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
         content: expect.stringMatching(/event reminders saved/i),
+        components: [],
       }),
     );
   });
 
-  it('rejects empty default channel id in event reminders modal', async () => {
-    const { handleConfigureCommand, handleConfigureModalSubmit, teardownConfigureCommandForTests, mocks } = await setup();
+  it('rejects event reminders channel-select when the chosen channel is not a GuildText channel', async () => {
+    const {
+      handleConfigureCommand,
+      handleConfigureChannelSelectMenuInteraction,
+      teardownConfigureCommandForTests,
+      mocks,
+    } = await setup();
     teardown = teardownConfigureCommandForTests;
 
-    const slash = makeSlashInteraction({ id: 'cfg-events-empty', feature: 'event-reminders' });
+    const slash = makeSlashInteraction({ id: 'cfg-events-bad', feature: 'event-reminders' });
     await handleConfigureCommand(slash as never);
 
-    const modal = makeModalInteraction('cfg-modal:cfg-events-empty:event-reminders:base', {
-      'default-channel-id': '',
-    });
-    await handleConfigureModalSubmit(modal as never);
+    // ChannelType.GuildVoice === 2 — server-side guard for the case where a
+    // tampered client posts a non-GuildText channel id.
+    const guild = makeGuild(2);
+    const channelSelect = makeChannelSelectInteraction(
+      'cfg-channel:cfg-events-bad:event-reminders',
+      'voice-channel',
+      { guild },
+    );
+    await handleConfigureChannelSelectMenuInteraction(channelSelect as never);
 
     expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
-    expect(modal.reply).toHaveBeenCalledWith(
+    expect(channelSelect.editReply).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: expect.stringMatching(/required/i),
+        content: expect.stringMatching(/text channel/i),
+      }),
+    );
+  });
+
+  it('rejects event reminders channel-select interactions without ManageGuild permission', async () => {
+    const {
+      handleConfigureCommand,
+      handleConfigureChannelSelectMenuInteraction,
+      teardownConfigureCommandForTests,
+      mocks,
+    } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-events-noperm', feature: 'event-reminders' });
+    await handleConfigureCommand(slash as never);
+
+    const channelSelect = makeChannelSelectInteraction(
+      'cfg-channel:cfg-events-noperm:event-reminders',
+      'channel-789',
+      { canManageGuild: false },
+    );
+    await handleConfigureChannelSelectMenuInteraction(channelSelect as never);
+
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+    expect(channelSelect.reply).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/manage server/i),
+      }),
+    );
+  });
+
+  it('rejects event reminders channel-select when the session belongs to a different guild', async () => {
+    const {
+      handleConfigureCommand,
+      handleConfigureChannelSelectMenuInteraction,
+      teardownConfigureCommandForTests,
+      mocks,
+    } = await setup();
+    teardown = teardownConfigureCommandForTests;
+
+    const slash = makeSlashInteraction({ id: 'cfg-events-otherguild', feature: 'event-reminders' });
+    await handleConfigureCommand(slash as never);
+
+    const channelSelect = makeChannelSelectInteraction(
+      'cfg-channel:cfg-events-otherguild:event-reminders',
+      'channel-789',
+      { guildId: 'guild-other' },
+    );
+    await handleConfigureChannelSelectMenuInteraction(channelSelect as never);
+
+    expect(mocks.upsertGuildConfig).not.toHaveBeenCalled();
+    expect(channelSelect.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: expect.stringMatching(/does not belong to this server/i),
       }),
     );
   });
