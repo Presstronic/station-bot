@@ -92,11 +92,17 @@ async function sendVoiceChannelNotification(client: Client, timer: StationTimer,
   }
 
   try {
-    const member = await guild.members.fetch(timer.discordUserId);
-    const voiceChannel = member.voice.channel;
+    // guild.members.fetch() does not populate the voice state cache, so
+    // member.voice.channel would always be null for members already in voice
+    // when the bot started. Fetch the voice state directly from the REST API
+    // to get the current channel regardless of cache state.
+    const voiceState = await guild.voiceStates.fetch(timer.discordUserId);
+    const voiceChannel = voiceState.channel;
     if (!voiceChannel) {
       return null;
     }
+
+    const member = voiceState.member ?? await guild.members.fetch(timer.discordUserId);
 
     const textChannel = voiceChannel as VoiceBasedChannel & Partial<GuildTextBasedChannel>;
     if (typeof textChannel.send !== 'function') {
