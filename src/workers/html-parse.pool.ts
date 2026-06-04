@@ -127,6 +127,11 @@ export async function parseOrgOutcomeInWorker(html: string): Promise<OrgOutcome>
   return assertOrgOutcome(value);
 }
 
+export async function parseMainOrgVisibleInWorker(html: string): Promise<boolean> {
+  const value = await sendToWorker({ type: 'mainOrgVisible', html });
+  return value === 'true';
+}
+
 export async function parseCanonicalHandleInWorker(html: string): Promise<string | null> {
   const value = await sendToWorker({ type: 'canonicalHandle', html });
   return value === '' ? null : value;

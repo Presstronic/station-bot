@@ -6,6 +6,7 @@ import { sanitizeForInlineText } from '../../utils/sanitize.js';
 import {
   parseOrgOutcomeInWorker,
   parseCanonicalHandleInWorker,
+  parseMainOrgVisibleInWorker,
   type OrgOutcome,
 } from '../../workers/html-parse.pool.js';
 
@@ -337,6 +338,24 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
       'parse_failed',
       `Could not infer organization status from organizations page for handle "${safeHandle}"`
     );
+  }
+
+  // When the organizations page shows no public org membership, RSI renders identical
+  // markup for both "no org" and "org set to private". Cross-check the citizen profile
+  // page: if .main-org has class visibility-V the person has a publicly visible org and
+  // is definitely in_org regardless of what the organizations page shows.
+  if (outcome === 'not_in_org') {
+    try {
+      const mainOrgVisible = await parseMainOrgVisibleInWorker(citizenPage.html);
+      if (mainOrgVisible) {
+        logger.debug(`org-check: citizen profile shows visibility-V for "${safeHandle}" — upgrading not_in_org to in_org`);
+        return { code: 'in_org', status: 'in_org', checkedAt: new Date().toISOString() };
+      }
+    } catch (err) {
+      logger.warn(
+        `org-check: citizen profile visibility check failed for "${safeHandle}", keeping not_in_org: ${trimMessage(err instanceof Error ? err.message : String(err), 200)}`
+      );
+    }
   }
 
   // At this point outcome is narrowed to the business states in_org | not_in_org,

@@ -16,18 +16,22 @@ afterEach(() => {
   process.env = originalEnv;
 });
 
-function mockPool(orgOutcome: string = 'in_org', canonicalHandle: string | null = null) {
+function mockPool(orgOutcome: string = 'in_org', canonicalHandle: string | null = null, mainOrgVisible = false) {
   const parseOrgOutcomeInWorker = jest
     .fn<(html: string) => Promise<string>>()
     .mockResolvedValue(orgOutcome);
   const parseCanonicalHandleInWorker = jest
     .fn<(html: string) => Promise<string | null>>()
     .mockResolvedValue(canonicalHandle);
+  const parseMainOrgVisibleInWorker = jest
+    .fn<(html: string) => Promise<boolean>>()
+    .mockResolvedValue(mainOrgVisible);
   jest.unstable_mockModule('../../../workers/html-parse.pool.js', () => ({
     parseOrgOutcomeInWorker,
     parseCanonicalHandleInWorker,
+    parseMainOrgVisibleInWorker,
   }));
-  return { parseOrgOutcomeInWorker, parseCanonicalHandleInWorker };
+  return { parseOrgOutcomeInWorker, parseCanonicalHandleInWorker, parseMainOrgVisibleInWorker };
 }
 
 describe('checkHasAnyOrgMembership', () => {
@@ -69,6 +73,88 @@ describe('checkHasAnyOrgMembership', () => {
     expect(result.code).toBe('not_in_org');
     expect(result.status).toBe('not_in_org');
     expect(parseOrgOutcomeInWorker).toHaveBeenCalledWith('<html/>');
+  });
+
+  it('upgrades not_in_org to in_org when citizen profile shows visibility-V', async () => {
+    const get = jest
+      .fn<() => Promise<any>>()
+      .mockResolvedValueOnce({ status: 200, data: '<citizen-html/>', headers: {} })
+      .mockResolvedValueOnce({ status: 200, data: '<orgs-html/>', headers: {} });
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+    // orgs page says not_in_org but citizen profile shows visibility-V (org is hidden, not absent)
+    const { parseMainOrgVisibleInWorker } = mockPool('not_in_org', null, true);
+
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
+    const result = await checkHasAnyOrgMembership('HiddenOrgPilot');
+
+    expect(result.code).toBe('in_org');
+    expect(result.status).toBe('in_org');
+    expect(parseMainOrgVisibleInWorker).toHaveBeenCalledWith('<citizen-html/>');
+  });
+
+  it('keeps not_in_org when citizen profile does not show visibility-V', async () => {
+    const get = jest
+      .fn<() => Promise<any>>()
+      .mockResolvedValueOnce({ status: 200, data: '<html/>', headers: {} })
+      .mockResolvedValueOnce({ status: 200, data: '<html/>', headers: {} });
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+    const { parseMainOrgVisibleInWorker } = mockPool('not_in_org', null, false);
+
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
+    const result = await checkHasAnyOrgMembership('NoOrgPilot');
+
+    expect(result.code).toBe('not_in_org');
+    expect(result.status).toBe('not_in_org');
+    expect(parseMainOrgVisibleInWorker).toHaveBeenCalledWith('<html/>');
+  });
+
+  it('keeps not_in_org when visibility check throws (fail-open)', async () => {
+    const get = jest
+      .fn<() => Promise<any>>()
+      .mockResolvedValueOnce({ status: 200, data: '<html/>', headers: {} })
+      .mockResolvedValueOnce({ status: 200, data: '<html/>', headers: {} });
+    const warn = jest.fn();
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ warn, error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+    const { parseMainOrgVisibleInWorker } = mockPool('not_in_org', null, false);
+    parseMainOrgVisibleInWorker.mockRejectedValueOnce(new Error('worker crashed'));
+
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
+    const result = await checkHasAnyOrgMembership('VisibilityErrorPilot');
+
+    expect(result.code).toBe('not_in_org');
+    expect(result.status).toBe('not_in_org');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('citizen profile visibility check failed'));
+  });
+
+  it('does not call parseMainOrgVisibleInWorker when orgs page already returns in_org', async () => {
+    const get = jest
+      .fn<() => Promise<any>>()
+      .mockResolvedValueOnce({ status: 200, data: '<html/>', headers: {} })
+      .mockResolvedValueOnce({ status: 200, data: '<html/>', headers: {} });
+
+    jest.unstable_mockModule('axios', () => ({ default: { get } }));
+    jest.unstable_mockModule('../../../utils/logger.js', () => ({
+      getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
+    }));
+    const { parseMainOrgVisibleInWorker } = mockPool('in_org');
+
+    const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
+    const result = await checkHasAnyOrgMembership('PublicOrgPilot');
+
+    expect(result.code).toBe('in_org');
+    expect(parseMainOrgVisibleInWorker).not.toHaveBeenCalled();
   });
 
   it('returns parse_failed when parse worker reports undetermined', async () => {

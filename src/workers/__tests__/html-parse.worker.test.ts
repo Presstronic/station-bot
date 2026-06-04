@@ -73,6 +73,32 @@ describe('parseOrgOutcome', () => {
   });
 });
 
+describe('parseMainOrgVisible', () => {
+  it('returns true when .main-org has class visibility-V', async () => {
+    const { parseMainOrgVisible } = await import('../html-parse.worker.js');
+    const html = '<html><body><div class="main-org right-col visibility-V"><a href="/orgs/TESTORG">Test Org</a></div></body></html>';
+    expect(parseMainOrgVisible(html)).toBe(true);
+  });
+
+  it('returns false when .main-org has empty visibility suffix (hidden or no org)', async () => {
+    const { parseMainOrgVisible } = await import('../html-parse.worker.js');
+    const html = '<html><body><div class="main-org right-col visibility-"><div class="empty">NO MAIN ORG FOUND IN PUBLIC RECORDS</div></div></body></html>';
+    expect(parseMainOrgVisible(html)).toBe(false);
+  });
+
+  it('returns false when .main-org is absent', async () => {
+    const { parseMainOrgVisible } = await import('../html-parse.worker.js');
+    const html = '<html><body><div class="other-content"></div></body></html>';
+    expect(parseMainOrgVisible(html)).toBe(false);
+  });
+
+  it('returns false when visibility-V appears on a non-.main-org element', async () => {
+    const { parseMainOrgVisible } = await import('../html-parse.worker.js');
+    const html = '<html><body><div class="other visibility-V"></div><div class="main-org visibility-"></div></body></html>';
+    expect(parseMainOrgVisible(html)).toBe(false);
+  });
+});
+
 describe('parseSelectorCheck', () => {
   it('returns true when the child element text contains the search value', async () => {
     const { parseSelectorCheck } = await import('../html-parse.worker.js');
