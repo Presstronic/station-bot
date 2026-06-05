@@ -66,6 +66,15 @@ function buildEventLink(guildId: string, eventId: string): string {
 // link in all cases — both because we document that the link is always
 // appended, and because Discord's event-card auto-embed only fires when the
 // URL is present in the message content.
+function defangMentions(text: string): string {
+  // Prevent event description text from escalating the intended tier mention.
+  // allowedMentions.parse: ['everyone'] (required for @here/@everyone pings)
+  // also activates any @everyone/@here that appears in the message content,
+  // so an organiser could escalate a @here tier into an @everyone by embedding
+  // it in the description. Replace both with their zero-width-space variants.
+  return text.replace(/@everyone/g, '@​everyone').replace(/@here/g, '@​here');
+}
+
 function renderMessage(
   phrase: string,
   locale: string,
@@ -73,6 +82,7 @@ function renderMessage(
   // Other interpolation vars besides `eventBody` (eventTitle, startTime, etc.).
   staticVars: Record<string, string>,
 ): string {
+  const safeBody = defangMentions(body);
   const baseVars = { ...staticVars, eventBody: '' };
   const baseLength = i18n.__mf({ phrase, locale }, baseVars).length;
   const budget = DISCORD_MAX_MESSAGE_LENGTH - baseLength;
@@ -80,10 +90,10 @@ function renderMessage(
   let finalBody: string;
   if (budget <= 0) {
     finalBody = '';
-  } else if (body.length <= budget) {
-    finalBody = body;
+  } else if (safeBody.length <= budget) {
+    finalBody = safeBody;
   } else {
-    finalBody = body.slice(0, budget - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
+    finalBody = safeBody.slice(0, budget - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
   }
 
   return i18n.__mf({ phrase, locale }, { ...staticVars, eventBody: finalBody });

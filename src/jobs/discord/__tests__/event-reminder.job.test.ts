@@ -121,8 +121,9 @@ async function setupMocks(opts: {
   const channelSend = jest.fn(async () => undefined);
   const { ChannelType } = await import('discord.js');
   const GUILD_TEXT = ChannelType.GuildText;
+  const GUILD_VOICE = ChannelType.GuildVoice;
   const sendableChannel = opts.fetchChannelReturns === 'non-text'
-    ? { isTextBased: () => false, type: GUILD_TEXT }
+    ? { isTextBased: () => false, type: GUILD_VOICE }
     : { isTextBased: () => true, type: GUILD_TEXT, send: opts.sendThrows
         ? jest.fn(async () => { throw new Error('send failed'); })
         : channelSend };
@@ -1308,5 +1309,51 @@ describe('tier mention routing', () => {
     };
     expect(sendCall.content).toContain('@everyone');
     expect(sendCall.allowedMentions).toEqual({ parse: ['everyone'] });
+  });
+});
+
+describe('description mention defanging', () => {
+  it('replaces @everyone in event description so it does not trigger a real ping', async () => {
+    const now = Date.now();
+    const event = makeEvent({
+      entityType: GuildScheduledEventEntityType.External,
+      description: 'Join us @everyone for the event!',
+      scheduledStartTimestamp: now + 24 * HOUR_MS,
+    });
+    const setup = await setupMocks({ events: [event] });
+    const { scheduleEventReminders } = await importJob();
+
+    scheduleEventReminders(
+      (setup as unknown as { _client: never })._client,
+      [makeGuildConfig()],
+    );
+    await setup.runTaskByIndex(0);
+
+    const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
+    // The description @everyone should be defanged (zero-width space inserted);
+    // the {mention} interpolation may still legitimately contain @everyone.
+    expect(sendCall.content).toContain('@​everyone');
+    expect(sendCall.content).not.toContain('Join us @everyone');
+  });
+
+  it('replaces @here in event description so it does not trigger a real ping', async () => {
+    const now = Date.now();
+    const event = makeEvent({
+      entityType: GuildScheduledEventEntityType.External,
+      description: 'Hey @here, check this out!',
+      scheduledStartTimestamp: now + 24 * HOUR_MS,
+    });
+    const setup = await setupMocks({ events: [event] });
+    const { scheduleEventReminders } = await importJob();
+
+    scheduleEventReminders(
+      (setup as unknown as { _client: never })._client,
+      [makeGuildConfig()],
+    );
+    await setup.runTaskByIndex(0);
+
+    const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
+    expect(sendCall.content).toContain('@​here');
+    expect(sendCall.content).not.toContain('Hey @here');
   });
 });
