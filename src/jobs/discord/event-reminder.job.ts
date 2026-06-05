@@ -353,7 +353,7 @@ async function postReminder(
 async function handleRescheduleNotice(
   guild: Guild,
   event: GuildScheduledEvent,
-  resolvedTarget: ResolvedReminderTarget | null,
+  guildConfig: GuildConfig,
   startMs: number,
   now: number,
 ): Promise<void> {
@@ -370,6 +370,11 @@ async function handleRescheduleNotice(
   await upsertEventState(event.id, guild.id, new Date(startMs));
 
   if (startMs - now > RESCHEDULE_NOTICE_WINDOW_MS) return;
+
+  const resolvedTarget = await resolveReminderTarget(guild, event, guildConfig).catch((error: unknown) => {
+    logger.warn('[event-reminder] Failed to resolve reminder target', { guildId: guild.id, eventId: event.id, error });
+    return null;
+  });
 
   if (!resolvedTarget) {
     logger.warn('[event-reminder] Reschedule notice skipped — no channel available', {
@@ -410,7 +415,7 @@ async function handleRescheduleNotice(
 async function handleReminderWindow(
   guild: Guild,
   event: GuildScheduledEvent,
-  resolvedTarget: ResolvedReminderTarget | null,
+  guildConfig: GuildConfig,
   windowTarget: ReminderTarget,
   startMs: number,
   now: number,
@@ -418,6 +423,11 @@ async function handleReminderWindow(
   const timeUntilStart = startMs - now;
   const drift = Math.abs(timeUntilStart - windowTarget.offsetMs);
   if (drift > TOLERANCE_MS) return;
+
+  const resolvedTarget = await resolveReminderTarget(guild, event, guildConfig).catch((error: unknown) => {
+    logger.warn('[event-reminder] Failed to resolve reminder target', { guildId: guild.id, eventId: event.id, error });
+    return null;
+  });
 
   if (!resolvedTarget) {
     logger.warn('[event-reminder] Reminder skipped — no channel available', {
@@ -489,22 +499,15 @@ async function runEventReminderTick(client: Client, guildId: string): Promise<vo
       const startMs = event.scheduledStartTimestamp;
       if (startMs === null || startMs <= now) continue;
 
-      // Resolve once per event per tick so voice-event resolution (cache scans
-      // and potential channels.fetch calls) is not repeated for each handler.
-      const resolvedTarget = await resolveReminderTarget(guild, event, guildConfig).catch((error: unknown) => {
-        logger.warn('[event-reminder] Failed to resolve reminder target', { guildId, eventId: event.id, error });
-        return null;
-      });
-
       try {
-        await handleRescheduleNotice(guild, event, resolvedTarget, startMs, now);
+        await handleRescheduleNotice(guild, event, guildConfig, startMs, now);
       } catch (error) {
         logger.warn('[event-reminder] Reschedule notice handler failed', { guildId, eventId: event.id, error });
       }
 
       for (const target of REMINDER_TARGETS) {
         try {
-          await handleReminderWindow(guild, event, resolvedTarget, target, startMs, now);
+          await handleReminderWindow(guild, event, guildConfig, target, startMs, now);
         } catch (error) {
           logger.warn('[event-reminder] Reminder window handler failed', {
             guildId,
