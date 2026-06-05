@@ -342,7 +342,7 @@ async function postReminder(
 async function handleRescheduleNotice(
   guild: Guild,
   event: GuildScheduledEvent,
-  guildConfig: GuildConfig,
+  resolvedTarget: ResolvedReminderTarget | null,
   startMs: number,
   now: number,
 ): Promise<void> {
@@ -360,8 +360,7 @@ async function handleRescheduleNotice(
 
   if (startMs - now > RESCHEDULE_NOTICE_WINDOW_MS) return;
 
-  const target = await resolveReminderTarget(guild, event, guildConfig);
-  if (!target) {
+  if (!resolvedTarget) {
     logger.warn('[event-reminder] Reschedule notice skipped — no channel available', {
       guildId: guild.id,
       eventId: event.id,
@@ -371,11 +370,11 @@ async function handleRescheduleNotice(
 
   // Validate the channel BEFORE claiming the ledger row so an unreachable
   // channel cannot trigger a claim/release loop on every tick.
-  const sendable = await resolveSendableChannel(guild, target.channelId);
+  const sendable = await resolveSendableChannel(guild, resolvedTarget.channelId);
   if (!sendable) return;
 
   const reminderKey = `reschedule-${Math.floor(startMs / 1000)}`;
-  const claimed = await tryClaimReminder(guild.id, event.id, reminderKey, target.channelId);
+  const claimed = await tryClaimReminder(guild.id, event.id, reminderKey, resolvedTarget.channelId);
   if (!claimed) return;
 
   const locale = parseLocale(guild.preferredLocale);
@@ -384,14 +383,14 @@ async function handleRescheduleNotice(
     locale,
     event.description ?? '',
     {
-      mention: target.mention,
+      mention: resolvedTarget.mention,
       eventTitle: event.name,
       startTime: formatStartTimeToken(startMs),
       eventLink: buildEventLink(guild.id, event.id),
     },
   );
 
-  const sent = await postReminder(guild, sendable, target.channelId, message, target.allowedMentions);
+  const sent = await postReminder(guild, sendable, resolvedTarget.channelId, message, resolvedTarget.allowedMentions);
   if (!sent) {
     await releaseReminderClaim(event.id, reminderKey);
   }
@@ -400,7 +399,7 @@ async function handleRescheduleNotice(
 async function handleReminderWindow(
   guild: Guild,
   event: GuildScheduledEvent,
-  guildConfig: GuildConfig,
+  resolvedTarget: ResolvedReminderTarget | null,
   windowTarget: ReminderTarget,
   startMs: number,
   now: number,
@@ -409,8 +408,7 @@ async function handleReminderWindow(
   const drift = Math.abs(timeUntilStart - windowTarget.offsetMs);
   if (drift > TOLERANCE_MS) return;
 
-  const target = await resolveReminderTarget(guild, event, guildConfig);
-  if (!target) {
+  if (!resolvedTarget) {
     logger.warn('[event-reminder] Reminder skipped — no channel available', {
       guildId: guild.id,
       eventId: event.id,
@@ -421,10 +419,10 @@ async function handleReminderWindow(
 
   // Validate the channel BEFORE claiming the ledger row so an unreachable
   // channel cannot trigger a claim/release loop on every tick.
-  const sendable = await resolveSendableChannel(guild, target.channelId);
+  const sendable = await resolveSendableChannel(guild, resolvedTarget.channelId);
   if (!sendable) return;
 
-  const claimed = await tryClaimReminder(guild.id, event.id, windowTarget.key, target.channelId);
+  const claimed = await tryClaimReminder(guild.id, event.id, windowTarget.key, resolvedTarget.channelId);
   if (!claimed) return;
 
   const locale = parseLocale(guild.preferredLocale);
@@ -433,7 +431,7 @@ async function handleReminderWindow(
     locale,
     event.description ?? '',
     {
-      mention: target.mention,
+      mention: resolvedTarget.mention,
       hoursLabel: windowTarget.hoursLabel,
       eventTitle: event.name,
       startTime: formatStartTimeToken(startMs),
@@ -441,7 +439,7 @@ async function handleReminderWindow(
     },
   );
 
-  const sent = await postReminder(guild, sendable, target.channelId, message, target.allowedMentions);
+  const sent = await postReminder(guild, sendable, resolvedTarget.channelId, message, resolvedTarget.allowedMentions);
   if (!sent) {
     await releaseReminderClaim(event.id, windowTarget.key);
   }
@@ -480,15 +478,22 @@ async function runEventReminderTick(client: Client, guildId: string): Promise<vo
       const startMs = event.scheduledStartTimestamp;
       if (startMs === null || startMs <= now) continue;
 
+      // Resolve once per event per tick so voice-event resolution (cache scans
+      // and potential channels.fetch calls) is not repeated for each handler.
+      const resolvedTarget = await resolveReminderTarget(guild, event, guildConfig).catch((error: unknown) => {
+        logger.warn('[event-reminder] Failed to resolve reminder target', { guildId, eventId: event.id, error });
+        return null;
+      });
+
       try {
-        await handleRescheduleNotice(guild, event, guildConfig, startMs, now);
+        await handleRescheduleNotice(guild, event, resolvedTarget, startMs, now);
       } catch (error) {
         logger.warn('[event-reminder] Reschedule notice handler failed', { guildId, eventId: event.id, error });
       }
 
       for (const target of REMINDER_TARGETS) {
         try {
-          await handleReminderWindow(guild, event, guildConfig, target, startMs, now);
+          await handleReminderWindow(guild, event, resolvedTarget, target, startMs, now);
         } catch (error) {
           logger.warn('[event-reminder] Reminder window handler failed', {
             guildId,

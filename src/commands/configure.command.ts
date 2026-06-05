@@ -682,13 +682,18 @@ function buildEventRemindersChannelPrompt(sessionId: string, guildConfig: GuildC
     .setMinValues(1)
     .setMaxValues(1);
 
-  if (guildConfig.eventRemindersDefaultChannelId) {
-    select.setDefaultChannels([guildConfig.eventRemindersDefaultChannelId]);
-  }
+  // Do not call setDefaultChannels() — the stored ID may be stale from the
+  // old free-text flow and could point to a non-GuildText channel. Discord
+  // rejects a component whose default is not selectable under the configured
+  // channel type filter, which would prevent admins from fixing the setting.
+  // Surface the current value in the message content instead.
+  const currentSetting = guildConfig.eventRemindersDefaultChannelId
+    ? `\nCurrent setting: <#${guildConfig.eventRemindersDefaultChannelId}>`
+    : '';
 
   return {
     content:
-      'Choose the default reminder channel. This channel is used for events without a voice channel — voice/stage event reminders are routed automatically based on the voice channel name.',
+      `Choose the default reminder channel. This channel is used for events without a voice channel — voice/stage event reminders are routed automatically based on the voice channel name.${currentSetting}`,
     components: [new ActionRowBuilder<ChannelSelectMenuBuilder>().addComponents(select)],
   };
 }
