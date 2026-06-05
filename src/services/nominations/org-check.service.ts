@@ -340,10 +340,10 @@ export async function checkHasAnyOrgMembership(rsiHandle: string): Promise<OrgCh
     );
   }
 
-  // When the organizations page shows no public org membership, RSI renders identical
-  // markup for both "no org" and "org set to private". Cross-check the citizen profile
-  // page: if .main-org has class visibility-V the person has a publicly visible org and
-  // is definitely in_org regardless of what the organizations page shows.
+  // RSI renders identical markup on the organizations page when a citizen has no org and
+  // when their main org is visible on the profile page. Cross-check the citizen profile:
+  // if .main-org carries class visibility-V the org is publicly visible and the citizen
+  // is in_org regardless of what the organizations page showed.
   if (outcome === 'not_in_org') {
     try {
       const mainOrgVisible = await parseMainOrgVisibleInWorker(citizenPage.html);

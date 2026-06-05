@@ -85,7 +85,7 @@ describe('checkHasAnyOrgMembership', () => {
     jest.unstable_mockModule('../../../utils/logger.js', () => ({
       getLogger: () => ({ warn: jest.fn(), error: jest.fn(), info: jest.fn(), debug: jest.fn() }),
     }));
-    // orgs page says not_in_org but citizen profile shows visibility-V (org is hidden, not absent)
+    // orgs page says not_in_org but citizen profile shows visibility-V (org is publicly visible)
     const { parseMainOrgVisibleInWorker } = mockPool('not_in_org', null, true);
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
