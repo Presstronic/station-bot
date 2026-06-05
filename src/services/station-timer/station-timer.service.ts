@@ -102,7 +102,18 @@ async function sendVoiceChannelNotification(client: Client, timer: StationTimer,
       return null;
     }
 
-    const member = voiceState.member ?? await guild.members.fetch(timer.discordUserId);
+    let displayName = timer.starterDisplayName;
+    if (voiceState.member) {
+      displayName = voiceState.member.displayName;
+    } else {
+      try {
+        const fetched = await guild.members.fetch(timer.discordUserId);
+        displayName = fetched.displayName;
+      } catch {
+        // REST fetch failed — use the stored display name rather than dropping
+        // the notification entirely.
+      }
+    }
 
     const textChannel = voiceChannel as VoiceBasedChannel & Partial<GuildTextBasedChannel>;
     if (typeof textChannel.send !== 'function') {
@@ -113,7 +124,7 @@ async function sendVoiceChannelNotification(client: Client, timer: StationTimer,
     const fallbackContent = i18n.__mf(
       { phrase: 'commands.stationTimer.responses.expiry.channelFallback', locale },
       {
-        displayName: member.displayName,
+        displayName,
         durationMinutes: timer.durationMinutes,
         timerType: timer.timerLabel,
       },
@@ -124,7 +135,7 @@ async function sendVoiceChannelNotification(client: Client, timer: StationTimer,
         content: i18n.__mf(
           { phrase: 'commands.stationTimer.responses.expiry.channel', locale },
           {
-            displayName: member.displayName,
+            displayName,
             durationMinutes: timer.durationMinutes,
             timerType: timer.timerLabel,
           },
