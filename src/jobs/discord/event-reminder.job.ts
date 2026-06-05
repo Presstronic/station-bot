@@ -259,6 +259,20 @@ async function resolveReminderTarget(
   // External events: post to the configured default channel and ping
   // @everyone (the public-tier mention).
   if (!guildConfig.eventRemindersDefaultChannelId) return null;
+
+  // Guard against stale configs that point at a voice/stage channel (e.g. set
+  // before this PR via the old free-text modal). Posting into a voice channel's
+  // embedded text surface would reintroduce the original bug.
+  const defaultChannel = await guild.client.channels.fetch(guildConfig.eventRemindersDefaultChannelId).catch(() => null);
+  if (!defaultChannel || defaultChannel.type !== ChannelType.GuildText) {
+    logger.warn('[event-reminder] Configured default channel is not a GuildText channel; skipping external event', {
+      guildId: guild.id,
+      eventId: event.id,
+      channelId: guildConfig.eventRemindersDefaultChannelId,
+    });
+    return null;
+  }
+
   return {
     channelId: guildConfig.eventRemindersDefaultChannelId,
     mention: '@everyone',

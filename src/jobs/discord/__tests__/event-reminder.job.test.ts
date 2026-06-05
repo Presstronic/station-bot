@@ -118,9 +118,13 @@ async function setupMocks(opts: {
   const info = jest.fn();
 
   const channelSend = jest.fn(async () => undefined);
+  // ChannelType.GuildText === 0. Include `type` so the external-event default
+  // channel guard (which asserts type === ChannelType.GuildText) passes for
+  // the normal case.
+  const GUILD_TEXT = 0;
   const sendableChannel = opts.fetchChannelReturns === 'non-text'
-    ? { isTextBased: () => false }
-    : { isTextBased: () => true, send: opts.sendThrows
+    ? { isTextBased: () => false, type: GUILD_TEXT }
+    : { isTextBased: () => true, type: GUILD_TEXT, send: opts.sendThrows
         ? jest.fn(async () => { throw new Error('send failed'); })
         : channelSend };
 
@@ -204,9 +208,6 @@ async function setupMocks(opts: {
     },
   }));
 
-  // ChannelType.GuildText === 0 per discord.js. Hardcode here to avoid
-  // pulling in the runtime enum just for a test fixture.
-  const GUILD_TEXT = 0;
   const guildChannelsCache = new Map(
     (opts.guildTextChannels ?? []).map((channel) => [
       channel.id,
@@ -483,8 +484,21 @@ describe('event reminder tick', () => {
 describe('claim/release ordering', () => {
   it('does not claim a reminder when the channel cannot be fetched', async () => {
     const now = Date.now();
-    const event = makeEvent({ scheduledStartTimestamp: now + 24 * HOUR_MS });
-    const setup = await setupMocks({ events: [event], fetchChannelReturns: 'error' });
+    // Use a Voice event so the fetch failure surfaces in resolveSendableChannel
+    // (after resolveVoiceEventTarget succeeds). External events now also call
+    // channels.fetch for the default channel type-check, so fetchChannelReturns:
+    // 'error' would abort even earlier there.
+    const event = makeEvent({
+      entityType: GuildScheduledEventEntityType.Voice,
+      channelId: 'voice-id',
+      scheduledStartTimestamp: now + 24 * HOUR_MS,
+    });
+    const setup = await setupMocks({
+      events: [event],
+      voiceChannel: { id: 'voice-id', name: 'Salvage Voice' },
+      guildTextChannels: [{ id: 'text-general', name: 'salvage-general-chat' }],
+      fetchChannelReturns: 'error',
+    });
     const { scheduleEventReminders } = await importJob();
 
     scheduleEventReminders(
@@ -498,7 +512,7 @@ describe('claim/release ordering', () => {
     expect(setup.tryClaimReminder).not.toHaveBeenCalled();
     expect(setup.releaseReminderClaim).not.toHaveBeenCalled();
     expect(setup.warn).toHaveBeenCalledWith(
-      expect.stringContaining('Failed to fetch reminder channel'),
+      expect.stringContaining('Failed to fetch'),
       expect.any(Object),
     );
   });
@@ -766,6 +780,33 @@ describe('channel routing — voice/stage by name convention', () => {
     expect(setup.tryClaimReminder).not.toHaveBeenCalled();
     expect(setup.warn).toHaveBeenCalledWith(
       expect.stringContaining('no channel available'),
+      expect.any(Object),
+    );
+  });
+
+  it('External events skip with a warning when the configured default channel is not a GuildText channel (stale voice channel ID in DB)', async () => {
+    const now = Date.now();
+    const event = makeEvent({
+      entityType: GuildScheduledEventEntityType.External,
+      channelId: null,
+      scheduledStartTimestamp: now + 24 * HOUR_MS,
+    });
+    const setup = await setupMocks({
+      events: [event],
+      guildConfig: makeGuildConfig({ eventRemindersDefaultChannelId: 'stale-voice-id' }),
+      voiceChannel: { id: 'stale-voice-id', name: 'Salvage Voice' },
+    });
+    const { scheduleEventReminders } = await importJob();
+
+    scheduleEventReminders(
+      (setup as unknown as { _client: never })._client,
+      [makeGuildConfig()],
+    );
+    await setup.runTaskByIndex(0);
+
+    expect(setup.tryClaimReminder).not.toHaveBeenCalled();
+    expect(setup.warn).toHaveBeenCalledWith(
+      expect.stringContaining('Configured default channel is not a GuildText channel'),
       expect.any(Object),
     );
   });
