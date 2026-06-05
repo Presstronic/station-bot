@@ -111,6 +111,7 @@ async function setupMocks(opts: {
   voiceChannel?: { id: string; name: string };
   guildTextChannels?: ReadonlyArray<{ id: string; name: string }>;
   voiceChannelFetchThrows?: boolean;
+  textChannelFetchThrows?: boolean;
   guildRoles?: ReadonlyArray<{ id: string; name: string }>;
 } = {}): Promise<MockSetup> {
   const warn = jest.fn();
@@ -147,6 +148,7 @@ async function setupMocks(opts: {
           if (opts.voiceChannelFetchThrows) throw new Error('voice fetch failed');
           return { id: voice.id, name: voice.name };
         }
+        if (opts.textChannelFetchThrows) throw new Error('fetch failed');
         return textById.get(channelId) ?? sendableChannel;
       });
     }
@@ -482,10 +484,10 @@ describe('event reminder tick', () => {
 describe('claim/release ordering', () => {
   it('does not claim a reminder when the channel cannot be fetched', async () => {
     const now = Date.now();
-    // Use a Voice event so the fetch failure surfaces in resolveSendableChannel
-    // (after resolveVoiceEventTarget succeeds). External events now also call
-    // channels.fetch for the default channel type-check, so fetchChannelReturns:
-    // 'error' would abort even earlier there.
+    // Use a Voice event with textChannelFetchThrows so resolveVoiceEventTarget
+    // succeeds (voice channel fetch returns the channel object) but
+    // resolveSendableChannel fails when it tries to fetch the resolved text
+    // channel — this is the pre-claim validation path the test exercises.
     const event = makeEvent({
       entityType: GuildScheduledEventEntityType.Voice,
       channelId: 'voice-id',
@@ -495,7 +497,7 @@ describe('claim/release ordering', () => {
       events: [event],
       voiceChannel: { id: 'voice-id', name: 'Salvage Voice' },
       guildTextChannels: [{ id: 'text-general', name: 'salvage-general-chat' }],
-      fetchChannelReturns: 'error',
+      textChannelFetchThrows: true,
     });
     const { scheduleEventReminders } = await importJob();
 
