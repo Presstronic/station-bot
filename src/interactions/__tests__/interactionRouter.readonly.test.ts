@@ -32,10 +32,12 @@ function mockRouterOnlyDependencies() {
   }));
   jest.unstable_mockModule('../../commands/configure.command.js', () => ({
     handleConfigureButtonInteraction: jest.fn(),
+    handleConfigureChannelSelectMenuInteraction: jest.fn(),
     handleConfigureCommand: jest.fn(),
     handleConfigureModalSubmit: jest.fn(),
     handleConfigureSelectMenuInteraction: jest.fn(),
     CONFIGURE_COMMAND_NAME: 'configure',
+    CONFIGURE_SELECT_CHANNEL_PREFIX: 'cfg-channel',
   }));
   jest.unstable_mockModule('../../commands/order-actions.command.js', () => ({
     handleMfgCancelOrder: jest.fn(),
@@ -499,10 +501,12 @@ describe('handleInteraction error handling', () => {
 
     jest.unstable_mockModule('../../commands/configure.command.js', () => ({
       handleConfigureButtonInteraction: jest.fn(),
+      handleConfigureChannelSelectMenuInteraction: jest.fn(),
       handleConfigureCommand: jest.fn(),
       handleConfigureModalSubmit: jest.fn(),
       handleConfigureSelectMenuInteraction,
       CONFIGURE_COMMAND_NAME: 'configure',
+      CONFIGURE_SELECT_CHANNEL_PREFIX: 'cfg-channel',
     }));
     jest.unstable_mockModule('../../commands/verify.command.js', () => ({
       VERIFY_COMMAND_NAME: 'verify',

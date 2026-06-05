@@ -55,10 +55,12 @@ import {
 } from '../commands/manufacturing-setup.command.js';
 import {
   handleConfigureButtonInteraction,
+  handleConfigureChannelSelectMenuInteraction,
   handleConfigureCommand,
   handleConfigureModalSubmit,
   handleConfigureSelectMenuInteraction,
   CONFIGURE_COMMAND_NAME,
+  CONFIGURE_SELECT_CHANNEL_PREFIX,
 } from '../commands/configure.command.js';
 import {
   handleExecHangarCommand,
@@ -130,7 +132,11 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
       if (
         readOnlyMode &&
         !isHealthcheckCommand &&
-        (interaction.isChatInputCommand() || interaction.isButton() || interaction.isModalSubmit() || interaction.isStringSelectMenu())
+        (interaction.isChatInputCommand() ||
+          interaction.isButton() ||
+          interaction.isModalSubmit() ||
+          interaction.isStringSelectMenu() ||
+          interaction.isChannelSelectMenu())
       ) {
         const locale = interaction.locale?.substring(0, 2) ?? defaultLocale;
         const maintenanceMessage = i18n.__({
@@ -238,6 +244,21 @@ export async function handleInteraction(interaction: Interaction, _client: Clien
           await handleConfigureSelectMenuInteraction(interaction);
         } else {
           logger.debug(`[cid:${correlationId}] Unrecognized string select menu customId: ${interaction.customId}`);
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({
+              content: 'Sorry, something went wrong handling that selection. Please try again.',
+              flags: MessageFlags.Ephemeral,
+            });
+          }
+        }
+        return;
+      }
+
+      if (interaction.isChannelSelectMenu()) {
+        if (interaction.customId.startsWith(`${CONFIGURE_SELECT_CHANNEL_PREFIX}:`)) {
+          await handleConfigureChannelSelectMenuInteraction(interaction);
+        } else {
+          logger.debug(`[cid:${correlationId}] Unrecognized channel select menu customId: ${interaction.customId}`);
           if (!interaction.replied && !interaction.deferred) {
             await interaction.reply({
               content: 'Sorry, something went wrong handling that selection. Please try again.',
