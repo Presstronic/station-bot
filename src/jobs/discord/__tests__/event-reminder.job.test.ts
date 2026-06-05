@@ -118,10 +118,8 @@ async function setupMocks(opts: {
   const info = jest.fn();
 
   const channelSend = jest.fn(async () => undefined);
-  // ChannelType.GuildText === 0. Include `type` so the external-event default
-  // channel guard (which asserts type === ChannelType.GuildText) passes for
-  // the normal case.
-  const GUILD_TEXT = 0;
+  const { ChannelType } = await import('discord.js');
+  const GUILD_TEXT = ChannelType.GuildText;
   const sendableChannel = opts.fetchChannelReturns === 'non-text'
     ? { isTextBased: () => false, type: GUILD_TEXT }
     : { isTextBased: () => true, type: GUILD_TEXT, send: opts.sendThrows
@@ -228,7 +226,7 @@ async function setupMocks(opts: {
           id: 'guild-1',
           preferredLocale: 'en-US',
           scheduledEvents,
-          channels: { cache: guildChannelsCache },
+          channels: { cache: guildChannelsCache, fetch: fetchChannel },
           roles: { cache: guildRolesCache },
           get client() { return client; },
         }],
@@ -616,8 +614,8 @@ describe('channel routing — voice/stage by name convention', () => {
     // Manually inject a non-text channel sharing the prefix into the guild's
     // channels.cache to assert the filter excludes it.
     const guild = (setup as unknown as { _client: { guilds: { cache: Map<string, { channels: { cache: Map<string, { id: string; name: string; type: number }> } }> } } })._client.guilds.cache.get('guild-1');
-    const GUILD_VOICE = 2;
-    guild!.channels.cache.set('voice-id', { id: 'voice-id', name: 'salvage-voice', type: GUILD_VOICE });
+    const { ChannelType } = await import('discord.js');
+    guild!.channels.cache.set('voice-id', { id: 'voice-id', name: 'salvage-voice', type: ChannelType.GuildVoice });
 
     const { scheduleEventReminders } = await importJob();
     scheduleEventReminders(

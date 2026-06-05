@@ -263,7 +263,7 @@ async function resolveReminderTarget(
   // Guard against stale configs that point at a voice/stage channel (e.g. set
   // before this PR via the old free-text modal). Posting into a voice channel's
   // embedded text surface would reintroduce the original bug.
-  const defaultChannel = await guild.client.channels.fetch(guildConfig.eventRemindersDefaultChannelId).catch(() => null);
+  const defaultChannel = await guild.channels.fetch(guildConfig.eventRemindersDefaultChannelId).catch(() => null);
   if (!defaultChannel || defaultChannel.type !== ChannelType.GuildText) {
     logger.warn('[event-reminder] Configured default channel is not a GuildText channel; skipping external event', {
       guildId: guild.id,

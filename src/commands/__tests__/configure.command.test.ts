@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { ChannelType } from 'discord.js';
 import type { GuildConfig } from '../../domain/guild-config/guild-config.service.js';
 
 beforeEach(() => {
@@ -253,7 +254,7 @@ function makeSlashInteraction({
   };
 }
 
-function makeGuild(channelType = 0) {
+function makeGuild(channelType = ChannelType.GuildText) {
   return {
     id: 'guild-1',
     roles: {
@@ -513,9 +514,9 @@ describe('configure command', () => {
     const slash = makeSlashInteraction({ id: 'cfg-events-bad', feature: 'event-reminders' });
     await handleConfigureCommand(slash as never);
 
-    // ChannelType.GuildVoice === 2 — server-side guard for the case where a
+    // ChannelType.GuildVoice — server-side guard for the case where a
     // tampered client posts a non-GuildText channel id.
-    const guild = makeGuild(2);
+    const guild = makeGuild(ChannelType.GuildVoice);
     const channelSelect = makeChannelSelectInteraction(
       'cfg-channel:cfg-events-bad:event-reminders',
       'voice-channel',
