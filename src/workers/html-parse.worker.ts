@@ -8,7 +8,8 @@ export type OrgOutcome = 'in_org' | 'not_in_org' | 'undetermined';
 export type ParseRequestBody =
   | { type: 'orgOutcome'; html: string }
   | { type: 'canonicalHandle'; html: string }
-  | { type: 'selectorCheck'; html: string; parentSelector: string; childSelector: string; searchValue: string };
+  | { type: 'selectorCheck'; html: string; parentSelector: string; childSelector: string; searchValue: string }
+  | { type: 'mainOrgVisible'; html: string };
 
 // Distributed add of the routing id across each member of the union.
 type AddId<T> = T extends unknown ? T & { id: number } : never;
@@ -55,6 +56,15 @@ export function parseCanonicalHandle(html: string): string | null {
   return nick.length > 0 ? nick : null;
 }
 
+// Returns true when the citizen profile page shows a publicly visible main org
+// (class "visibility-V" on the .main-org element). A hidden org renders an
+// identical empty state as no org, so the absence of visibility-V does NOT
+// imply no org — it only means the org is not publicly disclosed.
+export function parseMainOrgVisible(html: string): boolean {
+  const $ = cheerio.load(html);
+  return $('.main-org').hasClass('visibility-V');
+}
+
 export function parseSelectorCheck(
   html: string,
   parentSelector: string,
@@ -73,6 +83,8 @@ parentPort.on('message', (request: ParseRequest) => {
       response = { id: request.id, ok: true, value: parseOrgOutcome(request.html) };
     } else if (request.type === 'canonicalHandle') {
       response = { id: request.id, ok: true, value: parseCanonicalHandle(request.html) ?? '' };
+    } else if (request.type === 'mainOrgVisible') {
+      response = { id: request.id, ok: true, value: parseMainOrgVisible(request.html) ? 'true' : 'false' };
     } else if (request.type === 'selectorCheck') {
       response = { id: request.id, ok: true, value: parseSelectorCheck(request.html, request.parentSelector, request.childSelector, request.searchValue) ? 'true' : 'false' };
     } else {
