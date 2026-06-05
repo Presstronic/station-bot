@@ -1332,7 +1332,7 @@ describe('description mention defanging', () => {
     const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
     // The description @everyone should be defanged (zero-width space inserted);
     // the {mention} interpolation may still legitimately contain @everyone.
-    expect(sendCall.content).toContain('@​everyone');
+    expect(sendCall.content).toContain('@\u200beveryone');
     expect(sendCall.content).not.toContain('Join us @everyone');
   });
 
@@ -1353,7 +1353,7 @@ describe('description mention defanging', () => {
     await setup.runTaskByIndex(0);
 
     const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
-    expect(sendCall.content).toContain('@​here');
+    expect(sendCall.content).toContain('@\u200bhere');
     expect(sendCall.content).not.toContain('Hey @here');
   });
 
@@ -1375,6 +1375,6 @@ describe('description mention defanging', () => {
 
     const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
     expect(sendCall.content).not.toContain('@everyone Free Loot Event');
-    expect(sendCall.content).toContain('@​everyone Free Loot Event');
+    expect(sendCall.content).toContain('@\u200beveryone Free Loot Event');
   });
 });

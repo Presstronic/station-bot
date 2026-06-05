@@ -73,7 +73,7 @@ function defangMentions(text: string): string {
   // message content, so an organiser could escalate a @here tier into @everyone
   // by embedding it in the title or description. Replace both with their
   // zero-width-space variants so the text is visually identical but inert.
-  return text.replace(/@everyone/g, '@​everyone').replace(/@here/g, '@​here');
+  return text.replace(/@everyone/g, '@\u200beveryone').replace(/@here/g, '@\u200bhere');
 }
 
 function renderMessage(
@@ -311,7 +311,7 @@ async function resolveSendableChannel(
   if (!channel) return null;
 
   if (!channel.isTextBased() || !('send' in channel)) {
-    logger.warn('[event-reminder] Configured reminder channel is not text-based', { guildId: guild.id, channelId });
+    logger.warn('[event-reminder] Resolved reminder channel is not text-based', { guildId: guild.id, channelId });
     return null;
   }
 
