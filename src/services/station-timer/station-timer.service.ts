@@ -92,10 +92,27 @@ async function sendVoiceChannelNotification(client: Client, timer: StationTimer,
   }
 
   try {
-    const member = await guild.members.fetch(timer.discordUserId);
-    const voiceChannel = member.voice.channel;
+    // guild.members.fetch() does not populate the voice state cache, so
+    // member.voice.channel would always be null for members already in voice
+    // when the bot started. Fetch the voice state directly from the REST API
+    // to get the current channel regardless of cache state.
+    const voiceState = await guild.voiceStates.fetch(timer.discordUserId);
+    const voiceChannel = voiceState.channel;
     if (!voiceChannel) {
       return null;
+    }
+
+    let displayName = timer.starterDisplayName;
+    if (voiceState.member) {
+      displayName = voiceState.member.displayName;
+    } else {
+      try {
+        const fetched = await guild.members.fetch(timer.discordUserId);
+        displayName = fetched.displayName;
+      } catch {
+        // REST fetch failed — use the stored display name rather than dropping
+        // the notification entirely.
+      }
     }
 
     const textChannel = voiceChannel as VoiceBasedChannel & Partial<GuildTextBasedChannel>;
@@ -107,7 +124,7 @@ async function sendVoiceChannelNotification(client: Client, timer: StationTimer,
     const fallbackContent = i18n.__mf(
       { phrase: 'commands.stationTimer.responses.expiry.channelFallback', locale },
       {
-        displayName: member.displayName,
+        displayName,
         durationMinutes: timer.durationMinutes,
         timerType: timer.timerLabel,
       },
@@ -118,7 +135,7 @@ async function sendVoiceChannelNotification(client: Client, timer: StationTimer,
         content: i18n.__mf(
           { phrase: 'commands.stationTimer.responses.expiry.channel', locale },
           {
-            displayName: member.displayName,
+            displayName,
             durationMinutes: timer.durationMinutes,
             timerType: timer.timerLabel,
           },
