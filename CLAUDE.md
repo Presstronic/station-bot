@@ -12,7 +12,7 @@ Before writing any code for a ticket:
 
 ## Commits
 - Never include `Co-Authored-By` trailers or any AI attribution in commit messages.
-- Before committing any code, always run `npm run quality` locally and confirm it passes.
+- Before committing, run only the tests directly related to the files changed (e.g. `npx jest path/to/__tests__/changed.test.ts`). Do not run the full suite locally — CI runs the full quality gate on every PR.
 - Before committing, perform an objective self-review of all changed code from the perspective of a senior principal engineer: check for SOLID principles, single responsibility, clean abstractions, naming clarity, test coverage, and any code smells or over-engineering. Surface any concerns before the code is committed.
 - When changing or removing a feature, grep the test file for tests that reference the old behaviour (option names, response strings, function signatures) and remove or update them before running the quality gate. Stale tests referencing removed code are a common source of preventable failures.
 - When writing or updating tests that mock external modules (e.g. `jest.unstable_mockModule`), verify that every named export present in the real module is included in the mock object — missing exports cause ESM validation errors at runtime.
@@ -25,7 +25,7 @@ Before writing any code for a ticket:
 - PR title format: `<type>: ISSUE-{n} — description` (Conventional Commits style — e.g. `feature`, `bug`, `chore`, `fix`, `release`)
 - PRs close issues via "Closes #n" in body
 - All PRs are squash-merged into main
-- Quality gate before every PR: `npm run quality`
+- CI runs the full quality gate (`npm run quality`) on every PR — do not run it locally.
 - When addressing code review comments: reply to the comment explaining what was done, then resolve it.
 
 ## Security
@@ -48,7 +48,7 @@ Before writing any code for a ticket:
 2. Bump the version in `package.json` to `x.y.z` — this is the canonical source of truth and what the Docker publish workflow validates against
 3. Run `npm install --package-lock-only` to sync `package-lock.json` — commit both files together
 4. Verify: `grep '"version"' package.json` must show the new version before committing
-5. Run `npm run quality` — must pass before opening the PR
+5. CI will run the full quality gate — no need to run it locally for a version-bump-only commit
 6. Open a PR titled `release: v{x.y.z}`; body must state the diff is version-bump-only and list included PRs by number for changelog context — do NOT describe features as if they are in the diff
 7. Squash-merge into `main`
 8. Tag the merge commit on `main`: `git tag v{x.y.z} && git push origin v{x.y.z}` — never tag the release branch itself
@@ -78,7 +78,7 @@ Issues that are too large to implement in a single focused PR must be split. A g
 
 ## Pre-PR Self-Review Checklist
 Before opening a PR, verify:
-- [ ] `npm run quality` passes
+- [ ] Relevant tests pass locally (`npx jest path/to/affected/__tests__/`) — CI runs the full suite
 - [ ] No hardcoded secrets, tokens, or environment-specific values
 - [ ] Migration included if schema changed
 - [ ] `docker-compose` config tested if infra changed
