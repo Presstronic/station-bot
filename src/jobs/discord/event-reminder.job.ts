@@ -67,11 +67,12 @@ function buildEventLink(guildId: string, eventId: string): string {
 // appended, and because Discord's event-card auto-embed only fires when the
 // URL is present in the message content.
 function defangMentions(text: string): string {
-  // Prevent event description text from escalating the intended tier mention.
-  // allowedMentions.parse: ['everyone'] (required for @here/@everyone pings)
-  // also activates any @everyone/@here that appears in the message content,
-  // so an organiser could escalate a @here tier into an @everyone by embedding
-  // it in the description. Replace both with their zero-width-space variants.
+  // Prevent user-controlled text (event title, description) from escalating
+  // the intended tier mention. allowedMentions.parse: ['everyone'] (required
+  // for @here/@everyone pings) activates any @everyone/@here anywhere in the
+  // message content, so an organiser could escalate a @here tier into @everyone
+  // by embedding it in the title or description. Replace both with their
+  // zero-width-space variants so the text is visually identical but inert.
   return text.replace(/@everyone/g, '@​everyone').replace(/@here/g, '@​here');
 }
 
@@ -394,7 +395,7 @@ async function handleRescheduleNotice(
     event.description ?? '',
     {
       mention: resolvedTarget.mention,
-      eventTitle: event.name,
+      eventTitle: defangMentions(event.name),
       startTime: formatStartTimeToken(startMs),
       eventLink: buildEventLink(guild.id, event.id),
     },
@@ -443,7 +444,7 @@ async function handleReminderWindow(
     {
       mention: resolvedTarget.mention,
       hoursLabel: windowTarget.hoursLabel,
-      eventTitle: event.name,
+      eventTitle: defangMentions(event.name),
       startTime: formatStartTimeToken(startMs),
       eventLink: buildEventLink(guild.id, event.id),
     },

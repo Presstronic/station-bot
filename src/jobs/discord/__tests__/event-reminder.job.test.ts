@@ -1356,4 +1356,25 @@ describe('description mention defanging', () => {
     expect(sendCall.content).toContain('@​here');
     expect(sendCall.content).not.toContain('Hey @here');
   });
+
+  it('replaces @everyone in event title so it does not trigger a real ping', async () => {
+    const now = Date.now();
+    const event = makeEvent({
+      name: '@everyone Free Loot Event',
+      entityType: GuildScheduledEventEntityType.External,
+      scheduledStartTimestamp: now + 24 * HOUR_MS,
+    });
+    const setup = await setupMocks({ events: [event] });
+    const { scheduleEventReminders } = await importJob();
+
+    scheduleEventReminders(
+      (setup as unknown as { _client: never })._client,
+      [makeGuildConfig()],
+    );
+    await setup.runTaskByIndex(0);
+
+    const sendCall = (setup.channelSend.mock.calls[0] as unknown[])[0] as { content: string };
+    expect(sendCall.content).not.toContain('@everyone Free Loot Event');
+    expect(sendCall.content).toContain('@​everyone Free Loot Event');
+  });
 });
