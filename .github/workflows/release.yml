@@ -57,6 +57,15 @@ jobs:
             exit 1
           fi
 
+      - name: Validate release notes doc exists
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          DOC="docs/releases/${TAG}.md"
+          if [ ! -f "${DOC}" ]; then
+            echo "Release notes doc '${DOC}' is missing. Create it from docs/releases/_template.md before cutting a release." >&2
+            exit 1
+          fi
+
       - name: Run quality gate
         env:
           DATABASE_URL: postgresql://test:test@localhost:5432/station_bot_test
