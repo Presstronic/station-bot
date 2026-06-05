@@ -89,7 +89,7 @@ describe('checkHasAnyOrgMembership', () => {
     const { parseMainOrgVisibleInWorker } = mockPool('not_in_org', null, true);
 
     const { checkHasAnyOrgMembership } = await import('../org-check.service.js');
-    const result = await checkHasAnyOrgMembership('HiddenOrgPilot');
+    const result = await checkHasAnyOrgMembership('PublicMainOrgPilot');
 
     expect(result.code).toBe('in_org');
     expect(result.status).toBe('in_org');
