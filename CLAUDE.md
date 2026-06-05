@@ -52,7 +52,7 @@ Before writing any code for a ticket:
 6. Open a PR titled `release: v{x.y.z}`; body must state the diff is version-bump-only and list included PRs by number for changelog context — do NOT describe features as if they are in the diff
 7. Squash-merge into `main`
 8. Tag the merge commit on `main`: `git tag v{x.y.z} && git push origin v{x.y.z}` — never tag the release branch itself
-9. Create a GitHub Release from that tag with human-readable release notes
+9. Create a dedicated release notes doc at `docs/releases/v{x.y.z}.md` following the template in `docs/releases/_template.md`, then create a GitHub Release from the tag pointing to that doc for its notes
 10. Build and push the Docker image tagged both `:v{x.y.z}` and `:latest`
 
 ## Testing
