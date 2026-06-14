@@ -26,11 +26,8 @@ services:
       - ALL
     read_only: true # Container filesystem is read-only except for specified volumes
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     networks:
-      - bot-network
+      - station
     # Uncomment if your bot has a web server or exposed ports
     # ports:
     #   - "3000:3000"
@@ -43,8 +40,5 @@ services:
       DATABASE_URL: "${DATABASE_URL:?DATABASE_URL is required in .env.production}"
 
 networks:
-  bot-network:
-    driver: bridge
-
-volumes:
-  postgres-data:
+  station:
+    external: true
